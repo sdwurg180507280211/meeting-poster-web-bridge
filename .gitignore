@@ -1,0 +1,4 @@
+mac-agent/.env
+mac-agent/node_modules/
+web/config.js
+.DS_Store

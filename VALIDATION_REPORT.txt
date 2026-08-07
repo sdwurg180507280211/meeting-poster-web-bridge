@@ -1,0 +1,24 @@
+Meeting Poster Web Bridge v1 - Static Validation
+================================================
+
+PASS web/app.js syntax
+PASS mac-agent/src/agent.js syntax
+PASS photoshop-worker/src/worker.js syntax
+PASS photoshop-worker/src/ps-engine.js syntax
+PASS photoshop-worker/src/constants.js syntax
+PASS photoshop-worker/manifest.json JSON parse
+PASS Photoshop worker reuses v3.0.6 ps-engine.js
+PASS Photoshop worker require paths use UXP root-relative ./src/...
+PASS Worker uses manifest v4 (matches the user's proven Photoshop environment)
+PASS Browser never receives Supabase service-role secret
+PASS Storage bucket is private in migration
+PASS RLS scopes browser rows/objects to auth.uid()
+PASS Mac Agent processes one cloud job at a time
+PASS Worker processes one Photoshop render at a time
+
+Not executed in this environment:
+- Supabase migration against user's project
+- Supabase Anonymous Sign-In setting
+- npm install / live Supabase connectivity
+- Photoshop 2026 runtime render
+- public Vercel/Cloudflare deployment

@@ -1,0 +1,5 @@
+window.POSTER_CONFIG = {
+  SUPABASE_URL: "https://YOUR_PROJECT_REF.supabase.co",
+  SUPABASE_PUBLISHABLE_KEY: "YOUR_PUBLISHABLE_OR_ANON_KEY",
+  BUCKET: "poster-assets"
+};
