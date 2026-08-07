@@ -25,7 +25,10 @@ create index if not exists poster_jobs_owner_created_idx
   on public.poster_jobs(owner_id, created_at desc);
 
 create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public
+as $$
 begin
   new.updated_at = now();
   return new;
@@ -43,15 +46,15 @@ drop policy if exists poster_jobs_owner_insert on public.poster_jobs;
 create policy poster_jobs_owner_insert
 on public.poster_jobs for insert
 to authenticated
-with check (auth.uid() = owner_id);
+with check ((select auth.uid()) = owner_id);
 
 drop policy if exists poster_jobs_owner_select on public.poster_jobs;
 create policy poster_jobs_owner_select
 on public.poster_jobs for select
 to authenticated
-using (auth.uid() = owner_id);
+using ((select auth.uid()) = owner_id);
 
--- End users do not update job state. The Mac Agent uses the service-role key and bypasses RLS.
+-- End users do not update job state. The Mac Agent uses a backend secret key and bypasses RLS.
 
 insert into storage.buckets (id, name, public)
 values ('poster-assets', 'poster-assets', false)
@@ -64,7 +67,7 @@ on storage.objects for insert
 to authenticated
 with check (
   bucket_id = 'poster-assets'
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and (storage.foldername(name))[1] = (select auth.uid())::text
 );
 
 drop policy if exists poster_assets_owner_select on storage.objects;
@@ -73,7 +76,7 @@ on storage.objects for select
 to authenticated
 using (
   bucket_id = 'poster-assets'
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and (storage.foldername(name))[1] = (select auth.uid())::text
 );
 
 drop policy if exists poster_assets_owner_update on storage.objects;
@@ -82,9 +85,9 @@ on storage.objects for update
 to authenticated
 using (
   bucket_id = 'poster-assets'
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and (storage.foldername(name))[1] = (select auth.uid())::text
 )
 with check (
   bucket_id = 'poster-assets'
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and (storage.foldername(name))[1] = (select auth.uid())::text
 );
