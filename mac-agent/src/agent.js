@@ -12,8 +12,10 @@ const WORKSPACE = expandHome(process.env.WORKSPACE_DIR || '~/MeetingPosterAgent'
 const POLL_MS = Number(process.env.POLL_MS || 2000);
 const AGENT_ID = process.env.AGENT_ID || os.hostname();
 const KEEP = String(process.env.KEEP_LOCAL_JOBS || 'true').toLowerCase() === 'true';
+const WORKER_HEARTBEAT_FILE = path.join(WORKSPACE, 'worker-heartbeat.json');
 const sb = createClient(URL, KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 let loopBusy = false;
+let lastServiceHeartbeatAt = 0;
 
 function expandHome(p) { return p && p.startsWith('~/') ? path.join(os.homedir(), p.slice(2)) : p; }
 function now() { return new Date().toISOString(); }
@@ -22,6 +24,35 @@ async function ensureDirs(){ for(const name of ['inbox','outbox','archive']) awa
 async function exists(p){ try{await fs.access(p);return true;}catch{return false;} }
 async function writeJson(p,obj){await fs.writeFile(p,JSON.stringify(obj,null,2),'utf8');}
 async function readJson(p){return JSON.parse(await fs.readFile(p,'utf8'));}
+
+async function readWorkerHeartbeat(){
+  try{
+    const hb=await readJson(WORKER_HEARTBEAT_FILE);
+    return {
+      workerLastSeenAt: hb.updatedAt || null,
+      workerStatus: hb.status || 'unknown'
+    };
+  }catch{
+    return {workerLastSeenAt:null,workerStatus:'offline'};
+  }
+}
+
+async function publishServiceHeartbeat(force=false){
+  const nowMs=Date.now();
+  if(!force && nowMs-lastServiceHeartbeatAt<5000) return;
+  lastServiceHeartbeatAt=nowMs;
+  const worker=await readWorkerHeartbeat();
+  const payload={
+    id:'primary',
+    agent_id:AGENT_ID,
+    agent_last_seen_at:now(),
+    worker_last_seen_at:worker.workerLastSeenAt,
+    worker_status:worker.workerStatus,
+    updated_at:now()
+  };
+  const {error}=await sb.from('poster_service_status').upsert(payload,{onConflict:'id'});
+  if(error) log('服务心跳上报失败:',error.message);
+}
 
 async function claimOne(){
   const {data,error}=await sb.from('poster_jobs').select('*').eq('status','pending').order('created_at',{ascending:true}).limit(1);
@@ -68,8 +99,7 @@ async function scanResults(){
     await sb.from('poster_jobs').update({status:'uploading'}).eq('id',id);
     const base=`${job.owner_id}/${id}/output`;
     const psdLocal=path.join(dir,result.psdFileName), pngLocal=path.join(dir,result.pngFileName);
-    // Supabase Storage 的 key 不接受中文等非 ASCII 字符（storage-js 会解码已编码 key 仍 400 InvalidKey），
-    // 因此上传 key 固定用 ASCII 文件名；本地 outbox 保留中文名不变，下载时网页端用 blob 重命名为中文。
+    // Supabase Storage 的 key 固定使用 ASCII；本地 outbox 与浏览器下载仍保留中文文件名。
     const psdPath=`${base}/poster.psd`, pngPath=`${base}/poster.png`;
     const [psd,png]=await Promise.all([fs.readFile(psdLocal),fs.readFile(pngLocal)]);
     const up1=await sb.storage.from(BUCKET).upload(psdPath,psd,{contentType:'image/vnd.adobe.photoshop',upsert:true}); if(up1.error) throw up1.error;
@@ -86,6 +116,7 @@ async function scanResults(){
 async function tick(){
   if(loopBusy) return; loopBusy=true;
   try{
+    await publishServiceHeartbeat();
     await scanResults();
     const job=await claimOne(); if(job) await stageJob(job);
   }catch(e){console.error('Agent tick error:',e);}
@@ -96,5 +127,6 @@ async function tick(){
   await ensureDirs();
   log('Meeting Poster Mac Agent 已启动');
   log('Agent ID:',AGENT_ID); log('Workspace:',WORKSPACE);
+  await publishServiceHeartbeat(true);
   await tick(); setInterval(tick,POLL_MS);
 })();
