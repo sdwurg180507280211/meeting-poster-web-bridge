@@ -68,7 +68,9 @@ async function scanResults(){
     await sb.from('poster_jobs').update({status:'uploading'}).eq('id',id);
     const base=`${job.owner_id}/${id}/output`;
     const psdLocal=path.join(dir,result.psdFileName), pngLocal=path.join(dir,result.pngFileName);
-    const psdPath=`${base}/${result.psdFileName}`, pngPath=`${base}/${result.pngFileName}`;
+    // Supabase Storage 的 key 不接受中文等非 ASCII 字符（storage-js 会解码已编码 key 仍 400 InvalidKey），
+    // 因此上传 key 固定用 ASCII 文件名；本地 outbox 保留中文名不变，下载时网页端用 blob 重命名为中文。
+    const psdPath=`${base}/poster.psd`, pngPath=`${base}/poster.png`;
     const [psd,png]=await Promise.all([fs.readFile(psdLocal),fs.readFile(pngLocal)]);
     const up1=await sb.storage.from(BUCKET).upload(psdPath,psd,{contentType:'image/vnd.adobe.photoshop',upsert:true}); if(up1.error) throw up1.error;
     const up2=await sb.storage.from(BUCKET).upload(pngPath,png,{contentType:'image/png',upsert:true}); if(up2.error) throw up2.error;

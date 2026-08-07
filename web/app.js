@@ -176,6 +176,17 @@
     } else if(data.status==='failed'){clearInterval(pollTimer);pollTimer=null;submitBtn.disabled=false;}
   }
 
+  async function downloadAs(url, filename){
+    try{
+      const r=await fetch(url); if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const blob=await r.blob();
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 10000);
+    }catch(err){ log('下载失败：'+err.message); alert('下载失败：'+err.message); }
+  }
+  window.downloadAs=downloadAs;
+
   async function showResults(job){
     const bucket=client.storage.from(cfg.BUCKET||'poster-assets');
     const [png,psd]=await Promise.all([
@@ -183,7 +194,8 @@
     ]);
     if(png.error) throw png.error; if(psd.error) throw psd.error;
     resultPreview.src=png.data.signedUrl; resultPreview.style.display='block';
-    downloads.innerHTML=`<a href="${png.data.signedUrl}" target="_blank">下载 PNG</a><a href="${psd.data.signedUrl}" target="_blank">下载 PSD</a>`;
+    // Storage key 是 ASCII（poster.png/poster.psd），下载时用 blob 重命名为中文名。
+    downloads.innerHTML=`<button type="button" onclick="downloadAs('${png.data.signedUrl}','系列会议海报.png')">下载 PNG</button><button type="button" onclick="downloadAs('${psd.data.signedUrl}','系列会议海报.psd')">下载 PSD</button>`;
   }
 
   buildPeople(); buildSchedule(); init().catch(err=>{console.error(err);cloudState.textContent='连接失败';cloudState.className='badge bad';log(err.message);});
