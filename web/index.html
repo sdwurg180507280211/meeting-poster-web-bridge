@@ -48,7 +48,7 @@
           <h2>5. 输出</h2>
           <label>文件名<input id="outputName" value="系列会议海报" /></label>
           <button id="submitBtn" type="submit" class="primary">生成正式海报</button>
-          <p class="tip">提交后请保持页面打开。你的 Mac 上 Photoshop Worker 在线时，一般几十秒内完成。</p>
+          <p class="tip">提交后可以刷新或重新打开页面；当前任务会自动恢复。你的 Mac 上 Photoshop Worker 在线时，一般几十秒内完成。</p>
         </section>
       </form>
 
@@ -60,6 +60,15 @@
           <img id="resultPreview" class="result-preview" alt="生成结果" />
           <div id="downloads" class="downloads"></div>
           <pre id="debug" class="debug"></pre>
+        </div>
+
+        <div class="card history-card">
+          <div class="history-head">
+            <h2>最近任务</h2>
+            <button id="refreshHistory" type="button" class="secondary compact">刷新</button>
+          </div>
+          <p class="tip history-tip">当前浏览器匿名用户最近 20 条任务。刷新页面后仍可从这里重新查看成功结果。</p>
+          <div id="historyList" class="history-list"><div class="history-empty">正在加载…</div></div>
         </div>
       </aside>
     </main>
