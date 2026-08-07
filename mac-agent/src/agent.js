@@ -5,8 +5,8 @@ const path = require('path');
 const os = require('os');
 
 const URL = process.env.SUPABASE_URL;
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!URL || !KEY) throw new Error('请在 .env 配置 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY');
+const KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!URL || !KEY) throw new Error('请在 .env 配置 SUPABASE_URL，并填写 SUPABASE_SECRET_KEY（推荐）或旧版 SUPABASE_SERVICE_ROLE_KEY');
 const BUCKET = process.env.SUPABASE_BUCKET || 'poster-assets';
 const WORKSPACE = expandHome(process.env.WORKSPACE_DIR || '~/MeetingPosterAgent');
 const POLL_MS = Number(process.env.POLL_MS || 2000);
@@ -76,7 +76,6 @@ async function scanResults(){
     await fs.writeFile(uploadedMark,now(),'utf8'); log('已上传生成结果:',id);
     if(!KEEP){
       await fs.rm(path.join(WORKSPACE,'inbox',id),{recursive:true,force:true});
-      // outbox is kept until after mark; safe to remove entire folder now.
       await fs.rm(dir,{recursive:true,force:true});
     }
   }
