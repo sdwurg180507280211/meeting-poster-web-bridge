@@ -13,8 +13,6 @@
   const W=837, H=1880;
 
   function pct(v,total){return `${(v/total)*100}%`;}
-  function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
-  function dispatchInput(el){el.dispatchEvent(new Event('input',{bubbles:true}));}
   function openSection(name){
     document.querySelectorAll('.editor-section').forEach(d=>{ if(d.dataset.section===name) d.open=true; });
     showTab('edit');
@@ -27,7 +25,7 @@
     slot.dataset.key=key;
     slot.style.left=pct(spec.left,W); slot.style.top=pct(spec.top,H);
     slot.style.width=pct(spec.size,W); slot.style.height=pct(spec.size,H);
-    slot.innerHTML=`<img alt="${spec.name}头像"><span>${spec.name}<br>点击上传</span>`;
+    slot.innerHTML=`<img alt="${spec.name}头像"><span>${spec.name}<br>点击裁剪</span>`;
     poster.appendChild(slot);
     const img=slot.querySelector('img');
     const hint=slot.querySelector('span');
@@ -37,50 +35,38 @@
     const sy=document.getElementById(`${key}-y`);
 
     function syncPreview(){
+      if(!img.naturalWidth)return;
+      const box=slot.getBoundingClientRect().width || 1;
       const z=(Number(zoom?.value||100))/100;
       const x=Number(sx?.value||0), y=Number(sy?.value||0);
-      img.style.transform=`translate(${x}%,${y}%) scale(${z})`;
+      const cover=Math.max(box/img.naturalWidth,box/img.naturalHeight);
+      const w=img.naturalWidth*cover*z, h=img.naturalHeight*cover*z;
+      img.style.inset='auto';
+      img.style.width=`${w}px`;
+      img.style.height=`${h}px`;
+      img.style.left=`${(box-w)/2+(x/100)*box}px`;
+      img.style.top=`${(box-h)/2+(y/100)*box}px`;
+      img.style.transform='none';
+      img.style.objectFit='initial';
     }
+
     file?.addEventListener('change',()=>{
       const f=file.files?.[0]; if(!f)return;
-      img.src=URL.createObjectURL(f); img.style.display='block'; hint.style.display='none';
-      syncPreview();
+      const url=URL.createObjectURL(f);
+      img.onload=()=>{syncPreview();URL.revokeObjectURL(url);};
+      img.src=url; img.style.display='block'; hint.style.display='none';
     });
     [zoom,sx,sy].forEach(el=>el?.addEventListener('input',syncPreview));
 
-    slot.addEventListener('dblclick',()=>file?.click());
-    slot.addEventListener('click',()=>{
+    function openAvatarEditor(){
       openSection('people');
-      const input=document.getElementById(`${key}-name`); input?.focus({preventScroll:true});
-      if(!file?.files?.length) file?.click();
-    });
-    bindDragZoom(slot,()=>({zoom,sx,sy}),syncPreview);
-  }
-
-  function bindDragZoom(target,getControls,onChange){
-    let dragging=false,px=0,py=0,startX=0,startY=0;
-    target.addEventListener('pointerdown',e=>{
-      if(e.button!==0)return;
-      const {sx,sy}=getControls(); if(!sx||!sy)return;
-      dragging=true; target.setPointerCapture(e.pointerId);
-      px=e.clientX; py=e.clientY; startX=Number(sx.value||0); startY=Number(sy.value||0);
-      target.classList.add('dragging'); e.preventDefault();
-    });
-    target.addEventListener('pointermove',e=>{
-      if(!dragging)return;
-      const {sx,sy}=getControls(); const r=target.getBoundingClientRect();
-      sx.value=String(clamp(startX+(e.clientX-px)/r.width*100,-100,100));
-      sy.value=String(clamp(startY+(e.clientY-py)/r.height*100,-100,100));
-      dispatchInput(sx); dispatchInput(sy); onChange?.();
-    });
-    const end=e=>{if(!dragging)return;dragging=false;target.classList.remove('dragging');try{target.releasePointerCapture(e.pointerId)}catch{}};
-    target.addEventListener('pointerup',end); target.addEventListener('pointercancel',end);
-    target.addEventListener('wheel',e=>{
-      const {zoom}=getControls(); if(!zoom)return;
-      e.preventDefault();
-      const next=clamp(Number(zoom.value||100)+(e.deltaY<0?5:-5),100,250);
-      zoom.value=String(next); dispatchInput(zoom); onChange?.();
-    },{passive:false});
+      if(window.posterAvatarCrop?.open) window.posterAvatarCrop.open(key);
+      else if(!file?.files?.length) file?.click();
+    }
+    slot.addEventListener('click',openAvatarEditor);
+    slot.addEventListener('dblclick',openAvatarEditor);
+    document.addEventListener('avatar-crop-applied',e=>{if(e.detail?.key===key)syncPreview();});
+    window.addEventListener('resize',syncPreview);
   }
 
   Object.entries(avatarSpec).forEach(([k,s])=>createAvatarSlot(k,s));
@@ -122,8 +108,6 @@
   for(let i=0;i<4;i++) ['time','content','speaker','chair'].forEach(k=>document.getElementById(`s-${k}-${i}`)?.addEventListener('input',syncAgenda));
   syncAgenda();
 
-  // 二维码在海报上只承担“选中/打开裁剪器”和“显示最终裁剪结果”。
-  // 真正的拖动、缩放、Canvas 输出全部由 qr-crop-modal.js 负责，避免两套坐标系统互相打架。
   const qrSlot=document.createElement('div');
   qrSlot.className='canvas-qr-slot';
   qrSlot.style.left=pct(QR.left,W);qrSlot.style.top=pct(QR.top,H);qrSlot.style.width=pct(QR.size,W);qrSlot.style.height=pct(QR.size,H);
