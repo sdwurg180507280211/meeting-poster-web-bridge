@@ -3,153 +3,154 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="系列会议海报在线生成工具，浏览器提交资料，由 Photoshop 母版生成正式 PSD / PNG。" />
-  <title>系列会议海报生成</title>
+  <meta name="description" content="系列会议海报在线编辑与 Photoshop PSD 生成工具。" />
+  <title>系列会议海报编辑器</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="page-glow page-glow-a"></div>
-  <div class="page-glow page-glow-b"></div>
-
-  <div class="shell">
-    <header class="hero">
-      <div class="hero-copy">
-        <div class="eyebrow">MEETING POSTER STUDIO</div>
-        <h1>系列会议海报生成</h1>
-        <p>填写会议资料并上传素材，由你的 Mac Photoshop 使用正式 PSD 母版自动生成高清 PNG 与可编辑 PSD。</p>
-        <div class="fixed-summary">
-          <span class="fixed-chip"><b>会议地点</b> 线上</span>
-          <span class="fixed-chip"><b>人员职称</b> 教授</span>
-          <span class="fixed-chip"><b>输出</b> PSD + PNG</span>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">PS</div>
+        <div>
+          <h1>系列会议海报编辑器</h1>
+          <p>直接在海报上操作 · Photoshop 母版生成</p>
         </div>
       </div>
-      <div class="header-status">
+      <div class="topbar-actions">
         <span id="cloudState" class="badge">正在连接云端…</span>
+        <button id="toggleInspector" class="icon-btn" type="button" title="收起/展开右侧面板">☰</button>
       </div>
     </header>
 
-    <main class="layout">
-      <form id="posterForm" class="form-panel">
-        <section class="card section-card">
-          <div class="section-head">
-            <span class="section-no">01</span>
-            <div>
-              <h2>会议信息</h2>
-              <p>会议地点固定为线上，只需填写会议时间。</p>
-            </div>
+    <main class="editor-workspace" id="editorWorkspace">
+      <section class="stage-area">
+        <div class="stage-toolbar">
+          <div>
+            <strong>海报画布</strong>
+            <span>837 × 1880</span>
           </div>
-          <div class="grid2 meeting-grid">
-            <label class="field-label">会议时间
-              <input id="meetingTime" required placeholder="例如：2026年8月20日 19:00-21:00" />
-            </label>
-            <div class="fixed-value-card">
-              <span class="fixed-value-label">会议地点</span>
-              <strong>线上</strong>
-              <small>固定配置，无需填写</small>
-            </div>
-          </div>
-          <input id="meetingLocation" type="hidden" value="线上" />
-        </section>
+          <div class="mouse-hint">鼠标拖动图片调整位置 · 滚轮缩放</div>
+        </div>
 
-        <section class="card section-card">
-          <div class="section-head">
-            <span class="section-no">02</span>
-            <div>
-              <h2>主席与讲者</h2>
-              <p>上传头像并填写姓名、医院；三位人员职称统一固定为“教授”。</p>
+        <div class="poster-viewport">
+          <div id="posterCanvas" class="poster-canvas" aria-label="海报编辑画布">
+            <div class="poster-art poster-art-a"></div>
+            <div class="poster-art poster-art-b"></div>
+            <div class="poster-fixed-title">
+              <div class="poster-kicker">慢性病规范诊疗交流项目</div>
+              <div class="poster-title">医路长安</div>
+              <div class="poster-subtitle">系列学术交流会</div>
             </div>
-          </div>
-          <div id="people"></div>
-        </section>
 
-        <section class="card section-card">
-          <div class="section-head">
-            <span class="section-no">03</span>
-            <div>
-              <h2>会议日程</h2>
-              <p>最多 4 行；已填写的行至少需要“时间 + 日程内容”。</p>
-            </div>
-          </div>
-          <div class="schedule-head" aria-hidden="true">
-            <span>时间</span><span>日程内容</span><span>讲者</span><span>主席</span>
-          </div>
-          <div id="schedule"></div>
-        </section>
+            <div class="poster-section-label chair-label">会议主席</div>
+            <div class="poster-section-label speakers-label">会议讲者</div>
+            <div class="poster-section-label agenda-label">会议日程</div>
 
-        <section class="card section-card">
-          <div class="section-head">
-            <span class="section-no">04</span>
-            <div>
-              <h2>会议二维码</h2>
-              <p>上传最终需要出现在海报上的二维码图片。</p>
-            </div>
-          </div>
-          <div class="upload-line qr-upload">
-            <div class="file-field">
-              <span class="file-field-title">选择二维码图片</span>
-              <span class="file-field-tip">支持 PNG / JPG / WebP</span>
-              <input id="qrFile" type="file" accept="image/png,image/jpeg,image/webp" required />
-            </div>
-            <div class="qr-preview-wrap">
-              <span>预览</span>
-              <img id="qrPreview" class="qr-preview" alt="二维码预览" />
-            </div>
-          </div>
-        </section>
+            <div id="canvasMeetingTime" class="canvas-text canvas-meeting-time">会议时间：</div>
+            <div class="canvas-text canvas-meeting-location">会议地点：线上</div>
 
-        <section class="card section-card output-card">
-          <div class="section-head">
-            <span class="section-no">05</span>
-            <div>
-              <h2>生成与输出</h2>
-              <p>文件名可使用中文，云端存储会自动使用安全文件名，下载时恢复中文名称。</p>
+            <div class="canvas-agenda-head">
+              <span>时间</span><span>内容</span><span>讲者</span><span>主席</span>
             </div>
-          </div>
-          <label class="field-label">输出文件名
-            <input id="outputName" value="系列会议海报" />
-          </label>
-          <button id="submitBtn" type="submit" class="primary">
-            <span>生成正式海报</span>
-            <small>Photoshop PSD 母版渲染</small>
-          </button>
-          <p class="tip submit-tip">提交后可以刷新或重新打开页面，当前任务会自动恢复；生成服务在线时通常几十秒内完成。</p>
-        </section>
-      </form>
+            <div id="canvasAgenda" class="canvas-agenda"></div>
 
-      <aside class="result-panel">
-        <div class="card sticky status-card">
-          <div class="aside-title-row">
-            <div>
-              <span class="aside-kicker">CURRENT JOB</span>
-              <h2>当前任务</h2>
-            </div>
-            <span class="live-dot" aria-hidden="true"></span>
+            <div class="canvas-qr-note">扫描二维码进入线上会议</div>
+            <div class="poster-watermark">操作预览 · 最终效果以 Photoshop PSD 渲染为准</div>
           </div>
-          <div id="jobStatus" class="status-box">尚未提交任务</div>
-          <div id="progressSteps" class="steps"></div>
-          <img id="resultPreview" class="result-preview" alt="生成结果" />
-          <div id="downloads" class="downloads"></div>
+        </div>
+      </section>
+
+      <aside id="inspector" class="inspector">
+        <div class="inspector-tabs">
+          <button type="button" class="inspector-tab active" data-tab="edit">编辑</button>
+          <button type="button" class="inspector-tab" data-tab="task">任务</button>
+          <button id="collapseInspector" type="button" class="collapse-btn" title="收起右侧面板">›</button>
+        </div>
+
+        <div id="editTab" class="inspector-pane active">
+          <form id="posterForm">
+            <details class="editor-section" data-section="meeting" open>
+              <summary><span>01</span> 会议信息</summary>
+              <div class="editor-section-body">
+                <label>会议时间
+                  <input id="meetingTime" required placeholder="2026年8月20日 19:00-21:00" />
+                </label>
+                <div class="fixed-row"><span>会议地点</span><strong>线上</strong></div>
+                <input id="meetingLocation" type="hidden" value="线上" />
+              </div>
+            </details>
+
+            <details class="editor-section" data-section="people" open>
+              <summary><span>02</span> 主席与讲者</summary>
+              <div class="editor-section-body">
+                <p class="section-tip">点击海报头像可选择图片；拖动头像调整位置，滚轮缩放。职称统一为教授。</p>
+                <div id="people"></div>
+              </div>
+            </details>
+
+            <details class="editor-section" data-section="schedule">
+              <summary><span>03</span> 会议日程</summary>
+              <div class="editor-section-body">
+                <div class="schedule-head"><span>时间</span><span>内容</span><span>讲者</span><span>主席</span></div>
+                <div id="schedule"></div>
+              </div>
+            </details>
+
+            <details class="editor-section" data-section="qr">
+              <summary><span>04</span> 二维码</summary>
+              <div class="editor-section-body">
+                <p class="section-tip">二维码也支持在海报上直接拖动和滚轮缩放，提交时会裁成方形 PNG。</p>
+                <div class="qr-control-row">
+                  <input id="qrFile" type="file" accept="image/png,image/jpeg,image/webp" required />
+                  <button id="resetQrCrop" type="button" class="mini-btn">重置裁剪</button>
+                </div>
+                <img id="qrPreview" class="qr-preview" alt="二维码预览" />
+                <div class="crop-readout" id="qrCropReadout">缩放 100% · X 0 · Y 0</div>
+              </div>
+            </details>
+
+            <details class="editor-section" data-section="output" open>
+              <summary><span>05</span> 输出</summary>
+              <div class="editor-section-body">
+                <label>输出文件名
+                  <input id="outputName" value="系列会议海报" />
+                </label>
+                <button id="submitBtn" type="submit" class="primary">
+                  <span>生成正式海报</span>
+                  <small>交给 Mac Photoshop 渲染 PSD / PNG</small>
+                </button>
+              </div>
+            </details>
+          </form>
+        </div>
+
+        <div id="taskTab" class="inspector-pane">
+          <div class="task-block">
+            <div class="aside-title-row"><h2>当前任务</h2><span class="live-dot"></span></div>
+            <div id="jobStatus" class="status-box">尚未提交任务</div>
+            <div id="progressSteps" class="steps"></div>
+            <img id="resultPreview" class="result-preview" alt="生成结果" />
+            <div id="downloads" class="downloads"></div>
+          </div>
+
+          <div class="task-block history-card">
+            <div class="history-head">
+              <h2>最近任务</h2>
+              <button id="refreshHistory" type="button" class="mini-btn">刷新</button>
+            </div>
+            <div id="historyList" class="history-list"><div class="history-empty">正在加载…</div></div>
+          </div>
+
           <details class="debug-details">
             <summary>运行日志</summary>
             <pre id="debug" class="debug"></pre>
           </details>
         </div>
-
-        <div class="card history-card">
-          <div class="history-head">
-            <div>
-              <span class="aside-kicker">HISTORY</span>
-              <h2>最近任务</h2>
-            </div>
-            <button id="refreshHistory" type="button" class="secondary compact">刷新</button>
-          </div>
-          <p class="tip history-tip">保留当前浏览器匿名用户最近 20 条任务；刷新页面后仍可重新查看与下载成功结果。</p>
-          <div id="historyList" class="history-list"><div class="history-empty">正在加载…</div></div>
-        </div>
       </aside>
-    </main>
 
-    <footer class="page-footer">Photoshop Render Bridge · Browser → Supabase → Mac Agent → Photoshop</footer>
+      <button id="openInspector" type="button" class="open-inspector" title="展开编辑面板">‹</button>
+    </main>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -157,5 +158,6 @@
   <script src="app.js"></script>
   <script src="fixed-defaults.js"></script>
   <script src="service-status.js"></script>
+  <script src="editor-mode.js"></script>
 </body>
 </html>
