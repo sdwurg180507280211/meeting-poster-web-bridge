@@ -22,6 +22,46 @@ function isTransientDocumentIdError(error){
   const text=String(error&&error.message?error.message:error||'');
   return /(?:document|文档).*id.*undefined|id of undefined/i.test(text);
 }
+
+// ps-engine 的成熟逻辑把 zoom<1 钳回 1。为了不改动引擎本身，
+// 当用户在网页里把头像缩到 20%~99% 时，把目标框按 zoom 等比缩小并保持中心不变，
+// 再把位移换算到缩小后的目标框。这样最终 PSD 与网页裁剪预览保持一致。
+function adaptZoomOut(asset, box){
+  const crop=asset&&asset.crop?asset.crop:{};
+  const requested=Number(crop.zoom)||1;
+  if(requested>=1)return {asset,box};
+  const z=Math.max(.2,requested);
+  const adjustedBox={
+    left:box.left+box.width*(1-z)/2,
+    top:box.top+box.height*(1-z)/2,
+    width:box.width*z,
+    height:box.height*z
+  };
+  const adjustedCrop={
+    ...crop,
+    zoom:1,
+    offsetX:(Number(crop.offsetX)||0)/z,
+    offsetY:(Number(crop.offsetY)||0)/z
+  };
+  return {asset:{...asset,crop:adjustedCrop},box:adjustedBox};
+}
+
+function prepareRenderInputs(assets){
+  const boxes={...SPEC.AVATAR_BOXES};
+  const mappings=[
+    ['chairAvatar','CHAIR'],
+    ['speaker1Avatar','SPEAKER1'],
+    ['speaker2Avatar','SPEAKER2']
+  ];
+  const renderAssets={...assets};
+  for(const [assetKey,boxKey] of mappings){
+    const prepared=adaptZoomOut(renderAssets[assetKey],boxes[boxKey]);
+    renderAssets[assetKey]=prepared.asset;
+    boxes[boxKey]=prepared.box;
+  }
+  return {assets:renderAssets,spec:{...SPEC,AVATAR_BOXES:boxes}};
+}
+
 async function writeHeartbeat(status){
   if(!state.workspace)return;
   try{await writeJson(state.workspace,'worker-heartbeat.json',{status,updatedAt:new Date().toISOString()});}
@@ -37,18 +77,19 @@ async function processFolder(jobFolder,outbox){
     await writeHeartbeat('busy');
     log(`开始任务 ${job.id}`); setState(`正在生成：${job.id}`);
     const a=job.assets||{};
-    const assets={
+    const rawAssets={
       chairAvatar:{entry:await fileByName(jobFolder,a.chairAvatar.fileName),crop:a.chairAvatar.crop||{}},
       speaker1Avatar:{entry:await fileByName(jobFolder,a.speaker1Avatar.fileName),crop:a.speaker1Avatar.crop||{}},
       speaker2Avatar:{entry:await fileByName(jobFolder,a.speaker2Avatar.fileName),crop:a.speaker2Avatar.crop||{}},
       qrCode:await fileByName(jobFolder,a.qrCode.fileName)
     };
+    const prepared=prepareRenderInputs(rawAssets);
     const runGenerate=()=>engine.generatePoster({
       templateEntry:state.template,
       outputFolderEntry:out,
       meeting:job.meeting,
-      assets,
-      spec:SPEC,
+      assets:prepared.assets,
+      spec:prepared.spec,
       onProgress:m=>{lastProgress=m;log(`→ ${m}`);}
     });
 
