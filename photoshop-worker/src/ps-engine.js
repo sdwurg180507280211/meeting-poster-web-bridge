@@ -77,7 +77,6 @@ function repairLegacyTextLayerNames(doc, spec) {
   const renamed = [];
   const unresolved = [];
 
-  // 先保留已经正确命名的文字层，兼容 v10 及人工修复过的模板。
   for (const layout of layouts) {
     const existing = textLayers.find((layer) => layer.name === layout.name && !usedIds.has(layer.id));
     if (existing) usedIds.add(existing.id);
@@ -93,17 +92,14 @@ function repairLegacyTextLayerNames(doc, spec) {
 
     for (const layer of textLayers) {
       if (usedIds.has(layer.id)) continue;
-      // 不挪用已经属于其他语义名称的正确图层。
       if (expectedNames.has(layer.name)) continue;
       const geometry = layerGeometry(layer);
       const dx = Math.abs(geometry.centerX - targetCenterX);
       const dy = Math.abs(geometry.centerY - targetCenterY);
-      // 纵向位置更能区分不同区域；同一行再通过横向列位置判定。
       const score = dy * 8 + dx;
       if (!best || score < best.score) best = { layer, dx, dy, score };
     }
 
-    // v9 母版为固定 837×1880；这里保留一定字体度量误差，但拒绝跨区域误配。
     if (!best || best.dy > 42 || best.dx > 220) {
       unresolved.push(layout.name);
       continue;
@@ -143,7 +139,6 @@ function validateTemplate(doc, spec) {
     if (!findLayer(doc, names)) errors.push(`缺少动态图层：${displayName(names)}`);
   }
 
-  // 固定元素只做存在性检查，绝不修改。
   for (const fixedName of Object.values(spec.FIXED_LAYERS)) {
     if (!findLayer(doc, fixedName)) errors.push(`缺少固定模板图层：${fixedName}`);
   }
@@ -194,8 +189,6 @@ function fitText(doc, names, metrics, minSize = 12) {
   if (!metrics) return null;
   const layer = findLayer(doc, names);
   if (!layer || layer.kind !== LayerKind.TEXT) return null;
-
-  // 每次从新打开的母版生成；仍显式恢复基准字号，防止后续复用函数时字号累积变小。
   setTextSize(layer, metrics.baseSize);
   let size = metrics.baseSize;
   let width = layerWidth(layer);
@@ -225,8 +218,6 @@ async function replaceSmartObject(doc, names, fileEntry) {
   if (!layer) throw new Error(`未找到智能对象图层：${displayName(names)}`);
   if (layer.kind !== LayerKind.SMARTOBJECT) throw new Error(`图层“${layer.name}”不是智能对象`);
 
-  // Photoshop 27 某些构建对 placedLayerReplaceContents 的 _target 支持不稳定：
-  // 显式只选中目标智能对象，再执行无 _target 的 Replace Contents 更可靠。
   await selectOnlyLayer(layer);
   const token = fs.createSessionToken(fileEntry);
   const result = await batchPlay([
@@ -243,7 +234,6 @@ async function replaceSmartObject(doc, names, fileEntry) {
     throw new Error(`替换内容失败：${first.message || first.result || 'Photoshop 返回未知错误'}`);
   }
 
-  // Replace Contents 可能让旧 DOM Layer 对象的几何缓存失效；必须重新取一次。
   let refreshed = findLayer(doc, names);
   if (!refreshed) {
     const active = Array.from(doc.activeLayers || [])[0];
@@ -277,9 +267,7 @@ async function fitSmartObjectToBox(layer, box, { cover = false, zoom = 1, offset
     box.top + box.height / 2 - geometry.centerY
   );
 
-  // 允许网页裁剪器把图片缩小到铺满尺寸以下；不再强制 zoom >= 1。
-  const requestedZoom = Number(zoom);
-  const safeZoom = Number.isFinite(requestedZoom) ? Math.max(0.2, requestedZoom) : 1;
+  const safeZoom = Math.max(1, Number(zoom) || 1);
   if (Math.abs(safeZoom - 1) > 0.001) {
     await layer.scale(
       safeZoom * 100, safeZoom * 100,
@@ -421,7 +409,6 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
         fitText(doc, names, metrics[index], spec.MIN_FONT_SIZE);
       });
 
-      // 到保存阶段才创建输出 Entry；模板预检或图层处理失败时不会碰现有输出。
       output = await createOutputFiles(outputFolderEntry, meeting.outputName || '系列会议海报');
       onProgress('保存 PSD 与 PNG');
       await doc.saveAs.psd(output.psdEntry, { embedColorProfile: true }, true);
@@ -434,7 +421,6 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
         baseName: output.safeName,
       };
     } finally {
-      // 所有修改都只存在于这次打开的工作文档中；无论成功失败，都不把修改留回母版。
       if (doc) {
         try { doc.closeWithoutSaving(); } catch (_) {}
       }
