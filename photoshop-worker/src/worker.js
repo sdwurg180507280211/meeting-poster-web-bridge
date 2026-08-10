@@ -17,6 +17,11 @@ async function ensureFolder(folder,name){let e=await findChild(folder,name);if(e
 async function readJson(file){return JSON.parse(await file.read({format:storage.formats.utf8}));}
 async function writeJson(folder,name,obj){let f=await findChild(folder,name);if(!f)f=await folder.createFile(name,{overwrite:true});await f.write(JSON.stringify(obj,null,2),{format:storage.formats.utf8});}
 async function fileByName(folder,name){const f=await findChild(folder,name);if(!f)throw new Error(`任务素材不存在：${name}`);return f;}
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function isTransientDocumentIdError(error){
+  const text=String(error&&error.message?error.message:error||'');
+  return /(?:document|文档).*id.*undefined|id of undefined/i.test(text);
+}
 async function writeHeartbeat(status){
   if(!state.workspace)return;
   try{await writeJson(state.workspace,'worker-heartbeat.json',{status,updatedAt:new Date().toISOString()});}
@@ -27,6 +32,7 @@ async function processFolder(jobFolder,outbox){
   const resultExistingFolder=await findChild(outbox,jobFolder.name); if(resultExistingFolder && await findChild(resultExistingFolder,'result.json')) return false;
   const jobFile=await findChild(jobFolder,'job.json'); if(!jobFile)return false;
   const job=await readJson(jobFile); const out=await ensureFolder(outbox,job.id||jobFolder.name);
+  let lastProgress='准备任务';
   try{
     await writeHeartbeat('busy');
     log(`开始任务 ${job.id}`); setState(`正在生成：${job.id}`);
@@ -37,12 +43,36 @@ async function processFolder(jobFolder,outbox){
       speaker2Avatar:{entry:await fileByName(jobFolder,a.speaker2Avatar.fileName),crop:a.speaker2Avatar.crop||{}},
       qrCode:await fileByName(jobFolder,a.qrCode.fileName)
     };
-    const result=await engine.generatePoster({templateEntry:state.template,outputFolderEntry:out,meeting:job.meeting,assets,spec:SPEC,onProgress:m=>log(`→ ${m}`)});
+    const runGenerate=()=>engine.generatePoster({
+      templateEntry:state.template,
+      outputFolderEntry:out,
+      meeting:job.meeting,
+      assets,
+      spec:SPEC,
+      onProgress:m=>{lastProgress=m;log(`→ ${m}`);}
+    });
+
+    let result;
+    try{
+      result=await runGenerate();
+    }catch(firstError){
+      if(!isTransientDocumentIdError(firstError))throw firstError;
+      log(`⚠ 检测到 Photoshop 文档引用失效：${firstError.message}`);
+      log('→ 等待 800ms 后自动重试一次');
+      lastProgress='自动恢复：等待后重新打开 PSD 母版';
+      await sleep(800);
+      result=await runGenerate();
+    }
+
     await writeJson(out,'result.json',{status:'succeeded',jobId:job.id,baseName:result.baseName,psdFileName:`${result.baseName}.psd`,pngFileName:`${result.baseName}.png`,finishedAt:new Date().toISOString()});
     await writeHeartbeat('ready');
     log(`✓ 完成 ${job.id}`); setState('空闲，等待下一任务','ok'); return true;
   }catch(e){
-    console.error(e); await writeJson(out,'result.json',{status:'failed',jobId:job.id,error:e.message||String(e),finishedAt:new Date().toISOString()}); await writeHeartbeat('ready'); log(`✗ ${job.id}: ${e.message}`); setState(`失败：${e.message}`,'bad'); return true;
+    const detail=`阶段：${lastProgress}；${e.message||String(e)}`;
+    console.error(e);
+    await writeJson(out,'result.json',{status:'failed',jobId:job.id,error:detail,stage:lastProgress,finishedAt:new Date().toISOString()});
+    await writeHeartbeat('ready');
+    log(`✗ ${job.id}: ${detail}`); setState(`失败：${detail}`,'bad'); return true;
   }
 }
 
