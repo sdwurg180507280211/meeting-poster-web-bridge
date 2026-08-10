@@ -92,7 +92,10 @@
   const canvasTime=document.getElementById('canvasMeetingTime');
   const syncTime=()=>{canvasTime.textContent=`会议时间：${meetingTime?.value.trim()||''}`;};
   meetingTime?.addEventListener('input',syncTime); syncTime();
-  canvasTime?.addEventListener('click',()=>{openSection('meeting');meetingTime?.focus();});
+  canvasTime?.addEventListener('click',()=>{
+    openSection('meeting');
+    document.getElementById('meetingYear')?.focus();
+  });
 
   const agenda=document.getElementById('canvasAgenda');
   function syncAgenda(){
@@ -101,7 +104,10 @@
       const row=document.createElement('div'); row.className='canvas-agenda-row';
       const vals=['time','content','speaker','chair'].map(k=>document.getElementById(`s-${k}-${i}`)?.value.trim()||'');
       vals.forEach((v,j)=>{const s=document.createElement('span');s.textContent=v||['时间','内容','讲者','主席'][j];row.appendChild(s);});
-      row.addEventListener('click',()=>{openSection('schedule');document.getElementById(`s-time-${i}`)?.focus();});
+      row.addEventListener('click',()=>{
+        openSection('schedule');
+        document.getElementById(`s-start-${i}`)?.focus();
+      });
       agenda.appendChild(row);
     }
   }
