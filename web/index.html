@@ -7,6 +7,7 @@
   <title>系列会议海报编辑器</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="crop-modal.css" />
+  <link rel="stylesheet" href="compact-controls.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -31,7 +32,7 @@
             <strong>海报画布</strong>
             <span>837 × 1880</span>
           </div>
-          <div class="mouse-hint">点击头像或二维码打开大图裁剪 · 拖动图片 · 滚轮缩放</div>
+          <div class="mouse-hint">点击海报元素进行编辑 · 图片裁剪在大弹窗中完成</div>
         </div>
 
         <div class="poster-viewport">
@@ -74,9 +75,25 @@
             <details class="editor-section" data-section="meeting" open>
               <summary><span>01</span> 会议信息</summary>
               <div class="editor-section-body">
-                <label>会议时间
-                  <input id="meetingTime" required placeholder="2026年8月20日 19:00-21:00" />
-                </label>
+                <div id="meetingTimePicker" class="meeting-picker">
+                  <div>
+                    <div class="meeting-picker-label">会议日期</div>
+                    <div class="picker-row date-row">
+                      <select id="meetingYear" class="compact-select" required></select>
+                      <select id="meetingMonth" class="compact-select" required></select>
+                      <select id="meetingDay" class="compact-select" required></select>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="meeting-picker-label">会议时间</div>
+                    <div class="picker-row time-row">
+                      <select id="meetingStart" class="compact-select" required></select>
+                      <span class="picker-sep">至</span>
+                      <select id="meetingEnd" class="compact-select" required></select>
+                    </div>
+                  </div>
+                </div>
+                <input id="meetingTime" type="hidden" value="" />
                 <div class="fixed-row"><span>会议地点</span><strong>线上</strong></div>
                 <input id="meetingLocation" type="hidden" value="线上" />
               </div>
@@ -85,7 +102,7 @@
             <details class="editor-section" data-section="people" open>
               <summary><span>02</span> 主席与讲者</summary>
               <div class="editor-section-body">
-                <p class="section-tip">点击海报头像或“裁剪头像”会打开大尺寸圆形裁剪窗；在弹窗中直接拖动图片、滚轮缩放，也可使用底部缩放条。职称统一为教授。</p>
+                <p class="section-tip">直接点击海报上的头像上传或裁剪；右侧只填写姓名和医院。职称统一为教授。</p>
                 <div id="people"></div>
               </div>
             </details>
@@ -101,16 +118,10 @@
             <details class="editor-section" data-section="qr">
               <summary><span>04</span> 二维码</summary>
               <div class="editor-section-body">
-                <p class="section-tip">选择图片后会打开大尺寸裁剪窗。裁剪窗内可直接拖动图片、滚轮缩放，也可以拖动下面的缩放条。</p>
-                <div class="qr-control-row">
-                  <input id="qrFile" type="file" accept="image/png,image/jpeg,image/webp" required />
-                  <button id="editQrCrop" type="button" class="mini-btn">打开裁剪工具</button>
-                </div>
-                <img id="qrPreview" class="qr-preview" alt="二维码预览" />
-                <div class="qr-crop-summary">
-                  <span id="qrCropReadout">尚未应用裁剪</span>
-                  <button id="editQrCropInline" type="button" onclick="window.posterQrCrop?.open()">重新裁剪</button>
-                </div>
+                <div class="asset-editor-hint">直接点击海报上的<strong>二维码区域</strong>上传或重新裁剪。</div>
+                <input id="qrFile" class="asset-input-hidden" type="file" accept="image/png,image/jpeg,image/webp" />
+                <img id="qrPreview" class="qr-preview asset-preview-hidden" alt="二维码预览" />
+                <span id="qrCropReadout" class="asset-preview-hidden">尚未应用裁剪</span>
               </div>
             </details>
 
@@ -228,6 +239,7 @@
   <script src="app.js"></script>
   <script src="fixed-defaults.js"></script>
   <script src="service-status.js"></script>
+  <script src="time-controls.js"></script>
   <script src="editor-mode.js"></script>
   <script src="avatar-crop-modal.js"></script>
   <script src="qr-crop-modal.js"></script>
