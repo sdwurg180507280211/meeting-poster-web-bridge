@@ -23,6 +23,13 @@
     el?.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  function prepareCropRanges() {
+    for (const id of ['chair-zoom', 'speaker1-zoom', 'speaker2-zoom']) {
+      const el = document.getElementById(id);
+      if (el) el.min = '20';
+    }
+  }
+
   function readDraft() {
     try { return JSON.parse(localStorage.getItem(FORM_KEY) || '{}'); }
     catch (_) { return {}; }
@@ -51,6 +58,7 @@
   }
 
   function restoreScalars() {
+    prepareCropRanges();
     const draft = readDraft();
     for (const [id, value] of Object.entries(draft)) {
       const el = document.getElementById(id);
@@ -135,7 +143,7 @@
     document.dispatchEvent(new CustomEvent('poster-draft-files-restored'));
   }
 
-  // app.js 会先创建人物和日程输入；这里立刻恢复文字，稍后再补一次避免极端加载时序。
+  prepareCropRanges();
   restoreScalars();
   setTimeout(restoreScalars, 80);
 
@@ -150,7 +158,6 @@
     });
   }
 
-  // 二维码“应用裁剪”后 input.files 会被替换，但不会触发原生 change；直接保存最终裁剪 PNG。
   document.addEventListener('qr-crop-applied', e => {
     if (e.detail?.file) putFile('qrFile', e.detail.file);
   });
