@@ -99,6 +99,38 @@
     img.onload = () => renderAvatar(key);
   }
 
+  function clearAvatar(key) {
+    const st = peopleState[key];
+    if (!st) return;
+    if (st.url) URL.revokeObjectURL(st.url);
+    st.file = null;
+    st.url = '';
+    st.crop = { zoom: 1, offsetX: 0, offsetY: 0 };
+
+    const img = document.getElementById(`${key}-img`);
+    if (img) {
+      img.onload = null;
+      img.removeAttribute('src');
+      img.style.width = '';
+      img.style.height = '';
+      img.style.left = '';
+      img.style.top = '';
+    }
+
+    const values = { zoom: 100, x: 0, y: 0 };
+    for (const axis of ['zoom', 'x', 'y']) {
+      const input = document.getElementById(`${key}-${axis}`);
+      const readout = document.getElementById(`${key}-${axis}-v`);
+      if (input) input.value = String(values[axis]);
+      if (readout) readout.textContent = axis === 'zoom' ? '100%' : '0';
+    }
+  }
+
+  document.addEventListener('avatar-image-reset', e => {
+    const key = e.detail?.key;
+    if (key) clearAvatar(key);
+  });
+
   function renderAvatar(key) {
     const st = peopleState[key];
     const img = document.getElementById(`${key}-img`);
