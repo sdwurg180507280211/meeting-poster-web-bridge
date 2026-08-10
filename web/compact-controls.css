@@ -1,0 +1,25 @@
+.meeting-picker{display:grid;gap:9px}
+.picker-row{display:grid;gap:7px;align-items:center}
+.picker-row.date-row{grid-template-columns:1.25fr .9fr .9fr}
+.picker-row.time-row{grid-template-columns:1fr 18px 1fr}
+.picker-sep{text-align:center;color:#9aa4b2;font-size:11px}
+.compact-select{width:100%;min-width:0;padding:9px 28px 9px 9px;border:1px solid #dce2ec;border-radius:8px;background:#fbfcff;color:#26324a;font-size:11px;outline:none}
+.compact-select:focus{border-color:#a4abe9;box-shadow:0 0 0 3px rgba(89,102,220,.07);background:#fff}
+.meeting-picker-label{font-size:9px;color:#8b96a6;font-weight:700;margin-bottom:2px}
+.time-invalid .compact-select{border-color:#d9888f;background:#fff8f8}
+.schedule-time-picker{display:grid;grid-template-columns:1fr 1fr;gap:4px;min-width:0}
+.schedule-time-picker .compact-select{padding:7px 20px 7px 6px;font-size:9px;border-radius:7px}
+
+/* 右侧只保留内容字段。文件选择和裁剪都从海报本体进入。 */
+.person-grid{grid-template-columns:1fr!important}
+.person-grid>div:first-child{display:none!important}
+.person .crop-controls{display:none!important}
+.avatar-crop-open,.avatar-crop-readout{display:none!important}
+.asset-input-hidden,.asset-preview-hidden{display:none!important}
+.asset-editor-hint{padding:10px 11px;border:1px dashed #dfe5ee;border-radius:9px;background:#f8fafc;color:#7f8a9b;font-size:10px;line-height:1.55;text-align:center}
+.asset-editor-hint strong{color:#5663bd}
+
+@media(max-width:700px){
+  .picker-row.date-row{grid-template-columns:1fr 1fr 1fr}
+  .schedule-time-picker{grid-template-columns:1fr}
+}
