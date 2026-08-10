@@ -14,6 +14,11 @@
   const summary = document.getElementById('qrCropReadout');
   if (!input || !modal || !stage || !image || !zoomRange) return;
 
+  const MIN_ZOOM = 0.2;
+  const MAX_ZOOM = 4;
+  zoomRange.min = String(Math.round(MIN_ZOOM * 100));
+  zoomRange.max = String(Math.round(MAX_ZOOM * 100));
+
   const state = {
     originalFile: null,
     originalUrl: '',
@@ -46,8 +51,8 @@
       side,
       dw,
       dh,
-      maxX: Math.max(0, ((dw - side) / 2) / side * 100),
-      maxY: Math.max(0, ((dh - side) / 2) / side * 100),
+      maxX: Math.abs(dw - side) / 2 / side * 100,
+      maxY: Math.abs(dh - side) / 2 / side * 100,
     };
   }
 
@@ -71,9 +76,8 @@
   function setZoom(percent, anchor = null) {
     const before = stageMetrics();
     const oldZoom = state.zoom;
-    state.zoom = clamp(Number(percent) / 100, 1, 4);
+    state.zoom = clamp(Number(percent) / 100, MIN_ZOOM, MAX_ZOOM);
 
-    // 以鼠标所在位置为近似缩放中心，操作感更接近图片编辑器。
     if (anchor && oldZoom > 0) {
       const rect = stage.getBoundingClientRect();
       const ax = anchor.clientX - (rect.left + rect.width / 2);
@@ -111,7 +115,27 @@
     stage.classList.remove('dragging');
   }
 
-  function loadOriginal(file) {
+  function setAppliedPreview(file) {
+    state.appliedFile = file;
+    if (state.appliedPreviewUrl) URL.revokeObjectURL(state.appliedPreviewUrl);
+    state.appliedPreviewUrl = URL.createObjectURL(file);
+    if (preview) {
+      preview.src = state.appliedPreviewUrl;
+      preview.style.display = 'block';
+    }
+    if (summary) summary.textContent = `已应用裁剪 · ${Math.round(state.zoom * 100)}%`;
+    document.dispatchEvent(new CustomEvent('qr-crop-applied', {
+      detail: {
+        file,
+        previewUrl: state.appliedPreviewUrl,
+        zoom: state.zoom,
+        offsetX: state.offsetX,
+        offsetY: state.offsetY,
+      }
+    }));
+  }
+
+  function loadOriginal(file, { reset = true, open = true, asApplied = false } = {}) {
     if (!file) return;
     state.originalFile = file;
     if (state.originalUrl) URL.revokeObjectURL(state.originalUrl);
@@ -120,8 +144,9 @@
     im.onload = () => {
       state.sourceImage = im;
       image.src = state.originalUrl;
-      resetCrop();
-      openModal();
+      if (reset) resetCrop();
+      if (asApplied) setAppliedPreview(file);
+      if (open) openModal();
     };
     im.onerror = () => alert('二维码图片读取失败，请换一张图片重试。');
     im.src = state.originalUrl;
@@ -130,8 +155,8 @@
   input.addEventListener('change', () => {
     const file = input.files?.[0];
     if (!file) return;
-    // 只有用户真正选择了新文件才替换 original；“应用裁剪”不会触发 change。
-    loadOriginal(file);
+    const restoring = input.dataset.restoringDraft === '1';
+    loadOriginal(file, { reset: true, open: !restoring, asApplied: restoring });
   });
 
   editBtn?.addEventListener('click', openModal);
@@ -214,25 +239,7 @@
       const dt = new DataTransfer();
       dt.items.add(file);
       input.files = dt.files;
-      state.appliedFile = file;
-
-      if (state.appliedPreviewUrl) URL.revokeObjectURL(state.appliedPreviewUrl);
-      state.appliedPreviewUrl = URL.createObjectURL(file);
-      if (preview) {
-        preview.src = state.appliedPreviewUrl;
-        preview.style.display = 'block';
-      }
-      if (summary) summary.textContent = `已应用裁剪 · ${Math.round(state.zoom * 100)}%`;
-
-      document.dispatchEvent(new CustomEvent('qr-crop-applied', {
-        detail: {
-          file,
-          previewUrl: state.appliedPreviewUrl,
-          zoom: state.zoom,
-          offsetX: state.offsetX,
-          offsetY: state.offsetY,
-        }
-      }));
+      setAppliedPreview(file);
       closeModal();
     } catch (err) {
       console.error(err);
