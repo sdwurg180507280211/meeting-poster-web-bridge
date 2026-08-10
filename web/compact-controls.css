@@ -1,14 +1,31 @@
-.meeting-picker{display:grid;gap:9px}
-.picker-row{display:grid;gap:7px;align-items:center}
-.picker-row.date-row{grid-template-columns:1.25fr .9fr .9fr}
-.picker-row.time-row{grid-template-columns:1fr 18px 1fr}
-.picker-sep{text-align:center;color:#9aa4b2;font-size:11px}
-.compact-select{width:100%;min-width:0;padding:9px 28px 9px 9px;border:1px solid #dce2ec;border-radius:8px;background:#fbfcff;color:#26324a;font-size:11px;outline:none}
-.compact-select:focus{border-color:#a4abe9;box-shadow:0 0 0 3px rgba(89,102,220,.07);background:#fff}
-.meeting-picker-label{font-size:9px;color:#8b96a6;font-weight:700;margin-bottom:2px}
-.time-invalid .compact-select{border-color:#d9888f;background:#fff8f8}
-.schedule-time-picker{display:grid;grid-template-columns:1fr 1fr;gap:4px;min-width:0}
-.schedule-time-picker .compact-select{padding:7px 20px 7px 6px;font-size:9px;border-radius:7px}
+.meeting-picker{display:block}
+.vue-picker-host{width:100%;min-width:0}
+.element-meeting-picker{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.25fr);gap:8px;align-items:center}
+.element-meeting-picker .el-date-editor{width:100%!important;min-width:0!important}
+.element-meeting-picker .el-input__wrapper,
+.element-meeting-picker .el-range-editor.el-input__wrapper{min-height:34px;border-radius:8px;box-shadow:0 0 0 1px #dce2ec inset!important;background:#fbfcff}
+.element-meeting-picker .el-input__wrapper:hover,
+.element-meeting-picker .el-range-editor.el-input__wrapper:hover{box-shadow:0 0 0 1px #aeb7e8 inset!important}
+.element-meeting-picker .el-input__inner,
+.element-meeting-picker .el-range-input{font-size:10px!important;color:#344157!important}
+.element-meeting-picker .el-range-separator{font-size:10px!important;color:#8a94a6!important;padding:0 2px!important}
+.element-meeting-picker .el-input__prefix,
+.element-meeting-picker .el-range__icon{color:#6571c7}
+
+.schedule-time-picker{display:none!important}
+.schedule-vue-time-host{width:100%;min-width:0}
+.schedule-vue-time-host .el-date-editor{width:100%!important;min-width:0!important}
+.schedule-vue-time-host .el-range-editor.el-input__wrapper{width:100%!important;min-width:0!important;height:31px;padding:0 5px!important;border-radius:7px;box-shadow:0 0 0 1px #dfe5ed inset!important;background:#fbfcff}
+.schedule-vue-time-host .el-range-input{min-width:0!important;font-size:8.5px!important;color:#344157!important}
+.schedule-vue-time-host .el-range-separator{width:auto!important;min-width:6px!important;padding:0 1px!important;font-size:8px!important;color:#8b95a5!important}
+.schedule-vue-time-host .el-range__icon{display:none!important}
+.schedule-vue-time-host .el-range__close-icon{margin-left:1px!important;font-size:10px!important}
+.schedule-head,.schedule-row{grid-template-columns:31% 31% 19% 19%!important}
+.time-component-error{padding:9px 10px;border-radius:8px;background:#fff3f3;color:#b84b55;font-size:10px;line-height:1.5}
+
+/* Element Plus 浮层保持在 Photoshop 编辑器上方，并适合右侧紧凑面板。 */
+.el-picker__popper{z-index:12000!important}
+.el-time-panel__content::after,.el-time-panel__content::before{margin-top:-7px!important}
 
 /* 右侧只保留内容字段。文件选择和裁剪都从海报本体进入。 */
 .person-grid{grid-template-columns:1fr!important}
@@ -20,6 +37,7 @@
 .asset-editor-hint strong{color:#5663bd}
 
 @media(max-width:700px){
-  .picker-row.date-row{grid-template-columns:1fr 1fr 1fr}
-  .schedule-time-picker{grid-template-columns:1fr}
+  .element-meeting-picker{grid-template-columns:1fr;gap:7px}
+  .schedule-head,.schedule-row{grid-template-columns:1fr!important}
+  .schedule-vue-time-host .el-range-editor.el-input__wrapper{height:34px}
 }
