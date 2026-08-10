@@ -6,6 +6,7 @@
   <meta name="description" content="系列会议海报在线编辑与 Photoshop PSD 生成工具。" />
   <title>系列会议海报编辑器</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="crop-modal.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -30,7 +31,7 @@
             <strong>海报画布</strong>
             <span>837 × 1880</span>
           </div>
-          <div class="mouse-hint">鼠标拖动图片调整位置 · 滚轮缩放</div>
+          <div class="mouse-hint">点击海报元素进行编辑 · 图片裁剪在大弹窗中完成</div>
         </div>
 
         <div class="poster-viewport">
@@ -84,7 +85,7 @@
             <details class="editor-section" data-section="people" open>
               <summary><span>02</span> 主席与讲者</summary>
               <div class="editor-section-body">
-                <p class="section-tip">点击海报头像可选择图片；拖动头像调整位置，滚轮缩放。职称统一为教授。</p>
+                <p class="section-tip">点击海报头像选择图片；头像仍可在海报上拖动、滚轮缩放。职称统一为教授。</p>
                 <div id="people"></div>
               </div>
             </details>
@@ -100,13 +101,16 @@
             <details class="editor-section" data-section="qr">
               <summary><span>04</span> 二维码</summary>
               <div class="editor-section-body">
-                <p class="section-tip">二维码也支持在海报上直接拖动和滚轮缩放，提交时会裁成方形 PNG。</p>
+                <p class="section-tip">选择图片后会打开大尺寸裁剪窗。裁剪窗内可直接拖动图片、滚轮缩放，也可以拖动下面的缩放条。</p>
                 <div class="qr-control-row">
                   <input id="qrFile" type="file" accept="image/png,image/jpeg,image/webp" required />
-                  <button id="resetQrCrop" type="button" class="mini-btn">重置裁剪</button>
+                  <button id="editQrCrop" type="button" class="mini-btn">打开裁剪工具</button>
                 </div>
                 <img id="qrPreview" class="qr-preview" alt="二维码预览" />
-                <div class="crop-readout" id="qrCropReadout">缩放 100% · X 0 · Y 0</div>
+                <div class="qr-crop-summary">
+                  <span id="qrCropReadout">尚未应用裁剪</span>
+                  <button id="editQrCropInline" type="button" onclick="window.posterQrCrop?.open()">重新裁剪</button>
+                </div>
               </div>
             </details>
 
@@ -153,11 +157,45 @@
     </main>
   </div>
 
+  <div id="qrCropModal" class="crop-modal" hidden>
+    <div class="crop-dialog" role="dialog" aria-modal="true" aria-labelledby="qrCropTitle">
+      <div class="crop-dialog-head">
+        <div>
+          <h2 id="qrCropTitle">裁剪二维码</h2>
+          <p>按住鼠标拖动图片 · 滚轮缩放 · 底部滑杆可精细控制缩放</p>
+        </div>
+        <button id="closeQrCrop" class="crop-close" type="button" aria-label="关闭">×</button>
+      </div>
+      <div class="crop-main">
+        <div class="crop-stage-wrap">
+          <div id="qrCropStage" class="crop-stage">
+            <img id="qrCropImage" alt="待裁剪二维码" />
+            <div class="crop-grid"></div>
+          </div>
+        </div>
+        <p class="crop-help">白色正方形区域就是最终会放进海报的二维码图片范围</p>
+        <div class="crop-controls-large">
+          <label for="qrCropZoom">缩放</label>
+          <input id="qrCropZoom" type="range" min="100" max="400" step="1" value="100" />
+          <span id="qrCropZoomValue" class="crop-zoom-value">100%</span>
+        </div>
+      </div>
+      <div class="crop-dialog-actions">
+        <button id="resetQrCropModal" type="button" class="crop-action">重置</button>
+        <div class="crop-action-group">
+          <button id="cancelQrCrop" type="button" class="crop-action">取消</button>
+          <button id="applyQrCrop" type="button" class="crop-action primary-action">应用裁剪</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script src="fixed-defaults.js"></script>
   <script src="service-status.js"></script>
   <script src="editor-mode.js"></script>
+  <script src="qr-crop-modal.js"></script>
 </body>
 </html>
