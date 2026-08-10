@@ -11,7 +11,7 @@
   const resetBtn = document.getElementById('resetAvatarCropModal');
   if (!modal || !stage || !image || !zoomRange) return;
 
-  const MIN_ZOOM = 0.2;
+  const MIN_ZOOM = 1;
   const MAX_ZOOM = 2.5;
   zoomRange.min = String(Math.round(MIN_ZOOM * 100));
   zoomRange.max = String(Math.round(MAX_ZOOM * 100));
@@ -69,9 +69,8 @@
       side,
       dw,
       dh,
-      // 缩小到裁剪框以内时也允许移动，方便把小图摆到圆形区域中的任意位置。
-      maxX: Math.abs(dw - side) / 2 / side * 100,
-      maxY: Math.abs(dh - side) / 2 / side * 100,
+      maxX: Math.max(0, ((dw - side) / 2) / side * 100),
+      maxY: Math.max(0, ((dh - side) / 2) / side * 100),
     };
   }
 
@@ -112,15 +111,6 @@
       st.offsetX = desiredDx / before.side * 100;
       st.offsetY = desiredDy / before.side * 100;
     }
-    render();
-  }
-
-  function resetCrop() {
-    const st = currentState();
-    if (!st) return;
-    st.zoom = 1;
-    st.offsetX = 0;
-    st.offsetY = 0;
     render();
   }
 
@@ -196,10 +186,43 @@
     else input?.click();
   }
 
+  function resetAndChooseNew() {
+    if (!activeKey) return;
+    const key = activeKey;
+    const st = states[key];
+    const input = inputFor(key);
+
+    if (st.url) URL.revokeObjectURL(st.url);
+    st.file = null;
+    st.url = '';
+    st.sourceImage = null;
+    st.zoom = 1;
+    st.offsetX = 0;
+    st.offsetY = 0;
+    st.applied = false;
+
+    image.removeAttribute('src');
+    image.style.width = '';
+    image.style.height = '';
+    image.style.transform = '';
+    resetControls(key);
+    if (input) input.value = '';
+
+    const readout = document.getElementById(`${key}-crop-readout`);
+    if (readout) readout.textContent = '尚未选择';
+
+    document.dispatchEvent(new CustomEvent('avatar-image-reset', { detail: { key } }));
+    closeModal();
+    setTimeout(() => input?.click(), 0);
+  }
+
   Object.keys(defs).forEach(key => {
     const input = inputFor(key);
     const z = zoomFor(key);
-    if (z) z.min = String(Math.round(MIN_ZOOM * 100));
+    if (z) {
+      z.min = String(Math.round(MIN_ZOOM * 100));
+      if (Number(z.value) < 100) z.value = '100';
+    }
     if (!input) return;
     input.addEventListener('change', () => {
       const file = input.files?.[0];
@@ -289,7 +312,7 @@
     closeModal();
   });
 
-  resetBtn?.addEventListener('click', resetCrop);
+  resetBtn?.addEventListener('click', resetAndChooseNew);
   closeBtn?.addEventListener('click', closeModal);
   cancelBtn?.addEventListener('click', closeModal);
   modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
