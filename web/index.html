@@ -31,7 +31,7 @@
             <strong>海报画布</strong>
             <span>837 × 1880</span>
           </div>
-          <div class="mouse-hint">点击海报元素进行编辑 · 图片裁剪在大弹窗中完成</div>
+          <div class="mouse-hint">点击头像或二维码打开大图裁剪 · 拖动图片 · 滚轮缩放</div>
         </div>
 
         <div class="poster-viewport">
@@ -85,7 +85,7 @@
             <details class="editor-section" data-section="people" open>
               <summary><span>02</span> 主席与讲者</summary>
               <div class="editor-section-body">
-                <p class="section-tip">点击海报头像选择图片；头像仍可在海报上拖动、滚轮缩放。职称统一为教授。</p>
+                <p class="section-tip">点击海报头像或“裁剪头像”会打开大尺寸圆形裁剪窗；在弹窗中直接拖动图片、滚轮缩放，也可使用底部缩放条。职称统一为教授。</p>
                 <div id="people"></div>
               </div>
             </details>
@@ -157,6 +157,39 @@
     </main>
   </div>
 
+  <div id="avatarCropModal" class="crop-modal" hidden>
+    <div class="crop-dialog" role="dialog" aria-modal="true" aria-labelledby="avatarCropTitle">
+      <div class="crop-dialog-head">
+        <div>
+          <h2 id="avatarCropTitle">裁剪头像</h2>
+          <p>按住鼠标拖动图片 · 滚轮缩放 · 底部滑杆可精细控制缩放</p>
+        </div>
+        <button id="closeAvatarCrop" class="crop-close" type="button" aria-label="关闭">×</button>
+      </div>
+      <div class="crop-main">
+        <div class="crop-stage-wrap avatar-stage-wrap">
+          <div id="avatarCropStage" class="crop-stage avatar-crop-stage">
+            <img id="avatarCropImage" alt="待裁剪头像" />
+            <div class="avatar-crop-mask"></div>
+          </div>
+        </div>
+        <p class="crop-help">圆形区域就是最终海报头像可见范围；弹窗中的缩放和位移会直接同步给 Photoshop。</p>
+        <div class="crop-controls-large">
+          <label for="avatarCropZoom">缩放</label>
+          <input id="avatarCropZoom" type="range" min="100" max="250" step="1" value="100" />
+          <span id="avatarCropZoomValue" class="crop-zoom-value">100%</span>
+        </div>
+      </div>
+      <div class="crop-dialog-actions">
+        <button id="resetAvatarCropModal" type="button" class="crop-action">重置</button>
+        <div class="crop-action-group">
+          <button id="cancelAvatarCrop" type="button" class="crop-action">取消</button>
+          <button id="applyAvatarCrop" type="button" class="crop-action primary-action">应用裁剪</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="qrCropModal" class="crop-modal" hidden>
     <div class="crop-dialog" role="dialog" aria-modal="true" aria-labelledby="qrCropTitle">
       <div class="crop-dialog-head">
@@ -196,6 +229,7 @@
   <script src="fixed-defaults.js"></script>
   <script src="service-status.js"></script>
   <script src="editor-mode.js"></script>
+  <script src="avatar-crop-modal.js"></script>
   <script src="qr-crop-modal.js"></script>
 </body>
 </html>
