@@ -26,7 +26,7 @@
   function prepareCropRanges() {
     for (const id of ['chair-zoom', 'speaker1-zoom', 'speaker2-zoom']) {
       const el = document.getElementById(id);
-      if (el) el.min = '20';
+      if (el) el.min = '100';
     }
   }
 
@@ -63,7 +63,10 @@
     for (const [id, value] of Object.entries(draft)) {
       const el = document.getElementById(id);
       if (!el || value == null) continue;
-      el.value = String(value);
+      const normalized = /-(?:zoom)$/.test(id)
+        ? String(Math.max(100, Number(value) || 100))
+        : String(value);
+      el.value = normalized;
       emitInput(el);
     }
     document.dispatchEvent(new CustomEvent('poster-draft-scalars-restored'));
@@ -99,6 +102,22 @@
       db.close();
     } catch (err) {
       console.warn(`保存本地素材失败：${id}`, err);
+    }
+  }
+
+  async function deleteFile(id) {
+    if (!id) return;
+    try {
+      const db = await openDb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).delete(id);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    } catch (err) {
+      console.warn(`删除本地素材失败：${id}`, err);
     }
   }
 
@@ -163,6 +182,15 @@
   });
   document.addEventListener('avatar-crop-applied', scheduleSave);
 
+  document.addEventListener('avatar-image-reset', e => {
+    const key = e.detail?.key;
+    if (key) deleteFile(`${key}-file`);
+    scheduleSave();
+  });
+  document.addEventListener('qr-image-reset', () => {
+    deleteFile('qrFile');
+  });
+
   window.addEventListener('load', () => {
     setTimeout(restoreFiles, 60);
   }, { once: true });
@@ -170,5 +198,6 @@
   window.posterDraft = {
     save: saveNow,
     restore: () => { restoreScalars(); restoreFiles(); },
+    removeFile: deleteFile,
   };
 })();
