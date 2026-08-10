@@ -6,6 +6,8 @@
 
   const ELEMENT_VERSION = '2.14.3';
   const scheduleOpeners = [];
+  const scheduleVms = [];
+  let meetingVm = null;
 
   function emitInput(el) {
     el?.dispatchEvent(new Event('input', { bubbles: true }));
@@ -64,6 +66,21 @@
   const timeAt = (h, m) => new Date(2000, 0, 1, h, m, 0, 0);
   const disabledMinutes = () => Array.from({ length: 60 }, (_, i) => i).filter(i => i % 5 !== 0);
 
+  function parseTimeRange(value) {
+    const m = String(value || '').trim().match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/);
+    if (!m) return null;
+    return [timeAt(Number(m[1]), Number(m[2])), timeAt(Number(m[3]), Number(m[4]))];
+  }
+
+  function parseMeeting(value) {
+    const m = String(value || '').trim().match(/^(\d{4})年(\d{1,2})月(\d{1,2})日\s+(\d{2}):(\d{2})-(\d{2}):(\d{2})$/);
+    if (!m) return null;
+    return {
+      date: new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])),
+      range: [timeAt(Number(m[4]), Number(m[5])), timeAt(Number(m[6]), Number(m[7]))],
+    };
+  }
+
   function useElementPlus(app) {
     if (window.ElementPlusLocaleZhCn) app.use(window.ElementPlus, { locale: window.ElementPlusLocaleZhCn });
     else app.use(window.ElementPlus);
@@ -72,12 +89,13 @@
   function mountMeetingPicker() {
     meetingHost.innerHTML = '<div id="meetingVuePicker" class="vue-picker-host"></div>';
     const mount = document.getElementById('meetingVuePicker');
+    const initial = parseMeeting(meetingHidden.value);
 
     const app = Vue.createApp({
       data() {
         return {
-          date: null,
-          range: [timeAt(19, 0), timeAt(20, 30)],
+          date: initial?.date || null,
+          range: initial?.range || [timeAt(19, 0), timeAt(20, 30)],
         };
       },
       methods: {
@@ -88,6 +106,12 @@
           const end = Array.isArray(this.range) ? formatTime(this.range[1]) : '';
           meetingHidden.value = dateText && start && end ? `${dateText} ${start}-${end}` : '';
           emitInput(meetingHidden);
+        },
+        restore(value) {
+          const parsed = parseMeeting(value);
+          if (!parsed) return;
+          this.date = parsed.date;
+          this.range = parsed.range;
         },
       },
       mounted() { this.sync(); },
@@ -119,7 +143,7 @@
         </div>`
     });
     useElementPlus(app);
-    app.mount(mount);
+    meetingVm = app.mount(mount);
 
     window.posterTimeControls = window.posterTimeControls || {};
     window.posterTimeControls.openMeeting = () => {
@@ -134,6 +158,7 @@
       if (!hidden) continue;
       hidden.type = 'hidden';
       hidden.removeAttribute('placeholder');
+      const initial = parseTimeRange(hidden.value);
 
       const mount = document.createElement('div');
       mount.id = `scheduleVueTime-${i}`;
@@ -141,7 +166,7 @@
       hidden.parentNode.insertBefore(mount, hidden);
 
       const app = Vue.createApp({
-        data() { return { value: null }; },
+        data() { return { value: initial || null }; },
         methods: {
           disabledMinutes,
           sync() {
@@ -150,7 +175,12 @@
             hidden.value = start && end ? `${start}-${end}` : '';
             emitInput(hidden);
           },
+          restore(value) {
+            const parsed = parseTimeRange(value);
+            this.value = parsed || null;
+          },
         },
+        mounted() { if (this.value) this.sync(); },
         template: `
           <el-time-picker
             v-model="value"
@@ -167,12 +197,19 @@
           ></el-time-picker>`
       });
       useElementPlus(app);
-      app.mount(mount);
+      scheduleVms[i] = app.mount(mount);
       scheduleOpeners[i] = () => mount.querySelector('.el-date-editor')?.click();
     }
 
     window.posterTimeControls = window.posterTimeControls || {};
     window.posterTimeControls.openSchedule = i => scheduleOpeners[i]?.();
+  }
+
+  function restoreFromHidden() {
+    meetingVm?.restore?.(meetingHidden.value);
+    for (let i = 0; i < 4; i++) {
+      scheduleVms[i]?.restore?.(document.getElementById(`s-time-${i}`)?.value || '');
+    }
   }
 
   function installValidation() {
@@ -201,9 +238,12 @@
     }, true);
   }
 
-  // 文件选择和裁剪入口统一从海报画布触发；右侧不参与原生 required 校验。
   ['chair-file', 'speaker1-file', 'speaker2-file', 'qrFile'].forEach(id => {
     document.getElementById(id)?.removeAttribute('required');
+  });
+
+  document.addEventListener('poster-draft-scalars-restored', () => {
+    if (meetingVm) restoreFromHidden();
   });
 
   ensureElementPlus()
@@ -211,6 +251,8 @@
       mountMeetingPicker();
       mountSchedulePickers();
       installValidation();
+      window.posterTimeControls = window.posterTimeControls || {};
+      window.posterTimeControls.restoreFromHidden = restoreFromHidden;
     })
     .catch(err => {
       console.error(err);
