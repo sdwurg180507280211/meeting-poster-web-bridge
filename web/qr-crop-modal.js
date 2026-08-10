@@ -152,6 +152,37 @@
     im.src = state.originalUrl;
   }
 
+  function resetAndChooseNew() {
+    if (state.originalUrl) URL.revokeObjectURL(state.originalUrl);
+    if (state.appliedPreviewUrl) URL.revokeObjectURL(state.appliedPreviewUrl);
+
+    state.originalFile = null;
+    state.originalUrl = '';
+    state.sourceImage = null;
+    state.zoom = 1;
+    state.offsetX = 0;
+    state.offsetY = 0;
+    state.appliedFile = null;
+    state.appliedPreviewUrl = '';
+
+    input.value = '';
+    image.removeAttribute('src');
+    image.style.width = '';
+    image.style.height = '';
+    image.style.transform = '';
+    if (preview) {
+      preview.removeAttribute('src');
+      preview.style.display = 'none';
+    }
+    if (summary) summary.textContent = '尚未应用裁剪';
+    zoomRange.value = '100';
+    if (zoomValue) zoomValue.textContent = '100%';
+
+    document.dispatchEvent(new CustomEvent('qr-image-reset'));
+    closeModal();
+    setTimeout(() => input.click(), 0);
+  }
+
   input.addEventListener('change', () => {
     const file = input.files?.[0];
     if (!file) return;
@@ -162,7 +193,7 @@
   editBtn?.addEventListener('click', openModal);
   closeBtn?.addEventListener('click', closeModal);
   cancelBtn?.addEventListener('click', closeModal);
-  resetBtn?.addEventListener('click', resetCrop);
+  resetBtn?.addEventListener('click', resetAndChooseNew);
   modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
 
@@ -250,5 +281,5 @@
     }
   });
 
-  window.posterQrCrop = { open: openModal, reset: resetCrop };
+  window.posterQrCrop = { open: openModal, reset: resetAndChooseNew };
 })();
