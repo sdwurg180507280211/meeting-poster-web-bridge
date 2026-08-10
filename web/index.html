@@ -75,24 +75,7 @@
             <details class="editor-section" data-section="meeting" open>
               <summary><span>01</span> 会议信息</summary>
               <div class="editor-section-body">
-                <div id="meetingTimePicker" class="meeting-picker">
-                  <div>
-                    <div class="meeting-picker-label">会议日期</div>
-                    <div class="picker-row date-row">
-                      <select id="meetingYear" class="compact-select" required></select>
-                      <select id="meetingMonth" class="compact-select" required></select>
-                      <select id="meetingDay" class="compact-select" required></select>
-                    </div>
-                  </div>
-                  <div>
-                    <div class="meeting-picker-label">会议时间</div>
-                    <div class="picker-row time-row">
-                      <select id="meetingStart" class="compact-select" required></select>
-                      <span class="picker-sep">至</span>
-                      <select id="meetingEnd" class="compact-select" required></select>
-                    </div>
-                  </div>
-                </div>
+                <div id="meetingTimePicker" class="meeting-picker"></div>
                 <input id="meetingTime" type="hidden" value="" />
                 <div class="fixed-row"><span>会议地点</span><strong>线上</strong></div>
                 <input id="meetingLocation" type="hidden" value="线上" />
@@ -187,7 +170,7 @@
         <p class="crop-help">圆形区域就是最终海报头像可见范围；弹窗中的缩放和位移会直接同步给 Photoshop。</p>
         <div class="crop-controls-large">
           <label for="avatarCropZoom">缩放</label>
-          <input id="avatarCropZoom" type="range" min="100" max="250" step="1" value="100" />
+          <input id="avatarCropZoom" type="range" min="20" max="250" step="1" value="100" />
           <span id="avatarCropZoomValue" class="crop-zoom-value">100%</span>
         </div>
       </div>
@@ -220,7 +203,7 @@
         <p class="crop-help">白色正方形区域就是最终会放进海报的二维码图片范围</p>
         <div class="crop-controls-large">
           <label for="qrCropZoom">缩放</label>
-          <input id="qrCropZoom" type="range" min="100" max="400" step="1" value="100" />
+          <input id="qrCropZoom" type="range" min="20" max="400" step="1" value="100" />
           <span id="qrCropZoomValue" class="crop-zoom-value">100%</span>
         </div>
       </div>
@@ -239,9 +222,11 @@
   <script src="app.js"></script>
   <script src="fixed-defaults.js"></script>
   <script src="service-status.js"></script>
+  <script src="draft-persistence.js"></script>
   <script src="time-controls.js"></script>
   <script src="editor-mode.js"></script>
   <script src="avatar-crop-modal.js"></script>
   <script src="qr-crop-modal.js"></script>
+  <script src="agenda-professor.js"></script>
 </body>
 </html>
