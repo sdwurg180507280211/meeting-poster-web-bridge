@@ -3,80 +3,159 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="系列会议海报在线生成工具，浏览器提交资料，由 Photoshop 母版生成正式 PSD / PNG。" />
   <title>系列会议海报生成</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="page-glow page-glow-a"></div>
+  <div class="page-glow page-glow-b"></div>
+
   <div class="shell">
-    <header>
-      <div>
+    <header class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">MEETING POSTER STUDIO</div>
         <h1>系列会议海报生成</h1>
-        <p>浏览器提交，真实 Photoshop 母版生成 PSD / PNG</p>
+        <p>填写会议资料并上传素材，由你的 Mac Photoshop 使用正式 PSD 母版自动生成高清 PNG 与可编辑 PSD。</p>
+        <div class="fixed-summary">
+          <span class="fixed-chip"><b>会议地点</b> 线上</span>
+          <span class="fixed-chip"><b>人员职称</b> 教授</span>
+          <span class="fixed-chip"><b>输出</b> PSD + PNG</span>
+        </div>
       </div>
-      <span id="cloudState" class="badge">正在连接…</span>
+      <div class="header-status">
+        <span id="cloudState" class="badge">正在连接云端…</span>
+      </div>
     </header>
 
     <main class="layout">
       <form id="posterForm" class="form-panel">
-        <section class="card">
-          <h2>1. 会议信息</h2>
-          <div class="grid2">
-            <label>会议时间<input id="meetingTime" required placeholder="2026年8月20日 19:00-21:00" /></label>
-            <label>会议地点<input id="meetingLocation" required placeholder="线上会议" /></label>
+        <section class="card section-card">
+          <div class="section-head">
+            <span class="section-no">01</span>
+            <div>
+              <h2>会议信息</h2>
+              <p>会议地点固定为线上，只需填写会议时间。</p>
+            </div>
           </div>
+          <div class="grid2 meeting-grid">
+            <label class="field-label">会议时间
+              <input id="meetingTime" required placeholder="例如：2026年8月20日 19:00-21:00" />
+            </label>
+            <div class="fixed-value-card">
+              <span class="fixed-value-label">会议地点</span>
+              <strong>线上</strong>
+              <small>固定配置，无需填写</small>
+            </div>
+          </div>
+          <input id="meetingLocation" type="hidden" value="线上" />
         </section>
 
-        <section class="card">
-          <h2>2. 主席与讲者</h2>
+        <section class="card section-card">
+          <div class="section-head">
+            <span class="section-no">02</span>
+            <div>
+              <h2>主席与讲者</h2>
+              <p>上传头像并填写姓名、医院；三位人员职称统一固定为“教授”。</p>
+            </div>
+          </div>
           <div id="people"></div>
         </section>
 
-        <section class="card">
-          <h2>3. 会议日程</h2>
+        <section class="card section-card">
+          <div class="section-head">
+            <span class="section-no">03</span>
+            <div>
+              <h2>会议日程</h2>
+              <p>最多 4 行；已填写的行至少需要“时间 + 日程内容”。</p>
+            </div>
+          </div>
+          <div class="schedule-head" aria-hidden="true">
+            <span>时间</span><span>日程内容</span><span>讲者</span><span>主席</span>
+          </div>
           <div id="schedule"></div>
         </section>
 
-        <section class="card">
-          <h2>4. 二维码</h2>
-          <div class="upload-line">
-            <input id="qrFile" type="file" accept="image/png,image/jpeg,image/webp" required />
-            <img id="qrPreview" class="qr-preview" alt="二维码预览" />
+        <section class="card section-card">
+          <div class="section-head">
+            <span class="section-no">04</span>
+            <div>
+              <h2>会议二维码</h2>
+              <p>上传最终需要出现在海报上的二维码图片。</p>
+            </div>
+          </div>
+          <div class="upload-line qr-upload">
+            <div class="file-field">
+              <span class="file-field-title">选择二维码图片</span>
+              <span class="file-field-tip">支持 PNG / JPG / WebP</span>
+              <input id="qrFile" type="file" accept="image/png,image/jpeg,image/webp" required />
+            </div>
+            <div class="qr-preview-wrap">
+              <span>预览</span>
+              <img id="qrPreview" class="qr-preview" alt="二维码预览" />
+            </div>
           </div>
         </section>
 
-        <section class="card">
-          <h2>5. 输出</h2>
-          <label>文件名<input id="outputName" value="系列会议海报" /></label>
-          <button id="submitBtn" type="submit" class="primary">生成正式海报</button>
-          <p class="tip">提交后可以刷新或重新打开页面；当前任务会自动恢复。你的 Mac 上 Photoshop Worker 在线时，一般几十秒内完成。</p>
+        <section class="card section-card output-card">
+          <div class="section-head">
+            <span class="section-no">05</span>
+            <div>
+              <h2>生成与输出</h2>
+              <p>文件名可使用中文，云端存储会自动使用安全文件名，下载时恢复中文名称。</p>
+            </div>
+          </div>
+          <label class="field-label">输出文件名
+            <input id="outputName" value="系列会议海报" />
+          </label>
+          <button id="submitBtn" type="submit" class="primary">
+            <span>生成正式海报</span>
+            <small>Photoshop PSD 母版渲染</small>
+          </button>
+          <p class="tip submit-tip">提交后可以刷新或重新打开页面，当前任务会自动恢复；生成服务在线时通常几十秒内完成。</p>
         </section>
       </form>
 
       <aside class="result-panel">
-        <div class="card sticky">
-          <h2>任务状态</h2>
+        <div class="card sticky status-card">
+          <div class="aside-title-row">
+            <div>
+              <span class="aside-kicker">CURRENT JOB</span>
+              <h2>当前任务</h2>
+            </div>
+            <span class="live-dot" aria-hidden="true"></span>
+          </div>
           <div id="jobStatus" class="status-box">尚未提交任务</div>
           <div id="progressSteps" class="steps"></div>
           <img id="resultPreview" class="result-preview" alt="生成结果" />
           <div id="downloads" class="downloads"></div>
-          <pre id="debug" class="debug"></pre>
+          <details class="debug-details">
+            <summary>运行日志</summary>
+            <pre id="debug" class="debug"></pre>
+          </details>
         </div>
 
         <div class="card history-card">
           <div class="history-head">
-            <h2>最近任务</h2>
+            <div>
+              <span class="aside-kicker">HISTORY</span>
+              <h2>最近任务</h2>
+            </div>
             <button id="refreshHistory" type="button" class="secondary compact">刷新</button>
           </div>
-          <p class="tip history-tip">当前浏览器匿名用户最近 20 条任务。刷新页面后仍可从这里重新查看成功结果。</p>
+          <p class="tip history-tip">保留当前浏览器匿名用户最近 20 条任务；刷新页面后仍可重新查看与下载成功结果。</p>
           <div id="historyList" class="history-list"><div class="history-empty">正在加载…</div></div>
         </div>
       </aside>
     </main>
+
+    <footer class="page-footer">Photoshop Render Bridge · Browser → Supabase → Mac Agent → Photoshop</footer>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
+  <script src="fixed-defaults.js"></script>
   <script src="service-status.js"></script>
 </body>
 </html>
