@@ -277,7 +277,9 @@ async function fitSmartObjectToBox(layer, box, { cover = false, zoom = 1, offset
     box.top + box.height / 2 - geometry.centerY
   );
 
-  const safeZoom = Math.max(1, Number(zoom) || 1);
+  // 允许网页裁剪器把图片缩小到铺满尺寸以下；不再强制 zoom >= 1。
+  const requestedZoom = Number(zoom);
+  const safeZoom = Number.isFinite(requestedZoom) ? Math.max(0.2, requestedZoom) : 1;
   if (Math.abs(safeZoom - 1) > 0.001) {
     await layer.scale(
       safeZoom * 100, safeZoom * 100,
