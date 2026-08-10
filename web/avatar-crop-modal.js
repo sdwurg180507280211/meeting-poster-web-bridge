@@ -11,6 +11,11 @@
   const resetBtn = document.getElementById('resetAvatarCropModal');
   if (!modal || !stage || !image || !zoomRange) return;
 
+  const MIN_ZOOM = 0.2;
+  const MAX_ZOOM = 2.5;
+  zoomRange.min = String(Math.round(MIN_ZOOM * 100));
+  zoomRange.max = String(Math.round(MAX_ZOOM * 100));
+
   const defs = {
     chair: { label: '会议主席' },
     speaker1: { label: '讲者一' },
@@ -64,8 +69,9 @@
       side,
       dw,
       dh,
-      maxX: Math.max(0, ((dw - side) / 2) / side * 100),
-      maxY: Math.max(0, ((dh - side) / 2) / side * 100),
+      // 缩小到裁剪框以内时也允许移动，方便把小图摆到圆形区域中的任意位置。
+      maxX: Math.abs(dw - side) / 2 / side * 100,
+      maxY: Math.abs(dh - side) / 2 / side * 100,
     };
   }
 
@@ -94,7 +100,7 @@
     if (!st) return;
     const before = stageMetrics();
     const oldZoom = st.zoom;
-    st.zoom = clamp(Number(percent) / 100, 1, 2.5);
+    st.zoom = clamp(Number(percent) / 100, MIN_ZOOM, MAX_ZOOM);
 
     if (anchor && oldZoom > 0) {
       const rect = stage.getBoundingClientRect();
@@ -120,7 +126,7 @@
 
   function syncFromControls(key) {
     const st = states[key];
-    st.zoom = clamp(Number(zoomFor(key)?.value || 100) / 100, 1, 2.5);
+    st.zoom = clamp(Number(zoomFor(key)?.value || 100) / 100, MIN_ZOOM, MAX_ZOOM);
     st.offsetX = Number(xFor(key)?.value || 0);
     st.offsetY = Number(yFor(key)?.value || 0);
   }
@@ -163,10 +169,14 @@
     const im = new Image();
     im.onload = () => {
       st.sourceImage = im;
-      st.zoom = 1;
-      st.offsetX = 0;
-      st.offsetY = 0;
-      st.applied = false;
+      if (reset) {
+        st.zoom = 1;
+        st.offsetX = 0;
+        st.offsetY = 0;
+      } else {
+        syncFromControls(key);
+      }
+      st.applied = !reset;
       if (open) showModal(key);
     };
     im.onerror = () => alert('头像图片读取失败，请换一张图片重试。');
@@ -188,10 +198,14 @@
 
   Object.keys(defs).forEach(key => {
     const input = inputFor(key);
+    const z = zoomFor(key);
+    if (z) z.min = String(Math.round(MIN_ZOOM * 100));
     if (!input) return;
     input.addEventListener('change', () => {
       const file = input.files?.[0];
-      if (file) loadFile(key, file, { reset: true, open: true });
+      if (!file) return;
+      const restoring = input.dataset.restoringDraft === '1';
+      loadFile(key, file, { reset: !restoring, open: !restoring });
     });
 
     const host = input.parentElement;
