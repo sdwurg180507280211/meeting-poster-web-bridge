@@ -11,7 +11,6 @@
   };
   const QR = { left:338, top:1576, size:148 };
   const W=837, H=1880;
-  const qrState={source:null,url:'',zoom:1,offsetX:0,offsetY:0,loaded:false};
 
   function pct(v,total){return `${(v/total)*100}%`;}
   function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
@@ -86,7 +85,6 @@
 
   Object.entries(avatarSpec).forEach(([k,s])=>createAvatarSlot(k,s));
 
-  // 人物姓名/医院直接出现在海报位置。
   const personTextSpec={
     chair:{name:[362,682,114,24],hospital:[341,717,155,18]},
     speaker1:{name:[247,1018,109,24],hospital:[223,1044,155,18]},
@@ -124,42 +122,37 @@
   for(let i=0;i<4;i++) ['time','content','speaker','chair'].forEach(k=>document.getElementById(`s-${k}-${i}`)?.addEventListener('input',syncAgenda));
   syncAgenda();
 
-  // 二维码：画布上直接拖动 + 滚轮缩放，提交前真正裁成方形 PNG。
-  const qrSlot=document.createElement('div'); qrSlot.className='canvas-qr-slot';
+  // 二维码在海报上只承担“选中/打开裁剪器”和“显示最终裁剪结果”。
+  // 真正的拖动、缩放、Canvas 输出全部由 qr-crop-modal.js 负责，避免两套坐标系统互相打架。
+  const qrSlot=document.createElement('div');
+  qrSlot.className='canvas-qr-slot';
   qrSlot.style.left=pct(QR.left,W);qrSlot.style.top=pct(QR.top,H);qrSlot.style.width=pct(QR.size,W);qrSlot.style.height=pct(QR.size,H);
-  qrSlot.innerHTML='<img alt="二维码"><span>二维码<br>点击上传</span>';
+  qrSlot.innerHTML='<img alt="二维码"><span>二维码<br>点击裁剪</span>';
   poster.appendChild(qrSlot);
-  const qrImg=qrSlot.querySelector('img'),qrHint=qrSlot.querySelector('span'),qrInput=document.getElementById('qrFile'),readout=document.getElementById('qrCropReadout');
-  function renderQr(){qrImg.style.transform=`translate(${qrState.offsetX}%,${qrState.offsetY}%) scale(${qrState.zoom})`;if(readout)readout.textContent=`缩放 ${Math.round(qrState.zoom*100)}% · X ${Math.round(qrState.offsetX)} · Y ${Math.round(qrState.offsetY)}`;}
-  qrInput?.addEventListener('change',()=>{
-    const f=qrInput.files?.[0];if(!f)return;
-    qrState.source=f; if(qrState.url)URL.revokeObjectURL(qrState.url);qrState.url=URL.createObjectURL(f);
-    const im=new Image(); im.onload=()=>{qrState.loaded=true;qrImg.src=qrState.url;qrImg.style.display='block';qrHint.style.display='none';renderQr();};im.src=qrState.url;
-  });
-  qrSlot.addEventListener('click',()=>{openSection('qr');if(!qrState.source)qrInput?.click();}); qrSlot.addEventListener('dblclick',()=>qrInput?.click());
-  let qdrag=false,qx=0,qy=0,qsx=0,qsy=0;
-  qrSlot.addEventListener('pointerdown',e=>{if(e.button!==0||!qrState.source)return;qdrag=true;qx=e.clientX;qy=e.clientY;qsx=qrState.offsetX;qsy=qrState.offsetY;qrSlot.setPointerCapture(e.pointerId);qrSlot.classList.add('dragging');e.preventDefault();});
-  qrSlot.addEventListener('pointermove',e=>{if(!qdrag)return;const r=qrSlot.getBoundingClientRect();qrState.offsetX=clamp(qsx+(e.clientX-qx)/r.width*100,-100,100);qrState.offsetY=clamp(qsy+(e.clientY-qy)/r.height*100,-100,100);renderQr();});
-  qrSlot.addEventListener('pointerup',e=>{qdrag=false;qrSlot.classList.remove('dragging');try{qrSlot.releasePointerCapture(e.pointerId)}catch{}});
-  qrSlot.addEventListener('wheel',e=>{if(!qrState.source)return;e.preventDefault();qrState.zoom=clamp(qrState.zoom+(e.deltaY<0?.05:-.05),1,3);renderQr();},{passive:false});
-  document.getElementById('resetQrCrop')?.addEventListener('click',()=>{qrState.zoom=1;qrState.offsetX=0;qrState.offsetY=0;renderQr();});
+  const qrImg=qrSlot.querySelector('img');
+  const qrHint=qrSlot.querySelector('span');
+  const qrInput=document.getElementById('qrFile');
 
-  function makeCroppedQrFile(){
-    if(!qrState.source||!qrState.loaded||!qrImg.naturalWidth)return null;
-    const size=1024,w=qrImg.naturalWidth,h=qrImg.naturalHeight;
-    const base=Math.max(size/w,size/h),scale=base*qrState.zoom;
-    const dw=w*scale,dh=h*scale;
-    const dx=(size-dw)/2+(qrState.offsetX/100)*size,dy=(size-dh)/2+(qrState.offsetY/100)*size;
-    const c=document.createElement('canvas');c.width=size;c.height=size;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);ctx.drawImage(qrImg,dx,dy,dw,dh);
-    const data=c.toDataURL('image/png');const b64=data.split(',')[1];const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-    return new File([bytes],'qr-cropped.png',{type:'image/png'});
+  function openQrEditor(){
+    openSection('qr');
+    if (window.posterQrCrop?.open) window.posterQrCrop.open();
+    else if (!qrInput?.files?.length) qrInput?.click();
   }
-  document.getElementById('posterForm')?.addEventListener('submit',()=>{
-    const cropped=makeCroppedQrFile();if(!cropped||!qrInput)return;
-    try{const dt=new DataTransfer();dt.items.add(cropped);qrInput.files=dt.files;}catch(err){console.warn('无法替换裁剪后的二维码文件',err);}
-  },true);
+  qrSlot.addEventListener('click',openQrEditor);
+  qrSlot.addEventListener('dblclick',openQrEditor);
 
-  // Inspector：可完全收起；Tab 切换。
+  document.addEventListener('qr-crop-applied',e=>{
+    const url=e.detail?.previewUrl;
+    if(!url)return;
+    qrImg.src=url;
+    qrImg.style.display='block';
+    qrImg.style.width='100%';
+    qrImg.style.height='100%';
+    qrImg.style.objectFit='cover';
+    qrImg.style.transform='none';
+    qrHint.style.display='none';
+  });
+
   function collapseInspector(){workspace.classList.add('inspector-collapsed');}
   function expandInspector(){workspace.classList.remove('inspector-collapsed');}
   document.getElementById('collapseInspector')?.addEventListener('click',collapseInspector);
@@ -172,7 +165,5 @@
   }
   document.querySelectorAll('.inspector-tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
   window.__posterShowTaskTab=()=>{showTab('task');expandInspector();};
-
-  // 任务成功时用户通常想看结果，点击状态区也可切换到任务 Tab。
   document.getElementById('jobStatus')?.addEventListener('click',()=>showTab('task'));
 })();
