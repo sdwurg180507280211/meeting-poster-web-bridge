@@ -163,6 +163,32 @@
     });
   }
 
+  function installSubmitDock() {
+    const inspector = document.getElementById('inspector');
+    const editTab = document.getElementById('editTab');
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('posterForm');
+    if (!inspector || !editTab || !submitBtn || !form || inspector.querySelector('.submit-dock')) return;
+
+    const dock = document.createElement('div');
+    dock.className = 'submit-dock';
+    const meta = document.createElement('div');
+    meta.className = 'submit-dock-meta';
+    meta.innerHTML = '<strong>正式输出</strong><span>由 Mac Photoshop 生成 PSD / PNG</span>';
+
+    submitBtn.setAttribute('form', form.id);
+    submitBtn.classList.add('submit-dock-button');
+    dock.append(meta, submitBtn);
+    inspector.appendChild(dock);
+
+    function syncVisibility() {
+      dock.hidden = !editTab.classList.contains('active');
+    }
+
+    new MutationObserver(syncVisibility).observe(editTab, { attributes: true, attributeFilter: ['class'] });
+    syncVisibility();
+  }
+
   function installTaskBadge() {
     if (!taskTab || !jobStatus) return;
     let badge = taskTab.querySelector('.task-tab-badge');
@@ -269,6 +295,7 @@
   installZoomControls();
   decorateSchedule();
   installUtilityMenu();
+  installSubmitDock();
   installTaskBadge();
   installInspectorLinking();
 })();
