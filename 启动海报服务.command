@@ -1,5 +1,6 @@
 #!/bin/zsh
 set -u
+umask 077
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 AGENT_DIR="$ROOT_DIR/mac-agent"
@@ -9,6 +10,9 @@ LOG_FILE="$RUNTIME_DIR/mac-agent.log"
 PUBLIC_URL="https://meeting-poster-web-bridge.vercel.app/"
 
 mkdir -p "$RUNTIME_DIR"
+chmod 700 "$RUNTIME_DIR"
+touch "$LOG_FILE"
+chmod 600 "$LOG_FILE"
 
 clear
 printf "\n========================================\n"
@@ -31,14 +35,23 @@ if [ ! -f "$AGENT_DIR/.env" ]; then
 fi
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "❌ 未找到 Node.js。请先安装 Node.js 20+。"
+  echo "❌ 未找到 Node.js。请先安装 Node.js 22 或更高版本。"
   read "?按回车退出..."
   exit 1
 fi
 
+NODE_MAJOR="$(node -p 'Number(process.versions.node.split(".")[0])')"
+if [ "$NODE_MAJOR" -lt 22 ]; then
+  echo "❌ 当前 Node.js 版本为 $(node -v)，本项目需要 Node.js 22 或更高版本。"
+  read "?按回车退出..."
+  exit 1
+fi
+
+chmod 600 "$AGENT_DIR/.env"
+
 if [ ! -d "$AGENT_DIR/node_modules" ]; then
   echo "首次运行：正在安装 Mac Agent 依赖..."
-  (cd "$AGENT_DIR" && npm install)
+  (cd "$AGENT_DIR" && npm ci)
   if [ $? -ne 0 ]; then
     echo "❌ npm install 失败。"
     read "?按回车退出..."
@@ -46,24 +59,44 @@ if [ ! -d "$AGENT_DIR/node_modules" ]; then
   fi
 fi
 
+find_agent_pids() {
+  local candidate process_cwd
+  ps -axo pid=,comm=,command= | awk '$2 == "node" && $0 ~ /node[[:space:]]+src\/agent\.js([[:space:]]|$)/ {print $1}' | while IFS= read -r candidate; do
+    process_cwd="$(/usr/sbin/lsof -a -p "$candidate" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n 1)"
+    if [ "$process_cwd" = "$AGENT_DIR" ]; then
+      echo "$candidate"
+    fi
+  done
+}
+
+RUNNING_PIDS=()
+while IFS= read -r RUNNING_PID; do
+  if [ -n "$RUNNING_PID" ]; then RUNNING_PIDS+=("$RUNNING_PID"); fi
+done < <(find_agent_pids)
+
 AGENT_RUNNING=0
-if [ -f "$PID_FILE" ]; then
-  OLD_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
-  if [ -n "${OLD_PID:-}" ] && kill -0 "$OLD_PID" 2>/dev/null; then
-    AGENT_RUNNING=1
-    echo "✅ Mac Agent 已经在运行（PID $OLD_PID），不会重复启动。"
-  else
-    rm -f "$PID_FILE"
-  fi
+if [ "${#RUNNING_PIDS[@]}" -gt 1 ]; then
+  echo "❌ 检测到多个旧版 Mac Agent 正在运行（PID ${RUNNING_PIDS[*]}）。"
+  echo "请先运行『停止海报服务.command』，再重新启动；新版本会强制保持单实例。"
+  read "?按回车退出..."
+  exit 1
+elif [ "${#RUNNING_PIDS[@]}" -eq 1 ]; then
+  AGENT_RUNNING=1
+  echo "${RUNNING_PIDS[1]}" > "$PID_FILE"
+  chmod 600 "$PID_FILE"
+  echo "✅ Mac Agent 已经在运行（PID ${RUNNING_PIDS[1]}），不会重复启动。"
+elif [ -f "$PID_FILE" ]; then
+  rm -f "$PID_FILE"
 fi
 
 if [ "$AGENT_RUNNING" -eq 0 ]; then
   echo "▶ 正在启动 Mac Agent..."
   (
     cd "$AGENT_DIR" || exit 1
-    nohup npm start >> "$LOG_FILE" 2>&1 &
+    nohup node src/agent.js >> "$LOG_FILE" 2>&1 &
     echo $! > "$PID_FILE"
   )
+  chmod 600 "$PID_FILE"
   sleep 1
   NEW_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
   if [ -n "${NEW_PID:-}" ] && kill -0 "$NEW_PID" 2>/dev/null; then

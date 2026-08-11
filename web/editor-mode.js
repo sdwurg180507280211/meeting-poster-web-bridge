@@ -6,9 +6,9 @@
 
   // 与 PSD 母版完全一致的头像/二维码几何坐标（837 × 1880）。
   const avatarSpec = {
-    chair: { left:347, top:504, size:150, name:'主席' },
-    speaker1: { left:223, top:844, size:150, name:'讲者一' },
-    speaker2: { left:463, top:844, size:150, name:'讲者二' },
+    chair: { left:342, top:496, size:168, name:'主席' },
+    speaker1: { left:221, top:836, size:168, name:'讲者一' },
+    speaker2: { left:457, top:836, size:168, name:'讲者二' },
   };
   const QR = { left:338, top:1576, size:148 };
   const W=837, H=1880;

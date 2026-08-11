@@ -2,6 +2,7 @@
   const FORM_KEY = 'meetingPosterEditorDraftV2';
   const DB_NAME = 'meetingPosterEditorFilesV1';
   const STORE = 'files';
+  const AVATAR_OUTPUT_SIZE = 1024;
   const form = document.getElementById('posterForm');
   if (!form) return;
 
@@ -16,8 +17,10 @@
     'speaker2-zoom', 'speaker2-x', 'speaker2-y',
   ];
   const fileIds = ['chair-file', 'speaker1-file', 'speaker2-file', 'qrFile'];
+  const avatarFileIds = new Set(['chair-file', 'speaker1-file', 'speaker2-file']);
 
   let saveTimer = null;
+  let clearing = false;
 
   function emitInput(el) {
     el?.dispatchEvent(new Event('input', { bubbles: true }));
@@ -48,6 +51,7 @@
   }
 
   function saveNow() {
+    if (clearing) return;
     try {
       localStorage.setItem(FORM_KEY, JSON.stringify(snapshot()));
     } catch (err) {
@@ -56,6 +60,7 @@
   }
 
   function scheduleSave() {
+    if (clearing) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveNow, 180);
   }
@@ -87,9 +92,11 @@
     });
   }
 
-  async function putFile(id, file) {
-    if (!file) return;
+  async function putFile(id, file, metadata = {}) {
+    if (!file || clearing) return;
     try {
+      const cropMode = metadata.cropMode === 'baked' ? 'baked' : 'raw';
+      const outputSize = cropMode === 'baked' ? AVATAR_OUTPUT_SIZE : null;
       const db = await openDb();
       await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE, 'readwrite');
@@ -98,6 +105,7 @@
           name: file.name || `${id}.png`,
           type: file.type || 'application/octet-stream',
           lastModified: file.lastModified || Date.now(),
+          ...(avatarFileIds.has(id) ? { cropMode, outputSize } : {}),
         }, id);
         tx.oncomplete = resolve;
         tx.onerror = () => reject(tx.error);
@@ -135,10 +143,14 @@
       });
       db.close();
       if (!record?.blob) return null;
-      return new File([record.blob], record.name || `${id}.png`, {
-        type: record.type || record.blob.type || 'application/octet-stream',
-        lastModified: record.lastModified || Date.now(),
-      });
+      return {
+        file: new File([record.blob], record.name || `${id}.png`, {
+          type: record.type || record.blob.type || 'application/octet-stream',
+          lastModified: record.lastModified || Date.now(),
+        }),
+        cropMode: record.cropMode === 'baked' ? 'baked' : 'raw',
+        outputSize: record.cropMode === 'baked' ? AVATAR_OUTPUT_SIZE : null,
+      };
     } catch (err) {
       console.warn(`恢复本地素材失败：${id}`, err);
       return null;
@@ -146,23 +158,65 @@
   }
 
   async function restoreFiles() {
+    if (clearing) return;
     for (const id of fileIds) {
       const input = document.getElementById(id);
       if (!input) continue;
-      const file = await getFile(id);
-      if (!file) continue;
+      const restored = await getFile(id);
+      if (!restored?.file) continue;
       try {
         const dt = new DataTransfer();
-        dt.items.add(file);
+        dt.items.add(restored.file);
         input.dataset.restoringDraft = '1';
+        if (avatarFileIds.has(id)) {
+          input.dataset.avatarCropMode = restored.cropMode;
+          if (restored.outputSize) input.dataset.avatarOutputSize = String(restored.outputSize);
+        }
         input.files = dt.files;
         input.dispatchEvent(new Event('change', { bubbles: true }));
-        setTimeout(() => { delete input.dataset.restoringDraft; }, 0);
+        setTimeout(() => {
+          delete input.dataset.restoringDraft;
+          delete input.dataset.avatarCropMode;
+          delete input.dataset.avatarOutputSize;
+        }, 0);
       } catch (err) {
         console.warn(`恢复文件输入失败：${id}`, err);
       }
     }
     document.dispatchEvent(new CustomEvent('poster-draft-files-restored'));
+  }
+
+  function deleteDraftDatabase() {
+    if (!window.indexedDB) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.deleteDatabase(DB_NAME);
+      let blockedTimer = null;
+      req.onsuccess = () => {
+        clearTimeout(blockedTimer);
+        resolve();
+      };
+      req.onerror = () => {
+        clearTimeout(blockedTimer);
+        reject(req.error || new Error('IndexedDB 删除失败'));
+      };
+      req.onblocked = () => {
+        blockedTimer = setTimeout(() => reject(new Error('IndexedDB 正被其他页面占用，请关闭同一网站的其他标签页后重试')), 1500);
+      };
+    });
+  }
+
+  async function clearAll() {
+    clearing = true;
+    clearTimeout(saveTimer);
+    const errors = [];
+    try { localStorage.removeItem(FORM_KEY); }
+    catch (err) { errors.push(err); }
+    try { await deleteDraftDatabase(); }
+    catch (err) { errors.push(err); }
+    if (errors.length) {
+      clearing = false;
+      throw new Error(errors.map(err => err.message || err).join('；'));
+    }
   }
 
   prepareCropRanges();
@@ -176,7 +230,14 @@
     const input = document.getElementById(id);
     input?.addEventListener('change', () => {
       if (input.dataset.restoringDraft === '1') return;
-      putFile(id, input.files?.[0]);
+      const cropMode = input.dataset.avatarCropMode === 'baked'
+        || input.dataset.avatarCropApplied === '1'
+        ? 'baked'
+        : 'raw';
+      putFile(id, input.files?.[0], {
+        cropMode,
+        outputSize: Number(input.dataset.avatarOutputSize) || null,
+      });
     });
   }
 
@@ -186,7 +247,10 @@
   document.addEventListener('avatar-crop-applied', e => {
     const key = e.detail?.key;
     const file = e.detail?.file;
-    if (key && file) putFile(`${key}-file`, file);
+    if (key && file) putFile(`${key}-file`, file, {
+      cropMode: e.detail?.cropMode,
+      outputSize: e.detail?.outputSize,
+    });
     scheduleSave();
   });
 
@@ -207,5 +271,6 @@
     save: saveNow,
     restore: () => { restoreScalars(); restoreFiles(); },
     removeFile: deleteFile,
+    clearAll,
   };
 })();

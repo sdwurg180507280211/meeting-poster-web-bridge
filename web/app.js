@@ -10,45 +10,86 @@
   const progressSteps = document.getElementById('progressSteps');
   const historyList = document.getElementById('historyList');
   const refreshHistoryBtn = document.getElementById('refreshHistory');
+  const clearLocalDataBtn = document.getElementById('clearLocalData');
+  const validation = window.PosterValidation;
 
   const ACTIVE_JOB_KEY = 'meetingPosterActiveJobV1';
+  const AVATAR_OUTPUT_SIZE = 1024;
   const peopleDef = [['chair','会议主席'], ['speaker1','讲者一'], ['speaker2','讲者二']];
   const peopleState = {};
+  let qrPreviewUrl = '';
   let client = null;
   let user = null;
   let activeJob = null;
-  let pollTimer = null;
+  let pollState = null;
+  let pollGeneration = 0;
+  let submitBusy = false;
+
+  window.posterTimeControlsState = window.posterTimeControlsState || {
+    ready: false,
+    failed: false,
+    reason: '时间选择组件正在加载',
+  };
 
   function log(msg) {
     debugEl.textContent += `${new Date().toLocaleTimeString()} ${msg}\n`;
     debugEl.scrollTop = debugEl.scrollHeight;
   }
-  function safeExt(name) {
-    const m = String(name || '').toLowerCase().match(/\.([a-z0-9]+)$/);
-    return m ? m[1].replace('jpeg', 'jpg') : 'png';
-  }
   function uuid() {
-    return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    if (!validation) throw new Error('页面校验组件未加载，请刷新后重试');
+    return validation.createUuid(window.crypto);
   }
   function val(id) { return document.getElementById(id).value.trim(); }
   function safeDownloadName(name) {
     return (String(name || '系列会议海报').trim() || '系列会议海报').replace(/[\\/:*?"<>|]/g, '_');
   }
+  function readLocalStorage(key) {
+    try { return localStorage.getItem(key); }
+    catch (err) { log(`无法读取本机状态：${err.message}`); return null; }
+  }
+  function writeLocalStorage(key, value) {
+    try { localStorage.setItem(key, value); }
+    catch (err) { log(`无法保存本机状态：${err.message}`); }
+  }
+  function removeLocalStorage(key) {
+    try { localStorage.removeItem(key); }
+    catch (err) { log(`无法清除本机状态：${err.message}`); }
+  }
   function saveActiveJob(id) {
-    activeJob = id || null;
-    if (activeJob) localStorage.setItem(ACTIVE_JOB_KEY, activeJob);
-    else localStorage.removeItem(ACTIVE_JOB_KEY);
+    const nextJob = id || null;
+    if (nextJob !== activeJob) {
+      activeJob = nextJob;
+      stopPolling();
+    }
+    if (activeJob) writeLocalStorage(ACTIVE_JOB_KEY, activeJob);
+    else removeLocalStorage(ACTIVE_JOB_KEY);
   }
   function stopPolling() {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = null;
+    pollGeneration += 1;
+    if (pollState?.timer) clearTimeout(pollState.timer);
+    if (pollState) pollState.cancelled = true;
+    pollState = null;
+  }
+  function setSubmitBusy(busy) {
+    submitBusy = Boolean(busy);
+    refreshSubmitAvailability();
+  }
+  function refreshSubmitAvailability() {
+    const timeReady = window.posterTimeControlsState?.ready === true;
+    submitBtn.disabled = submitBusy || !timeReady;
   }
 
   function buildPeople() {
     const root = document.getElementById('people');
     root.innerHTML = '';
     peopleDef.forEach(([key, label]) => {
-      peopleState[key] = { file: null, url: '', crop: { zoom: 1, offsetX: 0, offsetY: 0 } };
+      peopleState[key] = {
+        file: null,
+        url: '',
+        crop: { zoom: 1, offsetX: 0, offsetY: 0 },
+        cropMode: 'raw',
+        outputSize: null,
+      };
       const wrap = document.createElement('div');
       wrap.className = 'person';
       wrap.innerHTML = `
@@ -60,10 +101,10 @@
           </div>
           <div>
             <div class="grid2">
-              <label>姓名<input id="${key}-name" required></label>
-              <label>职称（可选）<input id="${key}-title"></label>
+              <label>姓名<input id="${key}-name" maxlength="40" required></label>
+              <label>职称（可选）<input id="${key}-title" maxlength="40"></label>
             </div>
-            <label style="margin-top:10px">医院<input id="${key}-hospital" required></label>
+            <label style="margin-top:10px">医院<input id="${key}-hospital" maxlength="120" required></label>
             <div class="crop-controls">
               ${rangeHtml(key, 'zoom', '缩放', 100, 250, 100, '%')}
               ${rangeHtml(key, 'x', '左右', -100, 100, 0, '')}
@@ -72,7 +113,7 @@
           </div>
         </div>`;
       root.appendChild(wrap);
-      document.getElementById(`${key}-file`).addEventListener('change', e => onAvatarFile(key, e.target.files[0]));
+      document.getElementById(`${key}-file`).addEventListener('change', e => onAvatarFile(key, label, e.target));
       ['zoom', 'x', 'y'].forEach(axis => document.getElementById(`${key}-${axis}`).addEventListener('input', e => {
         const v = Number(e.target.value);
         document.getElementById(`${key}-${axis}-v`).textContent = axis === 'zoom' ? `${v}%` : String(v);
@@ -88,10 +129,23 @@
     return `<div class="range-row"><span>${label}</span><input id="${key}-${axis}" type="range" min="${min}" max="${max}" value="${value}"><span id="${key}-${axis}-v">${value}${suffix}</span></div>`;
   }
 
-  function onAvatarFile(key, file) {
+  function onAvatarFile(key, label, input) {
+    const file = input.files?.[0];
     if (!file) return;
+    const fileError = validation?.validateImageFile(file, `${label}头像`);
+    if (fileError) {
+      input.value = '';
+      document.dispatchEvent(new CustomEvent('avatar-image-reset', { detail: { key } }));
+      alert(fileError);
+      return;
+    }
     const st = peopleState[key];
+    const isBaked = input.dataset.avatarCropMode === 'baked'
+      || input.dataset.avatarCropApplied === '1';
     st.file = file;
+    st.cropMode = isBaked ? 'baked' : 'raw';
+    st.outputSize = isBaked ? AVATAR_OUTPUT_SIZE : null;
+    if (isBaked) st.crop = { zoom: 1, offsetX: 0, offsetY: 0 };
     if (st.url) URL.revokeObjectURL(st.url);
     st.url = URL.createObjectURL(file);
     const img = document.getElementById(`${key}-img`);
@@ -106,6 +160,8 @@
     st.file = null;
     st.url = '';
     st.crop = { zoom: 1, offsetX: 0, offsetY: 0 };
+    st.cropMode = 'raw';
+    st.outputSize = null;
 
     const img = document.getElementById(`${key}-img`);
     if (img) {
@@ -131,6 +187,15 @@
     if (key) clearAvatar(key);
   });
 
+  document.addEventListener('avatar-crop-applied', e => {
+    const key = e.detail?.key;
+    const st = key ? peopleState[key] : null;
+    if (!st) return;
+    st.crop = { zoom: 1, offsetX: 0, offsetY: 0 };
+    st.cropMode = 'baked';
+    st.outputSize = AVATAR_OUTPUT_SIZE;
+  });
+
   function renderAvatar(key) {
     const st = peopleState[key];
     const img = document.getElementById(`${key}-img`);
@@ -151,7 +216,7 @@
     for (let i = 0; i < 4; i++) {
       const row = document.createElement('div');
       row.className = 'schedule-row';
-      row.innerHTML = `<input id="s-time-${i}" placeholder="时间"><input id="s-content-${i}" placeholder="日程内容"><input id="s-speaker-${i}" placeholder="讲者"><input id="s-chair-${i}" placeholder="主席">`;
+      row.innerHTML = `<input id="s-time-${i}" maxlength="32" placeholder="时间"><input id="s-content-${i}" maxlength="200" placeholder="日程内容"><input id="s-speaker-${i}" maxlength="80" placeholder="讲者"><input id="s-chair-${i}" maxlength="80" placeholder="主席">`;
       root.appendChild(row);
     }
   }
@@ -160,18 +225,35 @@
     const f = e.target.files[0];
     const img = document.getElementById('qrPreview');
     if (!f) { img.style.display = 'none'; return; }
-    img.src = URL.createObjectURL(f);
+    const fileError = validation?.validateImageFile(f, '二维码');
+    if (fileError) {
+      e.target.value = '';
+      if (qrPreviewUrl) URL.revokeObjectURL(qrPreviewUrl);
+      qrPreviewUrl = '';
+      img.removeAttribute('src');
+      img.style.display = 'none';
+      document.dispatchEvent(new CustomEvent('qr-image-reset'));
+      alert(fileError);
+      return;
+    }
+    if (qrPreviewUrl) URL.revokeObjectURL(qrPreviewUrl);
+    qrPreviewUrl = URL.createObjectURL(f);
+    img.src = qrPreviewUrl;
     img.style.display = 'block';
   });
 
   async function init() {
+    if (!supabaseLib?.createClient) throw new Error('云端连接组件加载失败，请刷新页面重试');
+    if (!validation) throw new Error('页面校验组件加载失败，请刷新页面重试');
     if (!cfg.SUPABASE_URL || cfg.SUPABASE_URL.includes('YOUR_PROJECT') || !cfg.SUPABASE_PUBLISHABLE_KEY || cfg.SUPABASE_PUBLISHABLE_KEY.includes('YOUR_')) {
       cloudState.textContent = '请先配置 config.js';
       cloudState.className = 'badge bad';
       return;
     }
     client = supabaseLib.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY);
-    let { data: { session } } = await client.auth.getSession();
+    const sessionResult = await client.auth.getSession();
+    if (sessionResult.error) throw sessionResult.error;
+    let { session } = sessionResult.data;
     if (!session) {
       const r = await client.auth.signInAnonymously();
       if (r.error) throw r.error;
@@ -187,7 +269,7 @@
   }
 
   async function restoreActiveJob() {
-    let stored = localStorage.getItem(ACTIVE_JOB_KEY);
+    let stored = readLocalStorage(ACTIVE_JOB_KEY);
     if (!stored) {
       const { data, error } = await client.from('poster_jobs')
         .select('id,status')
@@ -201,12 +283,12 @@
 
     const { data, error } = await client.from('poster_jobs').select('*').eq('id', stored).maybeSingle();
     if (error || !data) {
-      localStorage.removeItem(ACTIVE_JOB_KEY);
+      removeLocalStorage(ACTIVE_JOB_KEY);
       return;
     }
     saveActiveJob(data.id);
     log(`恢复任务 ${data.id} (${data.status})`);
-    await presentJob(data, true);
+    await presentJob(data);
   }
 
   function collectMeeting() {
@@ -232,45 +314,94 @@
 
   async function uploadFile(path, file) {
     const { error } = await client.storage.from(cfg.BUCKET || 'poster-assets').upload(path, file, {
-      contentType: file.type || 'application/octet-stream',
+      contentType: String(file.type || '').toLowerCase(),
       upsert: false
     });
     if (error) throw error;
   }
 
+  async function cleanupUploads(paths) {
+    if (!paths.length) return;
+    try {
+      const { error } = await client.storage.from(cfg.BUCKET || 'poster-assets').remove(paths);
+      if (error) throw error;
+      log(`已清理 ${paths.length} 个未关联素材`);
+    } catch (err) {
+      console.error('清理未关联素材失败', err);
+      log(`未关联素材清理失败：${err.message || err}`);
+    }
+  }
+
   document.getElementById('posterForm').addEventListener('submit', async e => {
     e.preventDefault();
     if (!client || !user) { alert('Supabase 尚未连接'); return; }
+    const uploadedPaths = [];
+    let jobCreated = false;
+    let jobId = null;
     try {
-      submitBtn.disabled = true;
+      if (window.posterTimeControlsState?.ready !== true) {
+        throw new Error(window.posterTimeControlsState?.reason || '时间选择组件尚未就绪，请刷新页面重试');
+      }
+      setSubmitBusy(true);
       downloads.innerHTML = '';
       resultPreview.style.display = 'none';
       const qr = document.getElementById('qrFile').files[0];
-      for (const [key, label] of peopleDef) if (!peopleState[key].file) throw new Error(`请上传${label}头像`);
+      const files = {};
+      for (const [key, label] of peopleDef) {
+        const file = peopleState[key].file;
+        if (!file) throw new Error(`请上传${label}头像`);
+        const fileError = validation.validateImageFile(file, `${label}头像`);
+        if (fileError) throw new Error(fileError);
+        files[key] = file;
+      }
       if (!qr) throw new Error('请上传二维码');
+      const qrError = validation.validateImageFile(qr, '二维码');
+      if (qrError) throw new Error(qrError);
 
       const meeting = collectMeeting();
-      const active = meeting.schedule.filter(r => r.time || r.content || r.speaker || r.chair);
-      if (!active.length) throw new Error('请至少填写一行日程');
-      active.forEach(r => { if (!r.time || !r.content) throw new Error('已填写的日程必须包含时间和内容'); });
+      const meetingErrors = validation.validateMeeting(meeting);
+      if (meetingErrors.length) throw new Error(meetingErrors[0]);
 
-      const jobId = uuid();
+      jobId = uuid();
       const base = `${user.id}/${jobId}/input`;
-      setStatus('正在上传素材…', 'uploading');
       const assets = {};
       for (const [key] of peopleDef) {
         const st = peopleState[key];
-        const path = `${base}/${key}.${safeExt(st.file.name)}`;
-        await uploadFile(path, st.file);
-        assets[key] = { storagePath: path, crop: st.crop, originalName: st.file.name };
+        const file = files[key];
+        const path = `${base}/${key}.${validation.imageExtension(file.type)}`;
+        const cropMode = st.cropMode === 'baked' ? 'baked' : 'raw';
+        assets[key] = {
+          storagePath: path,
+          crop: cropMode === 'baked'
+            ? { zoom: 1, offsetX: 0, offsetY: 0 }
+            : {
+              zoom: Number(st.crop.zoom),
+              offsetX: Number(st.crop.offsetX),
+              offsetY: Number(st.crop.offsetY),
+            },
+          cropMode,
+          originalName: String(file.name || ''),
+        };
+        if (cropMode === 'baked') assets[key].outputSize = AVATAR_OUTPUT_SIZE;
       }
-      const qrPath = `${base}/qr.${safeExt(qr.name)}`;
-      await uploadFile(qrPath, qr);
-      assets.qrCode = { storagePath: qrPath, originalName: qr.name };
+      const qrPath = `${base}/qr.${validation.imageExtension(qr.type)}`;
+      assets.qrCode = { storagePath: qrPath, originalName: String(qr.name || '') };
 
       const payload = { meeting, assets };
-      const { error } = await client.from('poster_jobs').insert({ id: jobId, owner_id: user.id, status: 'pending', payload });
+      const payloadErrors = validation.validatePayload(payload);
+      if (payloadErrors.length) throw new Error(payloadErrors[0]);
+
+      setStatus('正在上传素材…', 'uploading');
+      for (const [key] of peopleDef) {
+        await uploadFile(assets[key].storagePath, files[key]);
+        uploadedPaths.push(assets[key].storagePath);
+      }
+      await uploadFile(qrPath, qr);
+      uploadedPaths.push(qrPath);
+
+      const { error } = await client.from('poster_jobs').insert({ id: jobId, owner_id: user.id, payload });
       if (error) throw error;
+      jobCreated = true;
 
       saveActiveJob(jobId);
       setStatus('任务已提交，等待你的 Mac Photoshop 接单…', 'pending');
@@ -279,8 +410,17 @@
       startPolling();
     } catch (err) {
       console.error(err);
-      setStatus(`提交失败：${err.message}`, 'failed');
-      submitBtn.disabled = false;
+      if (!jobCreated) {
+        await cleanupUploads(uploadedPaths);
+        setStatus(`提交失败：${err.message || err}`, 'failed');
+        setSubmitBusy(false);
+        return;
+      }
+      saveActiveJob(jobId);
+      setStatus('任务已提交，正在恢复状态跟踪…', 'pending');
+      log(`任务已创建，但提交后的页面刷新失败：${err.message || err}`);
+      setSubmitBusy(true);
+      startPolling();
     }
   });
 
@@ -303,19 +443,46 @@
   }
 
   function startPolling() {
+    if (!client || !activeJob) return;
+    if (pollState && !pollState.cancelled && pollState.jobId === activeJob) return;
     stopPolling();
-    pollTimer = setInterval(pollJob, 2000);
-    pollJob();
+    const state = {
+      cancelled: false,
+      generation: pollGeneration,
+      jobId: activeJob,
+      timer: null,
+    };
+    pollState = state;
+
+    const tick = async () => {
+      if (!isCurrentPoll(state)) return;
+      try {
+        await pollJob(state);
+      } catch (err) {
+        console.error(err);
+        if (isCurrentPoll(state)) log(`poll error ${err.message || err}`);
+      }
+      if (isCurrentPoll(state)) state.timer = setTimeout(tick, 2000);
+    };
+    void tick();
   }
 
-  async function pollJob() {
-    if (!activeJob) return;
-    const { data, error } = await client.from('poster_jobs').select('*').eq('id', activeJob).single();
+  function isCurrentPoll(state) {
+    return pollState === state
+      && !state.cancelled
+      && state.generation === pollGeneration
+      && state.jobId === activeJob;
+  }
+
+  async function pollJob(state) {
+    const { data, error } = await client.from('poster_jobs').select('*').eq('id', state.jobId).single();
+    if (!isCurrentPoll(state)) return;
     if (error) { log(`poll error ${error.message}`); return; }
-    await presentJob(data, false);
+    if (!data || data.id !== state.jobId) return;
+    await presentJob(data);
   }
 
-  async function presentJob(data, restored) {
+  async function presentJob(data) {
     const label = {
       pending: '等待 Mac Photoshop 接单…',
       claimed: 'Mac Agent 已接单，正在准备素材…',
@@ -327,15 +494,21 @@
     setStatus(label[data.status] || data.status, data.status);
 
     if (['pending', 'claimed', 'rendering', 'uploading'].includes(data.status)) {
-      submitBtn.disabled = true;
-      if (restored || !pollTimer) startPolling();
+      setSubmitBusy(true);
+      if (!pollState || pollState.jobId !== data.id) startPolling();
       return;
     }
 
-    stopPolling();
-    submitBtn.disabled = false;
     saveActiveJob(null);
-    if (data.status === 'succeeded') await showResults(data);
+    setSubmitBusy(false);
+    if (data.status === 'succeeded') {
+      try { await showResults(data); }
+      catch (err) {
+        console.error(err);
+        log(`结果链接加载失败：${err.message || err}`);
+        setStatus('海报已生成，但结果链接暂时加载失败，请从历史任务重试', 'succeeded');
+      }
+    }
     await loadHistory();
   }
 
@@ -441,7 +614,7 @@
     const { data, error } = await client.from('poster_jobs').select('*').eq('id', id).single();
     if (error) { alert(`读取任务失败：${error.message}`); return; }
     saveActiveJob(data.id);
-    await presentJob(data, true);
+    await presentJob(data);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   window.openHistoryJob = openHistoryJob;
@@ -450,9 +623,64 @@
     return String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[ch]);
   }
 
+  async function clearLocalData() {
+    const firstConfirmed = window.confirm('这会清除本机保存的文字草稿、头像、二维码和当前匿名会话。旧任务将不再显示。是否继续？');
+    if (!firstConfirmed) return;
+    const finalConfirmed = window.confirm('请再次确认：清除后无法在此浏览器恢复这些草稿和匿名历史身份。');
+    if (!finalConfirmed) return;
+
+    clearLocalDataBtn.disabled = true;
+    setSubmitBusy(true);
+    stopPolling();
+    let signOutError = null;
+    const localErrors = [];
+
+    if (client) {
+      try {
+        const { error } = await client.auth.signOut({ scope: 'local' });
+        if (error) throw error;
+      } catch (err) {
+        signOutError = err;
+        console.error('匿名会话退出失败', err);
+      }
+    }
+
+    try {
+      if (!window.posterDraft?.clearAll) throw new Error('本地草稿清理组件未加载');
+      await window.posterDraft.clearAll();
+    } catch (err) {
+      localErrors.push(err);
+      console.error('IndexedDB 草稿清理失败', err);
+    }
+
+    try { localStorage.clear(); }
+    catch (err) { localErrors.push(err); console.error('localStorage 清理失败', err); }
+    try { sessionStorage.clear(); }
+    catch (err) { console.warn('sessionStorage 清理失败', err); }
+
+    if (localErrors.length) {
+      alert(`部分本机数据未能清除：${localErrors.map(err => err.message || err).join('；')}。请检查浏览器隐私设置后重试。`);
+      user = null;
+      cloudState.textContent = '本机数据清理未完成';
+      cloudState.className = 'badge bad';
+      clearLocalDataBtn.disabled = false;
+      setSubmitBusy(true);
+      return;
+    }
+
+    const message = signOutError
+      ? '本机草稿和历史身份已清除。云端退出请求失败，但旧身份已从此浏览器移除；页面将重新载入。'
+      : '本机草稿、素材和匿名历史身份已清除。页面将使用全新的匿名身份重新载入。';
+    alert(message);
+    window.location.reload();
+  }
+
   refreshHistoryBtn?.addEventListener('click', loadHistory);
+  clearLocalDataBtn?.addEventListener('click', clearLocalData);
+  document.addEventListener('poster-time-controls-state', refreshSubmitAvailability);
   buildPeople();
   buildSchedule();
+  refreshSubmitAvailability();
   init().catch(err => {
     console.error(err);
     cloudState.textContent = '连接失败';

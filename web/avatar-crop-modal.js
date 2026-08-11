@@ -315,6 +315,14 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(st.sourceImage, dx, dy, dw, dh);
 
+    // Photoshop 可能忽略完全透明的画布边距。四角的 1×1 像素位于最终圆形蒙版外，
+    // 仅用于让智能对象保留完整 1024×1024 几何边界，不会出现在成品头像中。
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.fillRect(OUTPUT_SIZE - 1, 0, 1, 1);
+    ctx.fillRect(0, OUTPUT_SIZE - 1, 1, 1);
+    ctx.fillRect(OUTPUT_SIZE - 1, OUTPUT_SIZE - 1, 1, 1);
+
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob(
         value => value ? resolve(value) : reject(new Error('头像裁剪 PNG 生成失败')),
@@ -352,9 +360,13 @@
       const dt = new DataTransfer();
       dt.items.add(file);
       input.dataset.avatarCropApplied = '1';
+      input.dataset.avatarCropMode = 'baked';
+      input.dataset.avatarOutputSize = String(OUTPUT_SIZE);
       input.files = dt.files;
       input.dispatchEvent(new Event('change', { bubbles: true }));
       delete input.dataset.avatarCropApplied;
+      delete input.dataset.avatarCropMode;
+      delete input.dataset.avatarOutputSize;
 
       if (st.url) URL.revokeObjectURL(st.url);
       st.file = file;
@@ -380,6 +392,7 @@
           offsetX: 0,
           offsetY: 0,
           sourceCrop,
+          cropMode: 'baked',
           outputSize: OUTPUT_SIZE,
         }
       }));

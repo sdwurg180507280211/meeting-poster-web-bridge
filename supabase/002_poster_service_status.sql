@@ -1,5 +1,5 @@
--- Meeting Poster Web Bridge v1.2
--- Publicly readable online-status row; only the backend Agent writes it.
+-- Meeting Poster Web Bridge v2
+-- Public clients receive only the coarse service-health fields; agent_id stays private.
 
 create table if not exists public.poster_service_status (
   id text primary key,
@@ -21,3 +21,17 @@ using (id = 'primary');
 insert into public.poster_service_status (id, worker_status)
 values ('primary', 'offline')
 on conflict (id) do nothing;
+
+-- Explicit Data API grants. Column-level SELECT keeps the machine identifier
+-- out of public responses even if a caller requests it directly.
+revoke all privileges on table public.poster_service_status
+  from public, anon, authenticated, service_role;
+grant select (
+  id,
+  agent_last_seen_at,
+  worker_last_seen_at,
+  worker_status,
+  updated_at
+) on public.poster_service_status to anon, authenticated;
+grant select, insert, update, delete on table public.poster_service_status
+  to service_role;

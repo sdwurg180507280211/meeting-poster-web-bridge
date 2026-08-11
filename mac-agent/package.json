@@ -3,6 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
-  "scripts": {"start":"node src/agent.js"},
-  "dependencies": {"@supabase/supabase-js":"^2.57.0","dotenv":"^16.4.5"}
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node src/agent.js",
+    "test": "node --test src/*.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.2",
+    "dotenv": "16.6.1"
+  }
 }

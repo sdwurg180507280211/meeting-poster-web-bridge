@@ -4,35 +4,78 @@
   const meetingHost = document.getElementById('meetingTimePicker');
   if (!form || !meetingHidden || !meetingHost) return;
 
+  const VUE_VERSION = '3.5.21';
   const ELEMENT_VERSION = '2.14.3';
+  const CDN_BASE = 'https://cdn.jsdelivr.net/npm';
+  const INTEGRITY = Object.freeze({
+    vue: 'sha384-mqTIL+8BYsZvn40ROhIdqBAlB7rqo0qLp6tFanwY3K6FUJRLE9fQuMY/7BvSAGFx',
+    elementCss: 'sha384-Hv0k+7QghEyH5p4jV8vcaiI6XIB/DsBroXYP9GnDE+JWZrnnCTDlPgvFQ8ez9Lk9',
+    elementJs: 'sha384-6+fpuLhVHP/f8MsYul+T9eEKvcevdcdPcP/Kx4ysIqD2BVGUUNn+wTr8SDJhYN8P',
+    locale: 'sha384-m8Rk/VM22GjG7V7qvJpghPQJc6krmML3XhSburoe/u8owGFWOOA3hGQ9vZ+QSmn7',
+  });
+  const controlsState = window.posterTimeControlsState = window.posterTimeControlsState || {
+    ready: false,
+    failed: false,
+    reason: '时间选择组件正在加载',
+  };
   const scheduleOpeners = [];
   const scheduleVms = [];
   let meetingVm = null;
+
+  function setControlsState(ready, failed, reason) {
+    controlsState.ready = ready;
+    controlsState.failed = failed;
+    controlsState.reason = reason;
+    document.dispatchEvent(new CustomEvent('poster-time-controls-state', {
+      detail: { ready, failed, reason },
+    }));
+  }
 
   function emitInput(el) {
     el?.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  function loadStyle(id, href) {
-    if (document.getElementById(id)) return;
-    const link = document.createElement('link');
-    link.id = id;
-    link.rel = 'stylesheet';
-    link.href = href;
-    document.head.appendChild(link);
+  function loadStyle(id, href, integrity) {
+    return new Promise((resolve, reject) => {
+      const existing = document.getElementById(id);
+      if (existing) {
+        if (existing.dataset.loaded === '1' || existing.sheet) resolve();
+        else {
+          existing.addEventListener('load', resolve, { once: true });
+          existing.addEventListener('error', () => reject(new Error(`加载组件样式失败：${href}`)), { once: true });
+        }
+        return;
+      }
+      const link = document.createElement('link');
+      link.id = id;
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.integrity = integrity;
+      link.crossOrigin = 'anonymous';
+      link.referrerPolicy = 'no-referrer';
+      link.onload = () => { link.dataset.loaded = '1'; resolve(); };
+      link.onerror = () => reject(new Error(`加载组件样式失败：${href}`));
+      document.head.appendChild(link);
+    });
   }
 
-  function loadScript(id, src) {
+  function loadScript(id, src, integrity) {
     return new Promise((resolve, reject) => {
       const existing = document.getElementById(id);
       if (existing) {
         if (existing.dataset.loaded === '1') resolve();
-        else existing.addEventListener('load', resolve, { once: true });
+        else {
+          existing.addEventListener('load', resolve, { once: true });
+          existing.addEventListener('error', () => reject(new Error(`加载组件失败：${src}`)), { once: true });
+        }
         return;
       }
       const script = document.createElement('script');
       script.id = id;
       script.src = src;
+      script.integrity = integrity;
+      script.crossOrigin = 'anonymous';
+      script.referrerPolicy = 'no-referrer';
       script.onload = () => { script.dataset.loaded = '1'; resolve(); };
       script.onerror = () => reject(new Error(`加载组件失败：${src}`));
       document.head.appendChild(script);
@@ -40,20 +83,33 @@
   }
 
   async function ensureElementPlus() {
-    loadStyle('element-plus-css', `https://cdn.jsdelivr.net/npm/element-plus@${ELEMENT_VERSION}/dist/index.css`);
+    await loadStyle(
+      'element-plus-css',
+      `${CDN_BASE}/element-plus@${ELEMENT_VERSION}/dist/index.css`,
+      INTEGRITY.elementCss,
+    );
     if (!window.Vue) {
-      await loadScript('vue3-cdn', 'https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js');
+      await loadScript('vue3-cdn', `${CDN_BASE}/vue@${VUE_VERSION}/dist/vue.runtime.global.prod.js`, INTEGRITY.vue);
     }
     if (!window.ElementPlus) {
-      await loadScript('element-plus-cdn', `https://cdn.jsdelivr.net/npm/element-plus@${ELEMENT_VERSION}/dist/index.full.min.js`);
+      await loadScript(
+        'element-plus-cdn',
+        `${CDN_BASE}/element-plus@${ELEMENT_VERSION}/dist/index.full.min.js`,
+        INTEGRITY.elementJs,
+      );
     }
     if (!window.ElementPlusLocaleZhCn) {
       try {
-        await loadScript('element-plus-zh-cn', `https://cdn.jsdelivr.net/npm/element-plus@${ELEMENT_VERSION}/dist/locale/zh-cn`);
+        await loadScript(
+          'element-plus-zh-cn',
+          `${CDN_BASE}/element-plus@${ELEMENT_VERSION}/dist/locale/zh-cn.min.js`,
+          INTEGRITY.locale,
+        );
       } catch (err) {
         console.warn('Element Plus 中文语言包加载失败，将使用默认语言。', err);
       }
     }
+    if (!window.Vue?.createApp || !window.ElementPlus) throw new Error('时间选择组件未正确初始化');
   }
 
   const pad = n => String(n).padStart(2, '0');
@@ -91,7 +147,7 @@
     const mount = document.getElementById('meetingVuePicker');
     const initial = parseMeeting(meetingHidden.value);
 
-    const app = Vue.createApp({
+    const app = window.Vue.createApp({
       data() {
         return {
           date: initial?.date || null,
@@ -115,32 +171,37 @@
         },
       },
       mounted() { this.sync(); },
-      template: `
-        <div class="element-meeting-picker">
-          <el-date-picker
-            v-model="date"
-            type="date"
-            format="YYYY年M月D日"
-            placeholder="选择会议日期"
-            size="small"
-            :editable="false"
-            :clearable="false"
-            @change="sync"
-          ></el-date-picker>
-          <el-time-picker
-            v-model="range"
-            is-range
-            range-separator="-"
-            start-placeholder="开始时间"
-            end-placeholder="结束时间"
-            format="HH:mm"
-            size="small"
-            :editable="false"
-            :clearable="false"
-            :disabled-minutes="disabledMinutes"
-            @change="sync"
-          ></el-time-picker>
-        </div>`
+      render() {
+        const DatePicker = window.Vue.resolveComponent('el-date-picker');
+        const TimePicker = window.Vue.resolveComponent('el-time-picker');
+        return window.Vue.h('div', { class: 'element-meeting-picker' }, [
+          window.Vue.h(DatePicker, {
+            modelValue: this.date,
+            'onUpdate:modelValue': value => { this.date = value; },
+            type: 'date',
+            format: 'YYYY年M月D日',
+            placeholder: '选择会议日期',
+            size: 'small',
+            editable: false,
+            clearable: false,
+            onChange: this.sync,
+          }),
+          window.Vue.h(TimePicker, {
+            modelValue: this.range,
+            'onUpdate:modelValue': value => { this.range = value; },
+            isRange: true,
+            rangeSeparator: '-',
+            startPlaceholder: '开始时间',
+            endPlaceholder: '结束时间',
+            format: 'HH:mm',
+            size: 'small',
+            editable: false,
+            clearable: false,
+            disabledMinutes: this.disabledMinutes,
+            onChange: this.sync,
+          }),
+        ]);
+      },
     });
     useElementPlus(app);
     meetingVm = app.mount(mount);
@@ -165,7 +226,7 @@
       mount.className = 'vue-picker-host schedule-vue-time-host';
       hidden.parentNode.insertBefore(mount, hidden);
 
-      const app = Vue.createApp({
+      const app = window.Vue.createApp({
         data() { return { value: initial || null }; },
         methods: {
           disabledMinutes,
@@ -181,20 +242,23 @@
           },
         },
         mounted() { if (this.value) this.sync(); },
-        template: `
-          <el-time-picker
-            v-model="value"
-            is-range
-            range-separator="-"
-            start-placeholder="开始"
-            end-placeholder="结束"
-            format="HH:mm"
-            size="small"
-            :editable="false"
-            :clearable="true"
-            :disabled-minutes="disabledMinutes"
-            @change="sync"
-          ></el-time-picker>`
+        render() {
+          const TimePicker = window.Vue.resolveComponent('el-time-picker');
+          return window.Vue.h(TimePicker, {
+            modelValue: this.value,
+            'onUpdate:modelValue': value => { this.value = value; },
+            isRange: true,
+            rangeSeparator: '-',
+            startPlaceholder: '开始',
+            endPlaceholder: '结束',
+            format: 'HH:mm',
+            size: 'small',
+            editable: false,
+            clearable: true,
+            disabledMinutes: this.disabledMinutes,
+            onChange: this.sync,
+          });
+        },
       });
       useElementPlus(app);
       scheduleVms[i] = app.mount(mount);
@@ -214,6 +278,12 @@
 
   function installValidation() {
     form.addEventListener('submit', event => {
+      if (!controlsState.ready) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        alert(controlsState.reason || '时间选择组件尚未就绪，请刷新页面重试。');
+        return;
+      }
       if (!meetingHidden.value) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -246,16 +316,18 @@
     if (meetingVm) restoreFromHidden();
   });
 
+  installValidation();
   ensureElementPlus()
     .then(() => {
       mountMeetingPicker();
       mountSchedulePickers();
-      installValidation();
       window.posterTimeControls = window.posterTimeControls || {};
       window.posterTimeControls.restoreFromHidden = restoreFromHidden;
+      setControlsState(true, false, '时间选择组件已就绪');
     })
     .catch(err => {
       console.error(err);
       meetingHost.innerHTML = '<div class="time-component-error">时间选择组件加载失败，请刷新页面重试。</div>';
+      setControlsState(false, true, '时间选择组件加载失败，请刷新页面重试。');
     });
 })();

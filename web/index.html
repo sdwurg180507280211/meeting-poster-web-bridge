@@ -22,6 +22,7 @@
       </div>
       <div class="topbar-actions">
         <span id="cloudState" class="badge">正在连接云端…</span>
+        <button id="clearLocalData" class="privacy-reset-btn" type="button" title="清除本机草稿、素材和匿名历史身份">清除本机数据</button>
         <button id="toggleInspector" class="icon-btn" type="button" title="收起/展开右侧面板">☰</button>
       </div>
     </header>
@@ -113,7 +114,7 @@
               <summary><span>05</span> 输出</summary>
               <div class="editor-section-body">
                 <label>输出文件名
-                  <input id="outputName" value="系列会议海报" />
+                  <input id="outputName" maxlength="100" value="系列会议海报" />
                 </label>
                 <button id="submitBtn" type="submit" class="primary">
                   <span>生成正式海报</span>
@@ -218,7 +219,13 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="validation.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.2/dist/umd/supabase.js"
+    integrity="sha384-OUpie84zd1LdwNlK9uJJQRwab0BLqo3eKYKFh7hSVL58FSk7wPp2l0kfUMIIoaQd"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  ></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script src="fixed-defaults.js"></script>

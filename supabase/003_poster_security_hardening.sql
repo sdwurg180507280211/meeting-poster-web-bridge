@@ -1,35 +1,13 @@
--- Meeting Poster Web Bridge v2
--- Fresh-install schema for jobs, private assets, validation, quotas and Agent RPCs.
--- Run as the postgres/project-owner role in the Supabase SQL Editor or as a migration.
+-- Meeting Poster Web Bridge v2 hardening upgrade.
+-- Idempotent upgrade for projects that already ran 001_poster_jobs.sql and
+-- 002_poster_service_status.sql. This file intentionally performs no data
+-- deletion and does not modify existing payloads or result objects.
 
 create extension if not exists pgcrypto;
 
 create schema if not exists private;
 revoke all on schema private from public, anon, authenticated;
 
-create table if not exists public.poster_jobs (
-  id uuid primary key default gen_random_uuid(),
-  owner_id uuid not null references auth.users(id) on delete cascade,
-  status text not null default 'pending'
-    constraint poster_jobs_status_check
-    check (status in ('pending', 'claimed', 'rendering', 'uploading', 'succeeded', 'failed')),
-  payload jsonb not null default '{}'::jsonb,
-  agent_id text,
-  error_message text,
-  result_psd_path text,
-  result_png_path text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  claimed_at timestamptz,
-  started_at timestamptz,
-  finished_at timestamptz,
-  lease_expires_at timestamptz,
-  attempt_count integer not null default 0
-    constraint poster_jobs_attempt_count_check check (attempt_count >= 0)
-);
-
--- Keep this file safe to rerun over an older partial installation. Migration 003
--- contains the complete upgrade path for projects that already ran v1.
 alter table public.poster_jobs
   add column if not exists lease_expires_at timestamptz,
   add column if not exists attempt_count integer not null default 0;
@@ -48,8 +26,6 @@ begin
 end;
 $constraints$;
 
-create index if not exists poster_jobs_status_created_idx
-  on public.poster_jobs(status, created_at);
 create index if not exists poster_jobs_pending_created_idx
   on public.poster_jobs(created_at, id)
   where status = 'pending';
@@ -79,9 +55,6 @@ create trigger poster_jobs_set_updated_at
 before update on public.poster_jobs
 for each row execute function public.set_updated_at();
 
--- Validate the complete client-supplied payload and bind every input object to
--- the owner/job prefix. The advisory lock makes the per-owner insert quotas
--- deterministic when multiple requests arrive concurrently.
 create or replace function private.validate_poster_job_input()
 returns trigger
 language plpgsql
@@ -332,15 +305,11 @@ on public.poster_jobs for select
 to authenticated
 using ((select auth.uid()) = owner_id);
 
--- Table grants are deliberately narrower than RLS: browser clients can read
--- their rows and insert only the three user-controlled columns.
 revoke all privileges on table public.poster_jobs from public, anon, authenticated, service_role;
 grant select on table public.poster_jobs to authenticated;
 grant insert (id, owner_id, payload) on table public.poster_jobs to authenticated;
 grant select, insert, update, delete on table public.poster_jobs to service_role;
 
--- Atomically claim at most one pending job. The service_role invokes this as
--- itself, so SECURITY INVOKER preserves RLS/grant semantics and needs no bypass.
 create or replace function public.claim_next_poster_job(
   p_agent_id text,
   p_lease_seconds integer default 900,
@@ -394,8 +363,6 @@ revoke all privileges on function public.claim_next_poster_job(text, integer, in
 grant execute on function public.claim_next_poster_job(text, integer, integer)
   to service_role;
 
--- Requeue abandoned work while attempts remain; otherwise finish it as failed.
--- Rows created before leases existed fall back to updated_at + stale threshold.
 create or replace function public.recover_stale_poster_jobs(
   p_stale_after_seconds integer default 1800,
   p_max_attempts integer default 3
@@ -458,8 +425,6 @@ revoke all privileges on function public.recover_stale_poster_jobs(integer, inte
 grant execute on function public.recover_stale_poster_jobs(integer, integer)
   to service_role;
 
--- Private bucket: 100 MiB accommodates generated PSD files. The bucket MIME
--- allow-list applies to browser inputs and Agent outputs.
 insert into storage.buckets (
   id,
   name,
@@ -485,8 +450,6 @@ set name = excluded.name,
     file_size_limit = excluded.file_size_limit,
     allowed_mime_types = excluded.allowed_mime_types;
 
--- Browser users can create exactly four input image objects beneath
--- <uid>/<job-uuid>/input/. Agent output writes use service_role and bypass RLS.
 drop policy if exists poster_assets_owner_insert on storage.objects;
 create policy poster_assets_owner_insert
 on storage.objects for insert
@@ -519,5 +482,28 @@ using (
   and (storage.foldername(name))[1] = (select auth.uid())::text
 );
 
--- Browser uploads are immutable. In particular, do not grant UPDATE/upsert.
 drop policy if exists poster_assets_owner_update on storage.objects;
+
+alter table public.poster_service_status enable row level security;
+
+drop policy if exists poster_service_status_read on public.poster_service_status;
+create policy poster_service_status_read
+on public.poster_service_status for select
+to anon, authenticated
+using (id = 'primary');
+
+insert into public.poster_service_status (id, worker_status)
+values ('primary', 'offline')
+on conflict (id) do nothing;
+
+revoke all privileges on table public.poster_service_status
+  from public, anon, authenticated, service_role;
+grant select (
+  id,
+  agent_last_seen_at,
+  worker_last_seen_at,
+  worker_status,
+  updated_at
+) on public.poster_service_status to anon, authenticated;
+grant select, insert, update, delete on table public.poster_service_status
+  to service_role;

@@ -24,6 +24,7 @@
 
   let serviceOnline = false;
   let lastReason = '正在检测生成服务';
+  let checkInFlight = false;
 
   function ageMs(value) {
     if (!value) return Infinity;
@@ -40,32 +41,41 @@
   }
 
   async function checkService() {
-    const { data, error } = await sb.from('poster_service_status')
-      .select('agent_id,agent_last_seen_at,worker_last_seen_at,worker_status,updated_at')
-      .eq('id', 'primary')
-      .maybeSingle();
+    if (checkInFlight) return;
+    checkInFlight = true;
+    try {
+      const { data, error } = await sb.from('poster_service_status')
+        .select('agent_last_seen_at,worker_last_seen_at,worker_status')
+        .eq('id', 'primary')
+        .maybeSingle();
 
-    if (error || !data) {
-      setState(false, '生成服务不可用', error?.message || '未读取到服务状态');
-      return;
-    }
+      if (error || !data) {
+        setState(false, '生成服务不可用', error?.message || '未读取到服务状态');
+        return;
+      }
 
-    const agentFresh = ageMs(data.agent_last_seen_at) < 15000;
-    const workerFresh = ageMs(data.worker_last_seen_at) < 180000;
-    const workerReady = data.worker_status === 'ready' || data.worker_status === 'busy';
+      const agentFresh = ageMs(data.agent_last_seen_at) < 15000;
+      const workerFresh = ageMs(data.worker_last_seen_at) < 180000;
+      const workerReady = data.worker_status === 'ready' || data.worker_status === 'busy';
 
-    if (agentFresh && workerFresh && workerReady) {
-      const suffix = data.worker_status === 'busy' ? ' · 忙碌' : '';
-      setState(true, `生成服务在线${suffix}`, `Mac Agent 在线，Photoshop Worker ${data.worker_status}`);
-      return;
-    }
+      if (agentFresh && workerFresh && workerReady) {
+        const suffix = data.worker_status === 'busy' ? ' · 忙碌' : '';
+        setState(true, `生成服务在线${suffix}`, `Mac Agent 在线，Photoshop Worker ${data.worker_status}`);
+        return;
+      }
 
-    if (!agentFresh) {
-      setState(false, '生成服务离线', 'Mac Agent 未在线或心跳已超时');
-    } else if (!workerFresh) {
-      setState(false, 'Photoshop 离线', 'Mac Agent 在线，但 Photoshop Worker 心跳已超时');
-    } else {
-      setState(false, 'Photoshop 未就绪', `Worker 状态：${data.worker_status || 'unknown'}`);
+      if (!agentFresh) {
+        setState(false, '生成服务离线', 'Mac Agent 未在线或心跳已超时');
+      } else if (!workerFresh) {
+        setState(false, 'Photoshop 离线', 'Mac Agent 在线，但 Photoshop Worker 心跳已超时');
+      } else {
+        setState(false, 'Photoshop 未就绪', `Worker 状态：${data.worker_status || 'unknown'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      setState(false, '生成服务不可用', err.message || '服务状态检查失败');
+    } finally {
+      checkInFlight = false;
     }
   }
 

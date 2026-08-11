@@ -280,6 +280,39 @@ async function fitSmartObjectToBox(layer, box, { cover = false, zoom = 1, offset
   if (dx || dy) await layer.translate(dx, dy);
 }
 
+function avatarCropMode(asset) {
+  return asset && asset.cropMode === 'baked' ? 'baked' : 'raw';
+}
+
+async function placeBakedAvatarToBox(layer, box) {
+  if (!layer) return;
+  let geometry = layerGeometry(layer);
+  if (geometry.width <= 0 || geometry.height <= 0) throw new Error(`图层“${layer.name}”没有有效尺寸`);
+
+  // baked PNG 的四角锚点让 bounds 代表网页导出的完整方形画布，而不是头像的非透明内容。
+  const sourceTolerance = Math.max(1, Math.max(geometry.width, geometry.height) * 0.002);
+  if (Math.abs(geometry.width - geometry.height) > sourceTolerance) {
+    throw new Error(`网页成品头像的完整边界必须为正方形，当前为 ${Math.round(geometry.width)}×${Math.round(geometry.height)}`);
+  }
+  if (Math.abs(box.width - box.height) > 0.001) {
+    throw new Error(`PSD 头像目标框必须为正方形，当前为 ${box.width}×${box.height}`);
+  }
+
+  // 只按完整画布宽度做一次固定比例映射；不使用 cover、zoom、offset 或内容边界重新构图。
+  const scale = box.width / geometry.width;
+  await layer.scale(
+    scale * 100, scale * 100,
+    constants.AnchorPosition.MIDDLECENTER,
+    { interpolation: constants.InterpolationMethod.BICUBIC }
+  );
+
+  geometry = layerGeometry(layer);
+  await layer.translate(
+    box.left + box.width / 2 - geometry.centerX,
+    box.top + box.height / 2 - geometry.centerY
+  );
+}
+
 function normalizeMeetingTime(value) {
   const text = String(value || '').trim();
   if (!text) return '会议时间：';
@@ -379,7 +412,7 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
         setLayerVisible(doc, spec.LAYERS.TEXT.scheduleDot(i), Boolean(row.content));
       }
 
-      onProgress('替换头像并自动等比铺满圆形区域');
+      onProgress('替换头像：网页成品固定映射，旧版原图自动铺满');
       const avatarJobs = [
         ['主席头像', spec.LAYERS.AVATAR.CHAIR, assets.chairAvatar, spec.AVATAR_BOXES.CHAIR],
         ['讲者一头像', spec.LAYERS.AVATAR.SPEAKER1, assets.speaker1Avatar, spec.AVATAR_BOXES.SPEAKER1],
@@ -387,14 +420,24 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
       ];
       for (const [label, layerName, asset, box] of avatarJobs) {
         try {
-          onProgress(`${label}：替换图片`);
+          const mode = avatarCropMode(asset);
+          onProgress(`${label} [${mode}]：替换图片`);
           const avatarLayer = await replaceSmartObject(doc, layerName, asset.entry);
           const before = layerGeometry(avatarLayer);
-          onProgress(`${label}：替换后尺寸 ${Math.round(before.width)}×${Math.round(before.height)}，开始裁剪定位`);
-          await fitSmartObjectToBox(avatarLayer, box, { cover: true, ...asset.crop });
+          if (mode === 'baked') {
+            const outputSize = Number(asset.outputSize);
+            const sourceLabel = Number.isFinite(outputSize) && outputSize > 0
+              ? `${Math.round(outputSize)}×${Math.round(outputSize)}`
+              : '完整方形';
+            onProgress(`${label} [baked]：网页成品 ${sourceLabel}，固定映射到 ${box.width}×${box.height}`);
+            await placeBakedAvatarToBox(avatarLayer, box);
+          } else {
+            onProgress(`${label} [raw]：替换后尺寸 ${Math.round(before.width)}×${Math.round(before.height)}，自动铺满并应用裁剪参数`);
+            await fitSmartObjectToBox(avatarLayer, box, { cover: true, ...asset.crop });
+          }
           const afterLayer = findLayer(doc, layerName) || avatarLayer;
           const after = layerGeometry(afterLayer);
-          onProgress(`${label}：完成，显示尺寸 ${Math.round(after.width)}×${Math.round(after.height)}`);
+          onProgress(`${label} [${mode}]：完成，显示尺寸 ${Math.round(after.width)}×${Math.round(after.height)}`);
         } catch (error) {
           throw new Error(`${label}处理失败：${error && error.message ? error.message : String(error)}`);
         }

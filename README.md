@@ -11,21 +11,26 @@
 ## 目录
 
 - `web/`：公网网页，可部署 Vercel / Cloudflare Pages。
-- `supabase/001_poster_jobs.sql`：表、RLS、私有 Storage bucket 与策略。
+- `supabase/001_poster_jobs.sql`：任务表、RLS、私有 Storage bucket 与基础策略。
+- `supabase/002_poster_service_status.sql`：Mac Agent / Photoshop Worker 在线状态。
+- `supabase/003_poster_security_hardening.sql`：现有项目升级所需的权限、校验、限额、租约与原子认领加固。
 - `mac-agent/`：Node.js 常驻 Agent，负责云端 ↔ 本机文件搬运。
 - `photoshop-worker/`：Photoshop UXP Worker，自动扫描本机任务并复用已验证的 v3.0.6 生成引擎。
 
 ## 0. 要求
 
 - Photoshop 2026（你当前环境即可）
-- Node.js 20+
+- Node.js 22+（当前 Supabase JS SDK 已不再支持 Node.js 20）
 - 一个 Supabase 项目
 - 你的最终 PSD 母版（v10/v3.0.6 已验证结构）
 
 ## 1. Supabase
 
 1. 新建或选择一个 Supabase 项目。
-2. SQL Editor 执行 `supabase/001_poster_jobs.sql`。
+2. SQL Editor 按顺序执行：
+   - `supabase/001_poster_jobs.sql`
+   - `supabase/002_poster_service_status.sql`
+   - `supabase/003_poster_security_hardening.sql`
 3. Dashboard → Authentication → Providers / Sign In → **启用 Anonymous Sign-Ins**。
 4. Project Settings / API 获取：
    - Project URL
@@ -61,6 +66,8 @@ python3 -m http.server 5173
 浏览器打开 `http://localhost:5173`。
 
 部署 Vercel：进入 `web` 目录执行 `npx vercel`，或直接把 `web` 目录作为静态站点发布。
+
+> 公网部署前必须配置 Vercel Deployment Protection、Cloudflare Access 或等效的服务端访问控制。匿名登录、数据库内每用户限额和文件校验是纵深防御，不能替代公网入口认证；匿名访客仍可清除浏览器状态并创建新身份。
 
 ## 3. Mac Agent
 

@@ -1,5 +1,6 @@
 #!/bin/zsh
 set -u
+umask 077
 
 LOG_FILE="$HOME/MeetingPosterAgent/.service/mac-agent.log"
 
