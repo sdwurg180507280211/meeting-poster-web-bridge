@@ -1,0 +1,42 @@
+name: Verify render contract
+
+on:
+  pull_request:
+    paths:
+      - 'mac-agent/**'
+      - 'web/**'
+      - 'photoshop-worker/**'
+      - 'supabase/**'
+      - '.github/workflows/verify-render-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  agent-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mac-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mac-agent/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  javascript-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check web/poster-project.js
+      - run: node --check mac-agent/src/job-validation.js
+      - run: node --check mac-agent/src/start.js
+      - run: node --check photoshop-worker/src/constants.js
+      - run: node --check photoshop-worker/src/render-contract.js
