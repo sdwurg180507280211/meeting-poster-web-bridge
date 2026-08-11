@@ -46,9 +46,27 @@ jobs:
       - run: node --check web/task-controls.js
       - run: node --check mac-agent/src/job-validation.js
       - run: node --check mac-agent/src/start.js
+      - run: node --check mac-agent/src/agent.js
       - run: node --check photoshop-worker/src/constants.js
       - run: node --check photoshop-worker/src/render-contract.js
       - run: node --check photoshop-worker/src/worker.js
+      - name: Verify Mac Agent retention default
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const agent = fs.readFileSync('mac-agent/src/agent.js', 'utf8');
+          const start = fs.readFileSync('mac-agent/src/start.js', 'utf8');
+          const example = fs.readFileSync('mac-agent/.env.example', 'utf8');
+          if (!agent.includes("process.env.KEEP_LOCAL_JOBS || 'false'")) {
+            throw new Error('agent.js must default KEEP_LOCAL_JOBS to false even when started directly');
+          }
+          if (!start.includes("process.env.KEEP_LOCAL_JOBS = 'false'")) {
+            throw new Error('start.js must keep the production retention default false');
+          }
+          if (!/^KEEP_LOCAL_JOBS=false$/m.test(example)) {
+            throw new Error('.env.example must document KEEP_LOCAL_JOBS=false');
+          }
+          NODE
       - name: Verify web interaction polish wiring
         run: |
           node - <<'NODE'
