@@ -26,7 +26,10 @@
   function prepareCropRanges() {
     for (const id of ['chair-zoom', 'speaker1-zoom', 'speaker2-zoom']) {
       const el = document.getElementById(id);
-      if (el) el.min = '100';
+      if (el) {
+        el.min = '20';
+        el.max = '350';
+      }
     }
   }
 
@@ -64,7 +67,7 @@
       const el = document.getElementById(id);
       if (!el || value == null) continue;
       const normalized = /-(?:zoom)$/.test(id)
-        ? String(Math.max(100, Number(value) || 100))
+        ? String(Math.max(20, Math.min(350, Number(value) || 100)))
         : String(value);
       el.value = normalized;
       emitInput(el);
