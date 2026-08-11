@@ -44,11 +44,15 @@
 .schedule-field-time .schedule-vue-time-host,.schedule-field-time .el-date-editor{width:100%!important;max-width:none!important}
 .schedule-field-time .schedule-vue-time-host{min-width:0}
 
-/* Keep the main production action available while scrolling long forms. */
-.editor-section[data-section="output"]{position:sticky;bottom:0;z-index:8;margin-bottom:0;box-shadow:0 -8px 28px rgba(31,42,68,.09),0 4px 14px rgba(36,48,76,.035)}
-.editor-section[data-section="output"] .editor-section-body{background:rgba(255,255,255,.98);backdrop-filter:blur(8px)}
-.editor-section[data-section="output"] .primary{padding:11px 12px;transition:transform .14s ease,box-shadow .14s ease}
-.editor-section[data-section="output"] .primary:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(89,102,220,.24)}
+/* The inspector becomes a proper scrollable body with a persistent production footer. */
+.inspector-pane{flex:1 1 auto;min-height:0}
+.editor-section[data-section="output"]{position:static;margin-bottom:9px;box-shadow:0 4px 14px rgba(36,48,76,.035)}
+.submit-dock{flex:0 0 auto;padding:9px 10px 10px;border-top:1px solid var(--line);background:rgba(255,255,255,.97);backdrop-filter:blur(10px);box-shadow:0 -8px 24px rgba(31,42,68,.08);z-index:12}
+.submit-dock[hidden]{display:none!important}
+.submit-dock-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 6px;color:#8a95a6;font-size:9px}
+.submit-dock-meta strong{color:#586579;font-size:10px}
+.submit-dock .primary{margin:0;width:100%;padding:11px 12px;transition:transform .14s ease,box-shadow .14s ease}
+.submit-dock .primary:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(89,102,220,.24)}
 
 /* Task tab status badge. */
 .inspector-tab[data-tab="task"]{display:inline-flex;align-items:center;gap:6px}
@@ -76,4 +80,5 @@
 @media(max-width:900px){
   .mouse-hint{display:none}
   .stage-toolbar-actions{gap:5px}
+  .submit-dock-meta span{display:none}
 }
