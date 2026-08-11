@@ -43,6 +43,7 @@ Browser
 3. `supabase/003_poster_security_hardening.sql`
 4. `supabase/004_baked_avatar_render_contract.sql`
 5. `supabase/005_preflight_and_job_controls.sql`
+6. `supabase/006_restrict_preflight_rpc.sql`
 
 005 增加：
 
@@ -50,6 +51,8 @@ Browser
 - `cancel_poster_job(uuid)`：仅允许用户取消仍处于 `pending` 的自己的任务。
 - `retry_poster_job(uuid)`：允许 `failed / succeeded / cancelled` 使用原素材重新排队。
 - `poster_preflight(text)`：浏览器系统自检 RPC。
+
+006 将 `poster_preflight` 从 `anon` 收紧为仅 `authenticated` 可执行。Supabase 的 Anonymous Sign-In 登录完成后使用的数据库角色仍然是 `authenticated`，因此正常匿名用户自检不受影响，同时去掉未登录调用入口。
 
 Authentication 中启用 **Anonymous Sign-Ins**。
 
@@ -144,7 +147,7 @@ npm start
 
 或使用仓库提供的 `.command` 启停脚本。
 
-`npm start` 是正式入口。`src/start.js` 在 `KEEP_LOCAL_JOBS` 未配置时默认设置为 `false`，避免 `inbox/outbox` 长期堆积。只有排查问题时才临时设置 `KEEP_LOCAL_JOBS=true`。
+`npm start` 是正式入口。`src/start.js` 在 `KEEP_LOCAL_JOBS` 未配置时默认设置为 `false`，避免 `inbox/outbox` 长期堆积；`src/agent.js` 直接运行时也使用同一个默认值。只有排查问题时才临时设置 `KEEP_LOCAL_JOBS=true`。
 
 Agent 当前包含：
 
@@ -206,6 +209,8 @@ PSD 自检包括：
 - Mac Agent 心跳。
 - Photoshop Worker 心跳 / 自动接单状态。
 - PSD 母版自检状态。
+
+系统自检使用已经完成 Anonymous Sign-In 的应用会话调用数据库能力 RPC；未完成登录时会提示等待登录，不会创建额外匿名会话。
 
 出现红色阻断项时不建议继续提交任务。
 
