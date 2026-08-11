@@ -52,18 +52,6 @@
       : warnings ? `系统可接单，但有 ${warnings} 项提醒` : '系统自检通过，可以正常接单';
   }
 
-  function getClient() {
-    if (window.POSTER_APP_CLIENT) return window.POSTER_APP_CLIENT;
-    return supabaseLib.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY, {
-      auth: {
-        storageKey: 'meeting-poster-preflight-auth',
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    });
-  }
-
   async function run() {
     if (inFlight) return;
     inFlight = true;
@@ -84,7 +72,14 @@
       return;
     }
 
-    const client = getClient();
+    const client = window.POSTER_APP_CLIENT;
+    if (!client) {
+      rows.push(statusRow('Supabase 登录', false, '匿名登录尚未完成，请稍候后重新检查'));
+      render(rows);
+      inFlight = false;
+      return;
+    }
+
     try {
       const [preflightResult, serviceResult] = await Promise.all([
         client.rpc('poster_preflight', { p_bucket: cfg.BUCKET || 'poster-assets' }),
@@ -95,7 +90,7 @@
       ]);
 
       if (preflightResult.error) {
-        rows.push(statusRow('数据库能力', false, `poster_preflight 不可用：${preflightResult.error.message || '未知错误'}。请确认已执行 005 migration。`));
+        rows.push(statusRow('数据库能力', false, `poster_preflight 不可用：${preflightResult.error.message || '未知错误'}。请确认已执行 005/006 migration。`));
       } else {
         const db = preflightResult.data || {};
         rows.push(statusRow('数据库 Schema', Number(db.schemaVersion) >= 5, `schema v${db.schemaVersion ?? '未知'}`));
