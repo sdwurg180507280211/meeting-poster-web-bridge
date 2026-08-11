@@ -33,8 +33,8 @@ const LAYERS = {
 
 const AVATAR_BOXES = {
   CHAIR: { left: 342, top: 496, width: 168, height: 168 },
-  SPEAKER1: { left: 221, top: 836, width: 165, height: 165 },
-  SPEAKER2: { left: 457, top: 836, width: 164, height: 164 },
+  SPEAKER1: { left: 221, top: 836, width: 168, height: 168 },
+  SPEAKER2: { left: 457, top: 836, width: 168, height: 168 },
 };
 const QR_BOX = { left: 338, top: 1576, width: 148, height: 148 };
 

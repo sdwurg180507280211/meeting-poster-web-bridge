@@ -6,8 +6,8 @@
 
   const avatarSpec = {
     chair: { left:342, top:496, size:168, name:'主席' },
-    speaker1: { left:221, top:836, size:165, name:'讲者一' },
-    speaker2: { left:457, top:836, size:164, name:'讲者二' },
+    speaker1: { left:221, top:836, size:168, name:'讲者一' },
+    speaker2: { left:457, top:836, size:168, name:'讲者二' },
   };
   const QR = { left:338, top:1576, size:148 };
   const W=837, H=1880;

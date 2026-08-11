@@ -3125,8 +3125,8 @@ async function buildTemplate(executionContext, backgroundEntry, referenceEntry, 
     }
 
     await createAvatar("主席头像", 426, 580, 168);
-    await createAvatar("讲者一头像", 303.5, 918.5, 165);
-    await createAvatar("讲者二头像", 539, 918, 164);
+    await createAvatar("讲者一头像", 303.5, 918.5, 168);
+    await createAvatar("讲者二头像", 539, 918, 168);
 
     executionContext.reportProgress({ value: 0.86, commandName: "创建固定尺寸可替换 Logo" });
     currentStage = "创建固定尺寸 Logo 智能对象";
