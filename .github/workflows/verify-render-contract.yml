@@ -7,6 +7,9 @@ on:
       - 'web/**'
       - 'photoshop-worker/**'
       - 'supabase/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'playwright.config.js'
       - '.github/workflows/verify-render-contract.yml'
 
 permissions:
@@ -39,11 +42,31 @@ jobs:
       - run: node --check web/interaction-polish.js
       - run: node --check web/canvas-pan.js
       - run: node --check web/workspace-layout.js
+      - run: node --check web/preflight.js
+      - run: node --check web/task-controls.js
       - run: node --check mac-agent/src/job-validation.js
       - run: node --check mac-agent/src/start.js
+      - run: node --check mac-agent/src/agent.js
       - run: node --check photoshop-worker/src/constants.js
       - run: node --check photoshop-worker/src/render-contract.js
       - run: node --check photoshop-worker/src/worker.js
+      - name: Verify Mac Agent retention default
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const agent = fs.readFileSync('mac-agent/src/agent.js', 'utf8');
+          const start = fs.readFileSync('mac-agent/src/start.js', 'utf8');
+          const example = fs.readFileSync('mac-agent/.env.example', 'utf8');
+          if (!agent.includes("process.env.KEEP_LOCAL_JOBS || 'false'")) {
+            throw new Error('agent.js must default KEEP_LOCAL_JOBS to false even when started directly');
+          }
+          if (!start.includes("process.env.KEEP_LOCAL_JOBS = 'false'")) {
+            throw new Error('start.js must keep the production retention default false');
+          }
+          if (!/^KEEP_LOCAL_JOBS=false$/m.test(example)) {
+            throw new Error('.env.example must document KEEP_LOCAL_JOBS=false');
+          }
+          NODE
       - name: Verify web interaction polish wiring
         run: |
           node - <<'NODE'
@@ -108,6 +131,37 @@ jobs:
             throw new Error('workspace-layout.js must remain UI-only');
           }
           NODE
+      - name: Verify preflight and task controls wiring
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('web/index.html', 'utf8');
+          const preflight = fs.readFileSync('web/preflight.js', 'utf8');
+          const controls = fs.readFileSync('web/task-controls.js', 'utf8');
+          const migration = fs.readFileSync('supabase/005_preflight_and_job_controls.sql', 'utf8');
+          const restriction = fs.readFileSync('supabase/006_restrict_preflight_rpc.sql', 'utf8');
+          if (!html.includes('preflight.css') || !html.includes('preflight.js')) throw new Error('preflight assets are not wired');
+          if (!html.includes('task-controls.css') || !html.includes('task-controls.js')) throw new Error('task control assets are not wired');
+          if (!preflight.includes("rpc('poster_preflight'")) throw new Error('preflight must use the database capability RPC');
+          if (!preflight.includes('window.POSTER_APP_CLIENT')) throw new Error('preflight must reuse the authenticated application client');
+          if (!controls.includes("rpc(rpcName")) throw new Error('task controls must call RPCs through the authenticated app client');
+          for (const token of ['cancel_poster_job', 'retry_poster_job', 'poster_preflight', "'cancelled'"]) {
+            if (!migration.includes(token)) throw new Error(`005 migration is missing ${token}`);
+          }
+          if (!/revoke\s+execute\s+on\s+function\s+public\.poster_preflight\(text\)\s+from\s+anon/i.test(restriction)) {
+            throw new Error('006 migration must remove anonymous execution of poster_preflight');
+          }
+          NODE
+      - name: Verify PSD template preflight guard
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const worker = fs.readFileSync('photoshop-worker/src/worker.js', 'utf8');
+          const constants = fs.readFileSync('photoshop-worker/src/constants.js', 'utf8');
+          if (!worker.includes('validateSelectedTemplate')) throw new Error('Worker must validate the selected PSD template before auto-start');
+          if (!worker.includes("writeHeartbeat('template_error')")) throw new Error('Worker must publish template_error on invalid PSD templates');
+          if (!constants.includes("TEMPLATE_VERSION: 'chronic-care-v10'")) throw new Error('PSD template version must be explicit');
+          NODE
       - name: Verify UXP worker bootstrap wiring
         run: |
           node - <<'NODE'
@@ -125,3 +179,15 @@ jobs:
             throw new Error('render-contract.js must export the wrapped engine');
           }
           NODE
+
+  browser-e2e:
+    runs-on: ubuntu-latest
+    needs: javascript-syntax
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
