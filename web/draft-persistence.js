@@ -180,7 +180,12 @@
   document.addEventListener('qr-crop-applied', e => {
     if (e.detail?.file) putFile('qrFile', e.detail.file);
   });
-  document.addEventListener('avatar-crop-applied', scheduleSave);
+  document.addEventListener('avatar-crop-applied', e => {
+    const key = e.detail?.key;
+    const file = e.detail?.file;
+    if (key && file) putFile(`${key}-file`, file);
+    scheduleSave();
+  });
 
   document.addEventListener('avatar-image-reset', e => {
     const key = e.detail?.key;
