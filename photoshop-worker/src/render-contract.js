@@ -90,3 +90,5 @@ engine.generatePoster = function generatePosterWithRenderContract(args) {
     spec: runtimeSpec(args.spec, contract),
   });
 };
+
+module.exports = engine;
