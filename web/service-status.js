@@ -18,8 +18,16 @@
   renderState.textContent = '生成服务检测中…';
   wrap.appendChild(renderState);
 
+  // This read-only status client deliberately uses its own auth storage key.
+  // app.js owns the persisted anonymous session; sharing the default key across
+  // multiple GoTrueClient instances causes Supabase's duplicate-client warning.
   const sb = supabaseLib.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+    auth: {
+      storageKey: 'meeting-poster-service-status-auth',
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    }
   });
 
   let serviceOnline = false;
