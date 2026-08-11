@@ -1,12 +1,14 @@
 const engine = require('./src/render-contract');
 const SPEC = require('./src/constants');
+const { app, core } = require('photoshop');
 const { storage } = require('uxp');
 const fs = storage.localFileSystem;
 const PREF='meetingPosterWebWorkerPrefsV1';
+const WORKER_VERSION='1.1.0';
 const HEARTBEAT_INTERVAL_MS=5000;
 const UUID_PATTERN=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const $=s=>document.querySelector(s);
-const state={template:null,workspace:null,running:false,busy:false,timer:null};
+const state={template:null,workspace:null,running:false,busy:false,timer:null,templateReady:false,templateError:''};
 function log(m){$('#log').textContent+=`${new Date().toLocaleTimeString()} ${m}\n`;$('#log').scrollTop=$('#log').scrollHeight;}
 function setState(m,cls=''){$('#state').textContent=m;$('#state').className=cls;}
 function display(e){return e?(e.nativePath||e.name||''):'';}
@@ -24,10 +26,57 @@ function isTransientDocumentIdError(error){
   const text=String(error&&error.message?error.message:error||'');
   return /(?:document|文档).*id.*undefined|id of undefined/i.test(text);
 }
-async function writeHeartbeat(status){
+function heartbeatStatus(){
+  if(!state.template||!state.workspace)return 'not_ready';
+  if(!state.templateReady)return 'template_error';
+  return state.running?(state.busy?'busy':'ready'):'stopped';
+}
+async function writeHeartbeat(status=heartbeatStatus()){
   if(!state.workspace)return;
-  try{await writeJson(state.workspace,'worker-heartbeat.json',{status,updatedAt:new Date().toISOString()});}
-  catch(e){log(`心跳写入失败：${e.message}`);}
+  try{
+    await writeJson(state.workspace,'worker-heartbeat.json',{
+      status,
+      updatedAt:new Date().toISOString(),
+      workerVersion:WORKER_VERSION,
+      templateVersion:SPEC.TEMPLATE_VERSION||'unknown',
+      templateReady:state.templateReady,
+      templateError:state.templateError||null,
+      expectedCanvas:{width:SPEC.EXPECTED_WIDTH,height:SPEC.EXPECTED_HEIGHT}
+    });
+  }catch(e){log(`心跳写入失败：${e.message}`);}
+}
+
+async function validateSelectedTemplate(){
+  state.templateReady=false;
+  state.templateError='';
+  if(!state.template){await writeHeartbeat('not_ready');return false;}
+  setState('正在校验 PSD 母版…');
+  try{
+    const repair=await core.executeAsModal(async()=>{
+      let doc=null;
+      try{
+        doc=await app.open(state.template);
+        app.activeDocument=doc;
+        const result=engine.repairLegacyTextLayerNames(doc,SPEC);
+        engine.validateTemplate(doc,SPEC);
+        return result;
+      }finally{
+        if(doc){try{doc.closeWithoutSaving();}catch(_){}}
+      }
+    },{commandName:'校验会议海报 PSD 母版'});
+    state.templateReady=true;
+    if(repair?.renamed?.length)log(`母版自检通过；兼容修复旧文字层命名 ${repair.renamed.length} 个（仅内存校验，不修改母版）`);
+    else log(`✓ PSD 母版自检通过：${SPEC.TEMPLATE_VERSION||'template'} · ${SPEC.EXPECTED_WIDTH}×${SPEC.EXPECTED_HEIGHT}`);
+    setState(state.running?'自动接单中 · 当前无任务':'PSD 母版已通过自检','ok');
+    await writeHeartbeat(state.running?'ready':'stopped');
+    return true;
+  }catch(e){
+    state.templateError=e.message||String(e);
+    log(`✗ PSD 母版自检失败：${state.templateError}`);
+    setState(`PSD 母版异常：${state.templateError}`,'bad');
+    await writeHeartbeat('template_error');
+    return false;
+  }
 }
 
 function safeTaskFileName(value,label){
@@ -111,8 +160,6 @@ async function processFolder(jobFolder,outbox){
     const jobFile=await findChild(jobFolder,'job.json');
     if(!jobFile)return false;
 
-    // The output folder is based only on the already-created inbox folder name. A malformed
-    // job.json is therefore contained to its own result directory and cannot choose a path.
     out=await ensureFolder(outbox,jobFolder.name);
     busyHeartbeat=startBusyHeartbeat();
     job=validateWorkerJob(await readJson(jobFile),jobFolder.name);
@@ -162,13 +209,14 @@ async function processFolder(jobFolder,outbox){
     log(`✗ ${jobId}: ${detail}`); setState(`失败：${detail}`,'bad'); return true;
   }finally{
     if(busyHeartbeat)await busyHeartbeat.stop();
-    await writeHeartbeat('ready');
+    await writeHeartbeat();
   }
 }
 
 async function scanOnce(){
   if(state.busy)return;
   if(!state.template||!state.workspace){setState('请先选择母版和 Workspace','bad');await writeHeartbeat('not_ready');return;}
+  if(!state.templateReady){setState(`PSD 母版异常：${state.templateError||'请重新选择并完成自检'}`,'bad');await writeHeartbeat('template_error');return;}
   state.busy=true;
   try{
     await writeHeartbeat(state.running?'ready':'stopped');
@@ -182,11 +230,39 @@ async function scanOnce(){
   }catch(e){console.error(e);log(`扫描失败：${e.message}`);setState(`扫描失败：${e.message}`,'bad');await writeHeartbeat('error');}
   finally{state.busy=false;}
 }
-function start(){if(state.timer)clearInterval(state.timer);state.running=true;$('#toggle').textContent='停止自动接单';state.timer=setInterval(scanOnce,2000);writeHeartbeat('ready');scanOnce();}
+function start(){
+  if(!state.template||!state.workspace){setState('请先选择母版和 Workspace','bad');writeHeartbeat('not_ready');return;}
+  if(!state.templateReady){setState(`PSD 母版异常：${state.templateError||'请重新选择母版'}`,'bad');writeHeartbeat('template_error');return;}
+  if(state.timer)clearInterval(state.timer);
+  state.running=true;
+  $('#toggle').textContent='停止自动接单';
+  state.timer=setInterval(scanOnce,2000);
+  writeHeartbeat('ready');
+  scanOnce();
+}
 function stop(){state.running=false;if(state.timer){clearInterval(state.timer);state.timer=null;}$('#toggle').textContent='启动自动接单';setState('自动接单已停止');writeHeartbeat('stopped');}
 
-$('#pickTemplate').addEventListener('click',async()=>{const e=await fs.getFileForOpening({types:['psd'],allowMultiple:false});if(e){state.template=e;refreshPaths();await savePrefs();await writeHeartbeat(state.running?'ready':'stopped');log(`母版：${display(e)}`);}});
-$('#pickWorkspace').addEventListener('click',async()=>{const e=await fs.getFolder();if(e){state.workspace=e;refreshPaths();await ensureFolder(e,'inbox');await ensureFolder(e,'outbox');await savePrefs();await writeHeartbeat(state.template&&state.running?'ready':'not_ready');log(`Workspace：${display(e)}`);}});
+$('#pickTemplate').addEventListener('click',async()=>{
+  const e=await fs.getFileForOpening({types:['psd'],allowMultiple:false});
+  if(!e)return;
+  const resume=state.running;
+  if(resume)stop();
+  state.template=e;
+  refreshPaths();
+  await savePrefs();
+  log(`母版：${display(e)}`);
+  const valid=await validateSelectedTemplate();
+  if(valid&&resume&&state.workspace)start();
+});
+$('#pickWorkspace').addEventListener('click',async()=>{const e=await fs.getFolder();if(e){state.workspace=e;refreshPaths();await ensureFolder(e,'inbox');await ensureFolder(e,'outbox');await savePrefs();await writeHeartbeat();log(`Workspace：${display(e)}`);}});
 $('#toggle').addEventListener('click',()=>state.running?stop():start());
 $('#scan').addEventListener('click',scanOnce);
-loadPrefs().then(()=>{if(state.template&&state.workspace){log('已恢复设置，自动开始接单。');start();}else setState('请完成一次性设置');});
+loadPrefs().then(async()=>{
+  if(state.template&&state.workspace){
+    const valid=await validateSelectedTemplate();
+    if(valid){log('已恢复设置并通过母版自检，自动开始接单。');start();}
+  }else{
+    setState('请完成一次性设置');
+    await writeHeartbeat('not_ready');
+  }
+});
