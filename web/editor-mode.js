@@ -120,15 +120,32 @@
     ['00:00-00:00','xxxxx','xxx 教授',''],
     ['00:00-00:00','会议总结','','xxx 教授'],
   ];
+  // 参考海报正文的真实文字坐标，不再用 Grid 均分底图表格。
+  const agendaRowsTop=[1310,1375,1439,1503];
+  const agendaCells=[
+    { left:91, width:122, align:'left' },
+    { left:262, width:190, align:'left' },
+    { left:491, width:132, align:'left' },
+    { left:638, width:128, align:'left' },
+  ];
   function syncAgenda(){
     agenda.innerHTML='';
     for(let i=0;i<4;i++){
-      const row=document.createElement('div'); row.className='canvas-agenda-row';
+      const row=document.createElement('div');
+      row.className='canvas-agenda-row';
+      row.style.top=pct(agendaRowsTop[i],H);
       const vals=['time','content','speaker','chair'].map((k,j)=>{
         const value=document.getElementById(`s-${k}-${i}`)?.value.trim()||'';
         return value || agendaPlaceholders[i][j];
       });
-      vals.forEach(v=>{const s=document.createElement('span');s.textContent=v;row.appendChild(s);});
+      vals.forEach((v,j)=>{
+        const s=document.createElement('span');
+        s.textContent=v;
+        s.style.left=pct(agendaCells[j].left,W);
+        s.style.width=pct(agendaCells[j].width,W);
+        s.style.textAlign=agendaCells[j].align;
+        row.appendChild(s);
+      });
       row.addEventListener('click',()=>{
         openSection('schedule');
         window.posterTimeControls?.openSchedule?.(i);
