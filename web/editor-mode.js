@@ -73,8 +73,8 @@
 
   const personTextSpec={
     chair:{name:[340,682,172,24],hospital:[329,717,194,18]},
-    speaker1:{name:[218,1018,174,24],hospital:[209,1044,192,18]},
-    speaker2:{name:[454,1017,174,24],hospital:[445,1044,192,18]},
+    speaker1:{name:[218,1018,174,24],hospital:[209,1056,192,18]},
+    speaker2:{name:[454,1017,174,24],hospital:[445,1055,192,18]},
   };
 
   function formatPersonName(value){
@@ -114,11 +114,20 @@
   });
 
   const agenda=document.getElementById('canvasAgenda');
+  const agendaPlaceholders=[
+    ['00:00-00:00','开场致辞','xxx 教授','xxx 教授'],
+    ['00:00-00:00','xxxxx','xxx 教授',''],
+    ['00:00-00:00','xxxxx','xxx 教授',''],
+    ['00:00-00:00','会议总结','','xxx 教授'],
+  ];
   function syncAgenda(){
     agenda.innerHTML='';
     for(let i=0;i<4;i++){
       const row=document.createElement('div'); row.className='canvas-agenda-row';
-      const vals=['time','content','speaker','chair'].map(k=>document.getElementById(`s-${k}-${i}`)?.value.trim()||'');
+      const vals=['time','content','speaker','chair'].map((k,j)=>{
+        const value=document.getElementById(`s-${k}-${i}`)?.value.trim()||'';
+        return value || agendaPlaceholders[i][j];
+      });
       vals.forEach(v=>{const s=document.createElement('span');s.textContent=v;row.appendChild(s);});
       row.addEventListener('click',()=>{
         openSection('schedule');
