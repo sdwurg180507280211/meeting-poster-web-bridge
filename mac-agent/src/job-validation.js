@@ -31,10 +31,11 @@ const IMAGE_TYPES = Object.freeze({
 });
 
 const ASSET_DEFINITIONS = Object.freeze({
-  chair: { localKey: 'chairAvatar', storageBaseName: 'chair', avatar: true },
-  speaker1: { localKey: 'speaker1Avatar', storageBaseName: 'speaker1', avatar: true },
-  speaker2: { localKey: 'speaker2Avatar', storageBaseName: 'speaker2', avatar: true },
-  qrCode: { localKey: 'qrCode', storageBaseName: 'qr', avatar: false },
+  // crop 保留为 Agent 内部 stageJob 的兼容标记；外部协议已只允许 baked。
+  chair: { localKey: 'chairAvatar', storageBaseName: 'chair', avatar: true, crop: true },
+  speaker1: { localKey: 'speaker1Avatar', storageBaseName: 'speaker1', avatar: true, crop: true },
+  speaker2: { localKey: 'speaker2Avatar', storageBaseName: 'speaker2', avatar: true, crop: true },
+  qrCode: { localKey: 'qrCode', storageBaseName: 'qr', avatar: false, crop: false },
 });
 
 const ASSET_LAYOUT_KEYS = Object.freeze(['chair', 'speaker1', 'speaker2', 'qrCode']);
