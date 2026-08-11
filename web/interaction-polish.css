@@ -41,6 +41,8 @@
 .schedule-field-chair{grid-column:2/3}
 .schedule-field input{margin:0!important;width:100%!important;padding:8px 9px!important;font-size:10px!important;background:#fff!important}
 .schedule-field input:focus{border-color:#a4abe9!important;box-shadow:0 0 0 3px rgba(89,102,220,.07)}
+.schedule-field-time .schedule-vue-time-host,.schedule-field-time .el-date-editor{width:100%!important;max-width:none!important}
+.schedule-field-time .schedule-vue-time-host{min-width:0}
 
 /* Keep the main production action available while scrolling long forms. */
 .editor-section[data-section="output"]{position:sticky;bottom:0;z-index:8;margin-bottom:0;box-shadow:0 -8px 28px rgba(31,42,68,.09),0 4px 14px rgba(36,48,76,.035)}
