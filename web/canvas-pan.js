@@ -141,7 +141,13 @@
 
   function installCenterControl() {
     const zoomControls = document.querySelector('.zoom-controls');
-    if (!zoomControls || zoomControls.querySelector('[data-pan-center]')) return;
+    if (!zoomControls) {
+      requestAnimationFrame(installCenterControl);
+      return;
+    }
+    if (zoomControls.dataset.panControlsReady === '1') return;
+    zoomControls.dataset.panControlsReady = '1';
+
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.panCenter = '1';
@@ -151,6 +157,11 @@
     const zoomIn = zoomControls.querySelector('[data-zoom="in"]');
     zoomControls.insertBefore(button, zoomIn || null);
     button.addEventListener('click', () => centerViewport('smooth'));
+
+    zoomControls.addEventListener('click', event => {
+      if (event.target?.dataset?.zoom !== 'fit') return;
+      requestAnimationFrame(() => requestAnimationFrame(() => centerViewport('smooth')));
+    });
   }
 
   function installWorkspaceHint() {
@@ -162,9 +173,11 @@
     toolbar.appendChild(chip);
   }
 
-  const resizeObserver = new ResizeObserver(() => refreshWorkspace());
-  resizeObserver.observe(viewport);
-  resizeObserver.observe(poster);
+  if (window.ResizeObserver) {
+    const resizeObserver = new ResizeObserver(() => refreshWorkspace());
+    resizeObserver.observe(viewport);
+    resizeObserver.observe(poster);
+  }
 
   window.addEventListener('resize', () => refreshWorkspace());
   installCenterControl();
