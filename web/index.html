@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="crop-modal.css" />
   <link rel="stylesheet" href="compact-controls.css" />
+  <link rel="stylesheet" href="poster-real-base.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -147,7 +148,7 @@
         </div>
       </aside>
 
-      <button id="openInspector" type="button" class="open-inspector" title="展开编辑面板">‹</button>
+      <button id="openInspector" type="button" class="open-inspector" title="展开右侧面板">‹</button>
     </main>
   </div>
 
@@ -170,7 +171,7 @@
         <p class="crop-help">圆形区域就是最终海报头像可见范围；弹窗中的缩放和位移会直接同步给 Photoshop。</p>
         <div class="crop-controls-large">
           <label for="avatarCropZoom">缩放</label>
-          <input id="avatarCropZoom" type="range" min="100" max="250" step="1" value="100" />
+          <input id="avatarCropZoom" type="range" min="20" max="350" step="1" value="100" />
           <span id="avatarCropZoomValue" class="crop-zoom-value">100%</span>
         </div>
       </div>
