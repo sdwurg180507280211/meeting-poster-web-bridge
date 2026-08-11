@@ -37,6 +37,7 @@ jobs:
           node-version: '22'
       - run: node --check web/poster-project.js
       - run: node --check web/interaction-polish.js
+      - run: node --check web/canvas-pan.js
       - run: node --check mac-agent/src/job-validation.js
       - run: node --check mac-agent/src/start.js
       - run: node --check photoshop-worker/src/constants.js
@@ -59,6 +60,28 @@ jobs:
           }
           if (/supabase|poster_jobs|protocolVersion|assetLayout/.test(polish)) {
             throw new Error('interaction-polish.js must remain UI-only and must not own render protocol logic');
+          }
+          NODE
+      - name: Verify draggable canvas workspace wiring
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('web/index.html', 'utf8');
+          const pan = fs.readFileSync('web/canvas-pan.js', 'utf8');
+          if (!html.includes('canvas-pan.css') || !html.includes('canvas-pan.js')) {
+            throw new Error('index.html must load the draggable canvas workspace assets');
+          }
+          if (html.indexOf('canvas-pan.js') < html.indexOf('interaction-polish.js')) {
+            throw new Error('canvas-pan.js must load after interaction-polish.js so zoom controls already exist');
+          }
+          if (!pan.includes('viewport.scrollLeft') || !pan.includes('viewport.scrollTop')) {
+            throw new Error('canvas panning must use viewport scrolling instead of changing poster geometry');
+          }
+          if (/style\.transform\s*=|protocolVersion|assetLayout|poster_jobs|supabase/i.test(pan)) {
+            throw new Error('canvas-pan.js must remain navigation-only and must not own render geometry/protocol logic');
+          }
+          for (const selector of ['.canvas-avatar-slot', '.canvas-qr-slot', '.poster-preview-text']) {
+            if (!pan.includes(selector)) throw new Error(`canvas pan must protect interactive element ${selector}`);
           }
           NODE
       - name: Verify UXP worker bootstrap wiring
