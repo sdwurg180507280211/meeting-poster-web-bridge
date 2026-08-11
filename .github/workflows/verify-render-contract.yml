@@ -139,12 +139,17 @@ jobs:
           const preflight = fs.readFileSync('web/preflight.js', 'utf8');
           const controls = fs.readFileSync('web/task-controls.js', 'utf8');
           const migration = fs.readFileSync('supabase/005_preflight_and_job_controls.sql', 'utf8');
+          const restriction = fs.readFileSync('supabase/006_restrict_preflight_rpc.sql', 'utf8');
           if (!html.includes('preflight.css') || !html.includes('preflight.js')) throw new Error('preflight assets are not wired');
           if (!html.includes('task-controls.css') || !html.includes('task-controls.js')) throw new Error('task control assets are not wired');
           if (!preflight.includes("rpc('poster_preflight'")) throw new Error('preflight must use the database capability RPC');
+          if (!preflight.includes('window.POSTER_APP_CLIENT')) throw new Error('preflight must reuse the authenticated application client');
           if (!controls.includes("rpc(rpcName")) throw new Error('task controls must call RPCs through the authenticated app client');
           for (const token of ['cancel_poster_job', 'retry_poster_job', 'poster_preflight', "'cancelled'"]) {
             if (!migration.includes(token)) throw new Error(`005 migration is missing ${token}`);
+          }
+          if (!/revoke\s+execute\s+on\s+function\s+public\.poster_preflight\(text\)\s+from\s+anon/i.test(restriction)) {
+            throw new Error('006 migration must remove anonymous execution of poster_preflight');
           }
           NODE
       - name: Verify PSD template preflight guard
