@@ -38,6 +38,7 @@ jobs:
       - run: node --check web/poster-project.js
       - run: node --check web/interaction-polish.js
       - run: node --check web/canvas-pan.js
+      - run: node --check web/workspace-layout.js
       - run: node --check mac-agent/src/job-validation.js
       - run: node --check mac-agent/src/start.js
       - run: node --check photoshop-worker/src/constants.js
@@ -82,6 +83,29 @@ jobs:
           }
           for (const selector of ['.canvas-avatar-slot', '.canvas-qr-slot', '.poster-preview-text']) {
             if (!pan.includes(selector)) throw new Error(`canvas pan must protect interactive element ${selector}`);
+          }
+          NODE
+      - name: Verify clean workspace and resizable inspector
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('web/index.html', 'utf8');
+          const css = fs.readFileSync('web/workspace-layout.css', 'utf8');
+          const js = fs.readFileSync('web/workspace-layout.js', 'utf8');
+          if (!html.includes('workspace-layout.css') || !html.includes('workspace-layout.js')) {
+            throw new Error('index.html must load workspace-layout assets');
+          }
+          if (!/\.stage-toolbar\s*\{[^}]*display\s*:\s*none!important/i.test(css)) {
+            throw new Error('the visible stage toolbar must remain removed');
+          }
+          if (!js.includes("style.setProperty('--inspector-width'")) {
+            throw new Error('inspector resizing must be driven by the workspace width CSS variable');
+          }
+          if (!js.includes("addEventListener('pointermove'")) {
+            throw new Error('inspector resize handle must support pointer dragging');
+          }
+          if (/supabase|poster_jobs|protocolVersion|assetLayout/i.test(js)) {
+            throw new Error('workspace-layout.js must remain UI-only');
           }
           NODE
       - name: Verify UXP worker bootstrap wiring
