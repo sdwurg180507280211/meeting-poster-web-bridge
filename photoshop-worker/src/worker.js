@@ -1,4 +1,4 @@
-const engine = require('./src/ps-engine');
+const engine = require('./src/render-contract');
 const SPEC = require('./src/constants');
 const { storage } = require('uxp');
 const fs = storage.localFileSystem;
