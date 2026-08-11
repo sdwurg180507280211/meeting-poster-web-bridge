@@ -11,8 +11,8 @@
   const resetBtn = document.getElementById('resetAvatarCropModal');
   if (!modal || !stage || !image || !zoomRange) return;
 
-  const MIN_ZOOM = 0.2;
-  const MAX_ZOOM = 3.5;
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 2.5;
   const OUTPUT_SIZE = 1024;
   zoomRange.min = String(Math.round(MIN_ZOOM * 100));
   zoomRange.max = String(Math.round(MAX_ZOOM * 100));
@@ -70,9 +70,8 @@
       side,
       dw,
       dh,
-      // 小于 100% 时图片可能小于裁剪框；仍允许在空余范围内拖动定位。
-      maxX: Math.abs(dw - side) / 2 / side * 100,
-      maxY: Math.abs(dh - side) / 2 / side * 100,
+      maxX: Math.max(0, ((dw - side) / 2) / side * 100),
+      maxY: Math.max(0, ((dh - side) / 2) / side * 100),
     };
   }
 
@@ -223,14 +222,10 @@
     const z = zoomFor(key);
     if (z) {
       z.min = String(Math.round(MIN_ZOOM * 100));
-      z.max = String(Math.round(MAX_ZOOM * 100));
-      const current = Number(z.value) || 100;
-      z.value = String(clamp(current, MIN_ZOOM * 100, MAX_ZOOM * 100));
+      if (Number(z.value) < 100) z.value = '100';
     }
     if (!input) return;
     input.addEventListener('change', () => {
-      // “应用裁剪”会把 input.files 替换成最终 PNG；这次 change 只交给 app.js / 草稿缓存处理，
-      // 不重新进入裁剪器，避免把成品 PNG 再当作新的原图打开一次。
       if (input.dataset.avatarCropApplied === '1') return;
       const file = input.files?.[0];
       if (!file) return;
@@ -317,17 +312,6 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(st.sourceImage, dx, dy, dw, dh);
 
-    // Photoshop 的 layer.boundsNoEffects 可能忽略透明边距。
-    // 在正方形四角写入 1×1 锚点像素，强制智能对象保持完整 1024×1024 几何边界。
-    // 四个角都处于最终圆形裁切区域之外，因此不会出现在头像成品中。
-    ctx.save();
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, 1, 1);
-    ctx.fillRect(OUTPUT_SIZE - 1, 0, 1, 1);
-    ctx.fillRect(0, OUTPUT_SIZE - 1, 1, 1);
-    ctx.fillRect(OUTPUT_SIZE - 1, OUTPUT_SIZE - 1, 1, 1);
-    ctx.restore();
-
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob(
         value => value ? resolve(value) : reject(new Error('头像裁剪 PNG 生成失败')),
@@ -356,13 +340,10 @@
       applyBtn.disabled = true;
       applyBtn.textContent = '正在应用…';
 
-      // 把弹窗当前看到的正方形视图真正烘焙成 PNG。
-      // Photoshop 后续只收到这张 1:1 成品图，不再重算网页的 zoom / X / Y。
       const file = await buildCroppedFile(key);
       const input = inputFor(key);
       if (!input) throw new Error('找不到头像文件输入框');
 
-      // Photoshop crop 固定为 1 / 0 / 0；现有 app.js 的 input 监听会同步 peopleState.crop。
       resetControls(key);
 
       const dt = new DataTransfer();
@@ -372,8 +353,6 @@
       input.dispatchEvent(new Event('change', { bubbles: true }));
       delete input.dataset.avatarCropApplied;
 
-      // 裁剪器内部也切换到成品 PNG。再次打开时看到的就是已应用结果；
-      // 若要回到原始图片重新构图，使用“重置”重新选择文件。
       if (st.url) URL.revokeObjectURL(st.url);
       st.file = file;
       st.url = URL.createObjectURL(file);
