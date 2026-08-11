@@ -1,0 +1,57 @@
+/* Workspace layout: hide the stage toolbar and make the inspector width user-resizable. */
+.stage-toolbar{display:none!important}
+.stage-area{padding:16px}
+
+.editor-workspace{
+  --inspector-width:390px;
+  grid-template-columns:minmax(0,1fr) var(--inspector-width)!important;
+}
+.editor-workspace.inspector-collapsed{
+  grid-template-columns:minmax(0,1fr) 0!important;
+}
+
+.inspector-resize-handle{
+  position:absolute;
+  top:0;
+  bottom:0;
+  right:var(--inspector-width);
+  width:12px;
+  transform:translateX(50%);
+  z-index:18;
+  cursor:col-resize;
+  touch-action:none;
+  outline:none;
+}
+.inspector-resize-handle::before{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:50%;
+  width:1px;
+  transform:translateX(-50%);
+  background:transparent;
+  transition:background .15s ease,box-shadow .15s ease;
+}
+.inspector-resize-handle:hover::before,
+.inspector-resize-handle:focus-visible::before,
+.editor-workspace.is-resizing-inspector .inspector-resize-handle::before{
+  background:#8e98e8;
+  box-shadow:0 0 0 2px rgba(89,102,220,.10);
+}
+.editor-workspace.inspector-collapsed .inspector-resize-handle{display:none}
+.editor-workspace.is-resizing-inspector{
+  transition:none!important;
+  user-select:none;
+}
+.editor-workspace.is-resizing-inspector .inspector,
+.editor-workspace.is-resizing-inspector .stage-area{
+  pointer-events:none;
+}
+body.is-resizing-inspector,
+body.is-resizing-inspector *{cursor:col-resize!important}
+
+@media(max-width:860px){
+  .inspector-resize-handle{display:none}
+  .editor-workspace{--inspector-width:360px}
+}
