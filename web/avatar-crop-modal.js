@@ -317,6 +317,17 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(st.sourceImage, dx, dy, dw, dh);
 
+    // Photoshop 的 layer.boundsNoEffects 可能忽略透明边距。
+    // 在正方形四角写入 1×1 锚点像素，强制智能对象保持完整 1024×1024 几何边界。
+    // 四个角都处于最终圆形裁切区域之外，因此不会出现在头像成品中。
+    ctx.save();
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.fillRect(OUTPUT_SIZE - 1, 0, 1, 1);
+    ctx.fillRect(0, OUTPUT_SIZE - 1, 1, 1);
+    ctx.fillRect(OUTPUT_SIZE - 1, OUTPUT_SIZE - 1, 1, 1);
+    ctx.restore();
+
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob(
         value => value ? resolve(value) : reject(new Error('头像裁剪 PNG 生成失败')),
