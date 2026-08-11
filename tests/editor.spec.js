@@ -50,7 +50,8 @@ async function installSupabaseMock(page) {
     const url = new URL(request.url());
     const cors = {
       'access-control-allow-origin': '*',
-      'access-control-allow-headers': 'authorization,apikey,content-type,prefer,x-client-info',
+      'access-control-allow-headers': 'authorization,apikey,content-type,prefer,x-client-info,accept-profile,content-profile,range',
+      'access-control-expose-headers': 'content-range,range',
       'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
       'content-type': 'application/json',
     };
