@@ -14,6 +14,7 @@
   wrap.appendChild(cloudState);
 
   const renderState = document.createElement('span');
+  renderState.id = 'renderServiceState';
   renderState.className = 'badge';
   renderState.textContent = '生成服务检测中…';
   wrap.appendChild(renderState);
@@ -33,6 +34,7 @@
   let serviceOnline = false;
   let lastReason = '正在检测生成服务';
   let checkInFlight = false;
+  let lastSnapshot = null;
 
   function ageMs(value) {
     if (!value) return Infinity;
@@ -40,12 +42,25 @@
     return Number.isFinite(t) ? Date.now() - t : Infinity;
   }
 
+  function emitState() {
+    document.dispatchEvent(new CustomEvent('poster-service-state', {
+      detail: {
+        online: serviceOnline,
+        reason: lastReason,
+        snapshot: lastSnapshot,
+      },
+    }));
+  }
+
   function setState(online, text, title) {
     serviceOnline = online;
     lastReason = title || text;
     renderState.textContent = text;
     renderState.className = `badge ${online ? 'ok' : 'bad'}`;
-    renderState.title = lastReason;
+    renderState.title = `${lastReason} · 点击查看系统自检`;
+    renderState.setAttribute('role', 'button');
+    renderState.tabIndex = 0;
+    emitState();
   }
 
   async function checkService() {
@@ -58,10 +73,12 @@
         .maybeSingle();
 
       if (error || !data) {
+        lastSnapshot = null;
         setState(false, '生成服务不可用', error?.message || '未读取到服务状态');
         return;
       }
 
+      lastSnapshot = data;
       const agentFresh = ageMs(data.agent_last_seen_at) < 15000;
       const workerFresh = ageMs(data.worker_last_seen_at) < 180000;
       const workerReady = data.worker_status === 'ready' || data.worker_status === 'busy';
@@ -76,11 +93,14 @@
         setState(false, '生成服务离线', 'Mac Agent 未在线或心跳已超时');
       } else if (!workerFresh) {
         setState(false, 'Photoshop 离线', 'Mac Agent 在线，但 Photoshop Worker 心跳已超时');
+      } else if (data.worker_status === 'template_error') {
+        setState(false, 'PSD 母版异常', 'Photoshop Worker 已在线，但 PSD 母版自检未通过');
       } else {
         setState(false, 'Photoshop 未就绪', `Worker 状态：${data.worker_status || 'unknown'}`);
       }
     } catch (err) {
       console.error(err);
+      lastSnapshot = null;
       setState(false, '生成服务不可用', err.message || '服务状态检查失败');
     } finally {
       checkInFlight = false;
@@ -93,6 +113,11 @@
     e.stopImmediatePropagation();
     alert(`当前无法提交新任务：${lastReason}\n\n请确认 Mac Agent 已启动，并在 Photoshop 中打开“海报 Web Worker”且处于自动接单状态。`);
   }, true);
+
+  window.posterServiceStatus = {
+    refresh: checkService,
+    getSnapshot: () => ({ online: serviceOnline, reason: lastReason, data: lastSnapshot }),
+  };
 
   checkService();
   setInterval(checkService, 5000);
