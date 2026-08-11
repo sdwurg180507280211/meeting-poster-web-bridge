@@ -40,3 +40,21 @@ jobs:
       - run: node --check mac-agent/src/start.js
       - run: node --check photoshop-worker/src/constants.js
       - run: node --check photoshop-worker/src/render-contract.js
+      - run: node --check photoshop-worker/src/worker.js
+      - name: Verify UXP worker bootstrap wiring
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('photoshop-worker/index.html', 'utf8');
+          const worker = fs.readFileSync('photoshop-worker/src/worker.js', 'utf8');
+          const contract = fs.readFileSync('photoshop-worker/src/render-contract.js', 'utf8');
+          if (html.includes('src/render-contract.js')) {
+            throw new Error('render-contract.js must not be loaded as a global <script> in UXP');
+          }
+          if (!worker.includes("require('./src/render-contract')")) {
+            throw new Error('worker.js must require the wrapped render-contract module');
+          }
+          if (!contract.includes('module.exports = engine')) {
+            throw new Error('render-contract.js must export the wrapped engine');
+          }
+          NODE
