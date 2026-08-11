@@ -1,4 +1,8 @@
 (() => {
+  const RENDER_PROTOCOL_VERSION = 2;
+  const PROJECT_VERSION = 1;
+  const AVATAR_OUTPUT_SIZE = 1024;
+
   const agendaPlaceholders = [
     ['00:00-00:00', '开场致辞', 'xxx 教授', 'xxx 教授'],
     ['00:00-00:00', 'xxxxx', 'xxx 教授', ''],
@@ -59,9 +63,11 @@
     });
   });
 
-  window.POSTER_PROJECT = {
+  const project = {
     id: 'chronic-care-2026',
+    version: PROJECT_VERSION,
     canvas: { width: 837, height: 1880 },
+    // 图片位置/尺寸只在这里维护。后端 PSD 运行时直接使用提交任务携带的同一份布局。
     assetPreview: {
       chair: { left: 342, top: 496, size: 168, label: '主席' },
       speaker1: { left: 221, top: 836, size: 168, label: '讲者一' },
@@ -70,4 +76,94 @@
     },
     textItems,
   };
+  window.POSTER_PROJECT = project;
+
+  function toBox(spec) {
+    return {
+      left: Number(spec.left),
+      top: Number(spec.top),
+      width: Number(spec.size),
+      height: Number(spec.size),
+    };
+  }
+
+  function renderContract() {
+    return {
+      protocolVersion: RENDER_PROTOCOL_VERSION,
+      project: {
+        id: project.id,
+        version: project.version,
+        canvas: { ...project.canvas },
+        assetLayout: {
+          chair: toBox(project.assetPreview.chair),
+          speaker1: toBox(project.assetPreview.speaker1),
+          speaker2: toBox(project.assetPreview.speaker2),
+          qrCode: toBox(project.assetPreview.qr),
+        },
+      },
+    };
+  }
+
+  // 浏览器提交边界：头像必须先在裁剪弹窗中“应用裁剪”，生成 1024×1024 PNG。
+  // raw 参数不再允许进入后端协议，避免浏览器与 Photoshop 对缩放的二次解释。
+  const baseValidation = window.PosterValidation;
+  if (baseValidation?.validatePayload) {
+    window.PosterValidation = Object.freeze({
+      ...baseValidation,
+      validatePayload(payload) {
+        const errors = [...baseValidation.validatePayload(payload)];
+        const assets = payload?.assets || {};
+        for (const [key, label] of [
+          ['chair', '会议主席头像'],
+          ['speaker1', '讲者一头像'],
+          ['speaker2', '讲者二头像'],
+        ]) {
+          const asset = assets[key] || {};
+          if (asset.cropMode !== 'baked') errors.push(`${label}必须先点击“应用裁剪”`);
+          if (asset.outputSize !== AVATAR_OUTPUT_SIZE) errors.push(`${label}裁剪输出必须为 ${AVATAR_OUTPUT_SIZE}×${AVATAR_OUTPUT_SIZE}`);
+          if (!String(asset.storagePath || '').toLowerCase().endsWith('.png')) errors.push(`${label}应用裁剪后必须为 PNG`);
+          if (Number(asset.crop?.zoom) !== 1 || Number(asset.crop?.offsetX) !== 0 || Number(asset.crop?.offsetY) !== 0) {
+            errors.push(`${label}已是成品 PNG，不能再次携带 raw 裁剪参数`);
+          }
+        }
+        return errors;
+      },
+    });
+  }
+
+  // app.js 保持现有稳定上传逻辑；只在 poster_jobs.insert 的最后边界注入 render contract。
+  // 这样图片几何仍只由上面的 assetPreview 配置维护，Agent/Worker 不再各存一份 168/148。
+  const supabaseLib = window.supabase;
+  if (supabaseLib?.createClient && !supabaseLib.__posterRenderContractWrapped) {
+    const originalCreateClient = supabaseLib.createClient.bind(supabaseLib);
+    supabaseLib.createClient = (...args) => {
+      const client = originalCreateClient(...args);
+      const originalFrom = client.from.bind(client);
+      client.from = (table) => {
+        const query = originalFrom(table);
+        if (table !== 'poster_jobs' || typeof query?.insert !== 'function') return query;
+        const originalInsert = query.insert.bind(query);
+        query.insert = (values, options) => {
+          const single = !Array.isArray(values);
+          const rows = single ? [values] : values;
+          const patched = rows.map(row => {
+            if (!row || typeof row !== 'object' || !row.payload || typeof row.payload !== 'object') return row;
+            const contract = renderContract();
+            return {
+              ...row,
+              payload: {
+                ...row.payload,
+                protocolVersion: contract.protocolVersion,
+                project: contract.project,
+              },
+            };
+          });
+          return originalInsert(single ? patched[0] : patched, options);
+        };
+        return query;
+      };
+      return client;
+    };
+    Object.defineProperty(supabaseLib, '__posterRenderContractWrapped', { value: true });
+  }
 })();
