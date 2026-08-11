@@ -1,4 +1,5 @@
 // 与 v10 语义命名模板对齐；Logo、主标题、副标题固定，只检查存在。
+// 图片几何不在这里维护：运行时由 Web 项目配置随 render contract 注入。
 const CN = ['一', '二', '三', '四'];
 
 const ROOT_GROUPS = [
@@ -30,13 +31,6 @@ const LAYERS = {
   },
   QR: '二维码图片_可替换',
 };
-
-const AVATAR_BOXES = {
-  CHAIR: { left: 342, top: 496, width: 168, height: 168 },
-  SPEAKER1: { left: 221, top: 836, width: 168, height: 168 },
-  SPEAKER2: { left: 457, top: 836, width: 168, height: 168 },
-};
-const QR_BOX = { left: 338, top: 1576, width: 148, height: 148 };
 
 const TEXT_LAYER_LAYOUTS = [
   { name: '标题_会议主席', bounds: [352, 427, 485, 460] }, { name: '标题_会议讲者', bounds: [352, 772, 486, 805] },
@@ -78,7 +72,7 @@ const REQUIRED_DYNAMIC_LAYERS = [
 for (let i = 0; i < 4; i += 1) REQUIRED_DYNAMIC_LAYERS.push(LAYERS.TEXT.scheduleTime(i), LAYERS.TEXT.scheduleContent(i), LAYERS.TEXT.scheduleSpeaker(i), LAYERS.TEXT.scheduleChair(i), LAYERS.TEXT.scheduleDot(i));
 
 module.exports = {
-  ROOT_GROUPS, FIXED_LAYERS, LAYERS, AVATAR_BOXES, QR_BOX,
+  ROOT_GROUPS, FIXED_LAYERS, LAYERS,
   FIT_TEXT_LAYERS, REQUIRED_DYNAMIC_LAYERS, TEXT_LAYER_LAYOUTS,
   MIN_FONT_SIZE: 12, SCHEDULE_ROWS: 4, EXPECTED_WIDTH: 837, EXPECTED_HEIGHT: 1880,
 };

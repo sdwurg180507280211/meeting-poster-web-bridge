@@ -14,6 +14,16 @@ const {
 const JOB_ID = '11111111-1111-4111-8111-111111111111';
 const OWNER_ID = '22222222-2222-4222-8222-222222222222';
 
+function bakedAvatar(storagePath, originalName) {
+  return {
+    storagePath,
+    originalName,
+    crop: { zoom: 1, offsetX: 0, offsetY: 0 },
+    cropMode: 'baked',
+    outputSize: 1024,
+  };
+}
+
 function makeJob() {
   const prefix = `${OWNER_ID}/${JOB_ID}/input`;
   return {
@@ -21,6 +31,18 @@ function makeJob() {
     owner_id: OWNER_ID,
     created_at: '2026-08-11T00:00:00.000Z',
     payload: {
+      protocolVersion: 2,
+      project: {
+        id: 'chronic-care-2026',
+        version: 1,
+        canvas: { width: 837, height: 1880 },
+        assetLayout: {
+          chair: { left: 342, top: 496, width: 168, height: 168 },
+          speaker1: { left: 221, top: 836, width: 168, height: 168 },
+          speaker2: { left: 457, top: 836, width: 168, height: 168 },
+          qrCode: { left: 338, top: 1576, width: 148, height: 148 },
+        },
+      },
       meeting: {
         meetingTime: '2026年8月11日 19:00-20:30',
         meetingLocation: '线上会议室',
@@ -38,39 +60,61 @@ function makeJob() {
         outputName: '系列会议海报',
       },
       assets: {
-        chair: {
-          storagePath: `${prefix}/chair.png`,
-          originalName: 'chair.png',
-          crop: { zoom: 1, offsetX: 0, offsetY: 0 },
-          cropMode: 'baked',
-          outputSize: 1024,
-        },
-        speaker1: {
-          storagePath: `${prefix}/speaker1.jpg`,
-          originalName: 'speaker1.jpg',
-          crop: { zoom: 3.5, offsetX: -100, offsetY: 100 },
-        },
-        speaker2: {
-          storagePath: `${prefix}/speaker2.webp`,
-          originalName: 'speaker2.webp',
-          crop: { zoom: 0.2, offsetX: 0, offsetY: 0 },
-          cropMode: 'raw',
-        },
+        chair: bakedAvatar(`${prefix}/chair.png`, 'chair-cropped.png'),
+        speaker1: bakedAvatar(`${prefix}/speaker1.png`, 'speaker1-cropped.png'),
+        speaker2: bakedAvatar(`${prefix}/speaker2.png`, 'speaker2-cropped.png'),
         qrCode: { storagePath: `${prefix}/qr.png`, originalName: 'qr.png' },
       },
     },
   };
 }
 
-test('validates and normalizes a legitimate job', () => {
+test('validates and normalizes a legitimate v2 baked job', () => {
   const normalized = validateJob(makeJob());
   assert.equal(normalized.id, JOB_ID);
   assert.equal(normalized.ownerId, OWNER_ID);
   assert.equal(normalized.assets.chair.cropMode, 'baked');
   assert.equal(normalized.assets.chair.outputSize, 1024);
-  assert.equal(normalized.assets.speaker1.cropMode, 'raw');
-  assert.equal(normalized.assets.speaker1.localExtension, 'jpg');
+  assert.equal(normalized.assets.speaker1.localExtension, 'png');
   assert.equal(normalized.meeting.schedule.length, 4);
+  assert.equal(normalized.meeting.__renderContract.protocolVersion, 2);
+  assert.deepEqual(
+    normalized.meeting.__renderContract.project.assetLayout.chair,
+    { left: 342, top: 496, width: 168, height: 168 },
+  );
+});
+
+test('rejects raw avatars and non-PNG baked avatars', () => {
+  const raw = makeJob();
+  raw.payload.assets.chair.cropMode = 'raw';
+  assert.throws(() => validateJob(raw), /raw 模式已禁用/);
+
+  const jpeg = makeJob();
+  jpeg.payload.assets.speaker1.storagePath = `${OWNER_ID}/${JOB_ID}/input/speaker1.jpg`;
+  assert.throws(() => validateJob(jpeg), /baked 成品必须是 PNG/);
+
+  const wrongCrop = makeJob();
+  wrongCrop.payload.assets.speaker2.crop.zoom = 0.8;
+  assert.throws(() => validateJob(wrongCrop), /baked 裁剪参数/);
+});
+
+test('requires render protocol and validates layout generically without hardcoded box sizes', () => {
+  const oldProtocol = makeJob();
+  oldProtocol.payload.protocolVersion = 1;
+  assert.throws(() => validateJob(oldProtocol), /协议版本必须为 2/);
+
+  const outsideCanvas = makeJob();
+  outsideCanvas.payload.project.assetLayout.chair.left = 800;
+  assert.throws(() => validateJob(outsideCanvas), /超出项目画布范围/);
+
+  const nonSquare = makeJob();
+  nonSquare.payload.project.assetLayout.qrCode.width = 140;
+  assert.throws(() => validateJob(nonSquare), /必须是正方形/);
+
+  const alternateValidSize = makeJob();
+  alternateValidSize.payload.project.assetLayout.chair.width = 180;
+  alternateValidSize.payload.project.assetLayout.chair.height = 180;
+  assert.equal(validateJob(alternateValidSize).meeting.__renderContract.project.assetLayout.chair.width, 180);
 });
 
 test('rejects cross-owner, cross-job, nested, and prefix-confusion storage paths', () => {
@@ -96,30 +140,6 @@ test('requires the expected asset filename and supported extension', () => {
   const wrongType = makeJob();
   wrongType.payload.assets.qrCode.storagePath = `${OWNER_ID}/${JOB_ID}/input/qr.svg`;
   assert.throws(() => validateJob(wrongType), /文件名或类型/);
-});
-
-test('enforces crop mode and baked output bounds while preserving old raw jobs', () => {
-  const oldJob = makeJob();
-  delete oldJob.payload.assets.speaker1.cropMode;
-  assert.equal(validateJob(oldJob).assets.speaker1.cropMode, 'raw');
-
-  const tooSmall = makeJob();
-  tooSmall.payload.assets.chair.outputSize = 255;
-  assert.throws(() => validateJob(tooSmall), /必须为 1024/);
-
-  const notInteger = makeJob();
-  notInteger.payload.assets.chair.outputSize = 1024.5;
-  assert.throws(() => validateJob(notInteger), /必须为 1024/);
-
-  const rawWithOutput = makeJob();
-  rawWithOutput.payload.assets.speaker1.outputSize = 1024;
-  assert.throws(() => validateJob(rawWithOutput), /raw 模式不应包含/);
-
-  const bakedJpeg = makeJob();
-  bakedJpeg.payload.assets.speaker1.cropMode = 'baked';
-  bakedJpeg.payload.assets.speaker1.outputSize = 1024;
-  bakedJpeg.payload.assets.speaker1.crop = { zoom: 1, offsetX: 0, offsetY: 0 };
-  assert.throws(() => validateJob(bakedJpeg), /必须是 PNG/);
 });
 
 test('enforces payload byte limit before processing fields', () => {
