@@ -66,7 +66,7 @@ const BUCKET = process.env.SUPABASE_BUCKET || 'poster-assets';
 const WORKSPACE = assertSafeWorkspace(process.env.WORKSPACE_DIR || '~/MeetingPosterAgent');
 const POLL_MS = integerSetting('POLL_MS', 2000, { min: 500, max: 60000 });
 const AGENT_ID = safeAgentId(process.env.AGENT_ID || os.hostname());
-const KEEP = String(process.env.KEEP_LOCAL_JOBS || 'true').toLowerCase() === 'true';
+const KEEP = String(process.env.KEEP_LOCAL_JOBS || 'false').toLowerCase() === 'true';
 const MAX_INPUT_BYTES = integerSetting('MAX_INPUT_BYTES', HARD_MAX_INPUT_BYTES, { min: 1024, max: HARD_MAX_INPUT_BYTES });
 const MAX_OUTPUT_BYTES = integerSetting('MAX_OUTPUT_BYTES', 1024 * 1024 * 1024, { min: 1024, max: 2 * 1024 * 1024 * 1024 });
 const CLAIM_LEASE_SECONDS = integerSetting('CLAIM_LEASE_SECONDS', 900, { min: 60, max: 3600 });
