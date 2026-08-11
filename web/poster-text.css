@@ -1,116 +1,53 @@
-.poster-section-label{
-  left:50%;
-  transform:translateX(-50%);
-  color:#4b2bc9;
-  font-size:clamp(10px,1.25vw,14px);
-  font-weight:900;
-  letter-spacing:.12em;
-  text-align:center;
+.poster-preview-text{
+  position:absolute;
+  z-index:4;
+  line-height:1.15;
   white-space:nowrap;
-}
-.chair-label{top:22.45%}
-.speakers-label{top:40.65%}
-.agenda-label{top:58.15%}
-
-.canvas-text,.canvas-person-text{
-  color:#111;
-  text-shadow:none;
-}
-.canvas-person-text{
-  font-size:clamp(8px,1.05vw,11px);
-  font-weight:800;
-  line-height:1.2;
-  text-align:center;
-  overflow:visible;
-  text-overflow:clip;
-}
-.canvas-person-text[class*="hospital"]{
-  color:#111;
-  font-size:clamp(6px,.88vw,9px);
-  font-weight:500;
-}
-
-.canvas-meeting-time,
-.canvas-meeting-location{
-  left:9.6%;
-  color:#111;
-  font-size:clamp(8px,1.05vw,11px);
-  font-weight:800;
-  letter-spacing:.02em;
-  overflow:visible;
-  text-overflow:clip;
-}
-.canvas-meeting-time{top:61.0%;width:56%}
-.canvas-meeting-location{top:63.0%;width:34%}
-
-/* 表头和正文都按 837×1880 参考海报的真实坐标落位。 */
-.canvas-agenda-head{
-  position:absolute;
-  inset:0;
-  color:#fff;
-  font-size:clamp(8px,1.05vw,11px);
-  font-weight:900;
-  text-align:left;
-  pointer-events:none;
-}
-.canvas-agenda-head span{
-  position:absolute;
-  top:66.2234%;
-  white-space:nowrap;
-}
-.canvas-agenda-head span:nth-child(1){left:11.2306%;width:8.5%}
-.canvas-agenda-head span:nth-child(2){left:31.7802%;width:8.5%}
-.canvas-agenda-head span:nth-child(3){left:59.1398%;width:9%}
-.canvas-agenda-head span:nth-child(4){left:77.4194%;width:9%}
-
-.canvas-agenda{
-  position:absolute;
-  inset:0;
-}
-.canvas-agenda-row{
-  position:absolute;
-  left:0;
-  right:0;
-  height:1.2766%;
-  min-height:0;
-  color:#111;
-  font-size:clamp(6px,.9vw,9px);
-  font-weight:500;
-  line-height:1.1;
-  cursor:pointer;
-}
-.canvas-agenda-row span{
-  position:absolute;
-  top:0;
-  display:block;
-  padding:0;
   overflow:hidden;
   text-overflow:ellipsis;
-  white-space:nowrap;
+  text-shadow:none;
+  cursor:pointer;
+  user-select:none;
+  box-sizing:border-box;
 }
-
-.canvas-sort-note{
-  position:absolute;
-  left:57.6%;
-  right:8.7%;
-  top:83.0%;
-  color:#111;
-  font-size:clamp(4px,.64vw,6.5px);
-  font-weight:600;
-  line-height:1.2;
-  text-align:right;
-  white-space:nowrap;
-  z-index:4;
+.poster-preview-text:hover{
+  outline:1px solid rgba(89,102,220,.28);
+  outline-offset:1px;
 }
-.canvas-qr-note{
-  left:36.8%;
-  right:36.8%;
-  top:92.95%;
-  color:#fff;
-  font-size:clamp(4.5px,.7vw,7px);
+.poster-canvas.is-text-layout-mode .poster-preview-text{
+  cursor:move;
+}
+.poster-canvas.is-text-layout-mode .poster-preview-text:hover,
+.poster-preview-text.is-selected{
+  outline:1px solid rgba(89,102,220,.78);
+  outline-offset:2px;
+}
+.moveable-control-box{
+  z-index:30!important;
+}
+.stage-toolbar-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  min-width:0;
+}
+.layout-tool-btn{
+  flex:none;
+  border:1px solid #d9deea;
+  border-radius:8px;
+  background:#fff;
+  color:#596579;
+  padding:6px 9px;
+  font-size:10px;
   font-weight:800;
-  line-height:1.2;
-  text-align:center;
-  white-space:nowrap;
-  z-index:4;
+}
+.layout-tool-btn:hover{
+  border-color:#b7bee8;
+  color:#4f5bc4;
+}
+.layout-tool-btn.active{
+  border-color:#8f98e6;
+  background:#eef0ff;
+  color:#4f5bc4;
 }
