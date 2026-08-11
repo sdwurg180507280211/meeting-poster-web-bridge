@@ -77,6 +77,14 @@
     textItems,
   };
   window.POSTER_PROJECT = project;
+  window.POSTER_RUNTIME = Object.freeze({
+    webVersion: '1.1.0',
+    renderProtocolVersion: RENDER_PROTOCOL_VERSION,
+    avatarOutputSize: AVATAR_OUTPUT_SIZE,
+    projectId: project.id,
+    projectVersion: project.version,
+    canvas: Object.freeze({ ...project.canvas }),
+  });
 
   function toBox(spec) {
     return {
@@ -138,6 +146,10 @@
     const originalCreateClient = supabaseLib.createClient.bind(supabaseLib);
     supabaseLib.createClient = (...args) => {
       const client = originalCreateClient(...args);
+      const options = args[2];
+      if (!window.POSTER_APP_CLIENT && !options?.auth?.storageKey) {
+        window.POSTER_APP_CLIENT = client;
+      }
       const originalFrom = client.from.bind(client);
       client.from = (table) => {
         const query = originalFrom(table);
