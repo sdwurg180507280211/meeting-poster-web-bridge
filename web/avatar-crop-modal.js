@@ -11,8 +11,8 @@
   const resetBtn = document.getElementById('resetAvatarCropModal');
   if (!modal || !stage || !image || !zoomRange) return;
 
-  const MIN_ZOOM = 1;
-  const MAX_ZOOM = 2.5;
+  const MIN_ZOOM = 0.2;
+  const MAX_ZOOM = 3.5;
   const OUTPUT_SIZE = 1024;
   zoomRange.min = String(Math.round(MIN_ZOOM * 100));
   zoomRange.max = String(Math.round(MAX_ZOOM * 100));
@@ -70,8 +70,9 @@
       side,
       dw,
       dh,
-      maxX: Math.max(0, ((dw - side) / 2) / side * 100),
-      maxY: Math.max(0, ((dh - side) / 2) / side * 100),
+      // 小于 100% 时图片可能小于裁剪框；仍允许在空余范围内拖动定位。
+      maxX: Math.abs(dw - side) / 2 / side * 100,
+      maxY: Math.abs(dh - side) / 2 / side * 100,
     };
   }
 
@@ -222,7 +223,9 @@
     const z = zoomFor(key);
     if (z) {
       z.min = String(Math.round(MIN_ZOOM * 100));
-      if (Number(z.value) < 100) z.value = '100';
+      z.max = String(Math.round(MAX_ZOOM * 100));
+      const current = Number(z.value) || 100;
+      z.value = String(clamp(current, MIN_ZOOM * 100, MAX_ZOOM * 100));
     }
     if (!input) return;
     input.addEventListener('change', () => {
@@ -342,7 +345,7 @@
       applyBtn.disabled = true;
       applyBtn.textContent = '正在应用…';
 
-      // 关键：把弹窗当前看到的正方形视图真正烘焙成 PNG。
+      // 把弹窗当前看到的正方形视图真正烘焙成 PNG。
       // Photoshop 后续只收到这张 1:1 成品图，不再重算网页的 zoom / X / Y。
       const file = await buildCroppedFile(key);
       const input = inputFor(key);
