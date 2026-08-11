@@ -4,7 +4,7 @@
   const inspector = document.getElementById('inspector');
   if (!poster || !workspace || !inspector) return;
 
-  // 与 PSD 母版完全一致的头像/二维码几何坐标（837 × 1880）。
+  // 与当前 PSD 母版一致的头像/二维码几何坐标（837 × 1880）。
   const avatarSpec = {
     chair: { left:342, top:496, size:168, name:'主席' },
     speaker1: { left:221, top:836, size:168, name:'讲者一' },
@@ -73,29 +73,45 @@
   Object.entries(avatarSpec).forEach(([k,s])=>createAvatarSlot(k,s));
 
   const personTextSpec={
-    chair:{name:[362,682,114,24],hospital:[341,717,155,18]},
-    speaker1:{name:[247,1018,109,24],hospital:[223,1044,155,18]},
-    speaker2:{name:[494,1017,109,24],hospital:[470,1044,155,18]},
+    chair:{name:[340,682,172,24],hospital:[329,717,194,18]},
+    speaker1:{name:[218,1018,174,24],hospital:[209,1044,192,18]},
+    speaker2:{name:[454,1017,174,24],hospital:[445,1044,192,18]},
   };
+
+  function formatPersonName(value){
+    const text=String(value||'').trim().replace(/\s*教授\s*$/u,'').trim();
+    return `${text||'姓名'} 教授`;
+  }
+
   Object.entries(personTextSpec).forEach(([key,sp])=>{
-    [['name','姓名'],['hospital','医院']].forEach(([field,label])=>{
+    [['name','姓名'],['hospital','XXXXXXXXXXXX医院']].forEach(([field,label])=>{
       const [l,t,w,h]=sp[field]; const el=document.createElement('div');
       el.className=`canvas-person-text canvas-${key}-${field}`;
       el.style.left=pct(l,W);el.style.top=pct(t,H);el.style.width=pct(w,W);el.style.minHeight=pct(h,H);
-      el.textContent=label; poster.appendChild(el);
+      poster.appendChild(el);
       const input=document.getElementById(`${key}-${field}`);
-      const sync=()=>{el.textContent=input?.value.trim()||label;}; input?.addEventListener('input',sync); sync();
+      const sync=()=>{
+        el.textContent=field==='name'
+          ? formatPersonName(input?.value)
+          : (input?.value.trim()||label);
+      };
+      input?.addEventListener('input',sync);
+      sync();
       el.addEventListener('click',()=>{openSection('people');input?.focus();});
     });
   });
 
   const meetingTime=document.getElementById('meetingTime');
   const canvasTime=document.getElementById('canvasMeetingTime');
-  const syncTime=()=>{canvasTime.textContent=`会议时间：${meetingTime?.value.trim()||''}`;};
+  const syncTime=()=>{
+    const raw=meetingTime?.value.trim()||'';
+    const dateText=raw.split(/\s+/)[0]||'';
+    canvasTime.textContent=`会议时间：${dateText}`;
+  };
   meetingTime?.addEventListener('input',syncTime); syncTime();
   canvasTime?.addEventListener('click',()=>{
     openSection('meeting');
-    document.getElementById('meetingYear')?.focus();
+    window.posterTimeControls?.openMeeting?.();
   });
 
   const agenda=document.getElementById('canvasAgenda');
@@ -104,10 +120,10 @@
     for(let i=0;i<4;i++){
       const row=document.createElement('div'); row.className='canvas-agenda-row';
       const vals=['time','content','speaker','chair'].map(k=>document.getElementById(`s-${k}-${i}`)?.value.trim()||'');
-      vals.forEach((v,j)=>{const s=document.createElement('span');s.textContent=v||['时间','内容','讲者','主席'][j];row.appendChild(s);});
+      vals.forEach(v=>{const s=document.createElement('span');s.textContent=v;row.appendChild(s);});
       row.addEventListener('click',()=>{
         openSection('schedule');
-        document.getElementById(`s-start-${i}`)?.focus();
+        window.posterTimeControls?.openSchedule?.(i);
       });
       agenda.appendChild(row);
     }
