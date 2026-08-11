@@ -26,10 +26,9 @@
     slot.dataset.key=key;
     slot.style.left=pct(spec.left,W); slot.style.top=pct(spec.top,H);
     slot.style.width=pct(spec.size,W); slot.style.height=pct(spec.size,H);
-    slot.innerHTML=`<img alt="${spec.name}头像"><span>${spec.name}<br>点击裁剪</span>`;
+    slot.innerHTML=`<img alt="${spec.name}头像">`;
     poster.appendChild(slot);
     const img=slot.querySelector('img');
-    const hint=slot.querySelector('span');
     const file=document.getElementById(`${key}-file`);
     const zoom=document.getElementById(`${key}-zoom`);
     const sx=document.getElementById(`${key}-x`);
@@ -55,7 +54,7 @@
       const f=file.files?.[0]; if(!f)return;
       const url=URL.createObjectURL(f);
       img.onload=()=>{syncPreview();URL.revokeObjectURL(url);};
-      img.src=url; img.style.display='block'; hint.style.display='none';
+      img.src=url; img.style.display='block';
     });
     [zoom,sx,sy].forEach(el=>el?.addEventListener('input',syncPreview));
 
@@ -134,10 +133,9 @@
   const qrSlot=document.createElement('div');
   qrSlot.className='canvas-qr-slot';
   qrSlot.style.left=pct(QR.left,W);qrSlot.style.top=pct(QR.top,H);qrSlot.style.width=pct(QR.size,W);qrSlot.style.height=pct(QR.size,H);
-  qrSlot.innerHTML='<img alt="二维码"><span>二维码<br>点击裁剪</span>';
+  qrSlot.innerHTML='<img alt="二维码">';
   poster.appendChild(qrSlot);
   const qrImg=qrSlot.querySelector('img');
-  const qrHint=qrSlot.querySelector('span');
   const qrInput=document.getElementById('qrFile');
 
   function openQrEditor(){
@@ -157,7 +155,6 @@
     qrImg.style.height='100%';
     qrImg.style.objectFit='cover';
     qrImg.style.transform='none';
-    qrHint.style.display='none';
   });
 
   function collapseInspector(){workspace.classList.add('inspector-collapsed');}
