@@ -13,6 +13,7 @@
 
   const MIN_ZOOM = 1;
   const MAX_ZOOM = 2.5;
+  const OUTPUT_SIZE = 1024;
   zoomRange.min = String(Math.round(MIN_ZOOM * 100));
   zoomRange.max = String(Math.round(MAX_ZOOM * 100));
 
@@ -225,6 +226,9 @@
     }
     if (!input) return;
     input.addEventListener('change', () => {
+      // “应用裁剪”会把 input.files 替换成最终 PNG；这次 change 只交给 app.js / 草稿缓存处理，
+      // 不重新进入裁剪器，避免把成品 PNG 再当作新的原图打开一次。
+      if (input.dataset.avatarCropApplied === '1') return;
       const file = input.files?.[0];
       if (!file) return;
       const restoring = input.dataset.restoringDraft === '1';
@@ -287,29 +291,110 @@
   stage.addEventListener('pointerup', endDrag);
   stage.addEventListener('pointercancel', endDrag);
 
-  applyBtn?.addEventListener('click', () => {
-    const st = currentState();
-    if (!activeKey || !st) return;
+  async function buildCroppedFile(key) {
+    const st = states[key];
+    if (!st?.sourceImage) throw new Error('尚未选择头像图片');
     normalizeOffsets();
-    const z = zoomFor(activeKey), x = xFor(activeKey), y = yFor(activeKey);
-    if (z) z.value = String(Math.round(st.zoom * 100));
-    if (x) x.value = String(Math.round(st.offsetX));
-    if (y) y.value = String(Math.round(st.offsetY));
-    emitInput(z); emitInput(x); emitInput(y);
-    st.applied = true;
 
-    const readout = document.getElementById(`${activeKey}-crop-readout`);
-    if (readout) readout.textContent = `已应用 · ${Math.round(st.zoom * 100)}%`;
+    const nw = st.sourceImage.naturalWidth || 1;
+    const nh = st.sourceImage.naturalHeight || 1;
+    const base = Math.max(OUTPUT_SIZE / nw, OUTPUT_SIZE / nh);
+    const dw = nw * base * st.zoom;
+    const dh = nh * base * st.zoom;
+    const dx = (OUTPUT_SIZE - dw) / 2 + (st.offsetX / 100) * OUTPUT_SIZE;
+    const dy = (OUTPUT_SIZE - dh) / 2 + (st.offsetY / 100) * OUTPUT_SIZE;
 
-    document.dispatchEvent(new CustomEvent('avatar-crop-applied', {
-      detail: {
-        key: activeKey,
-        zoom: Number(z?.value || 100) / 100,
-        offsetX: Number(x?.value || 0),
-        offsetY: Number(y?.value || 0),
-      }
-    }));
-    closeModal();
+    const canvas = document.createElement('canvas');
+    canvas.width = OUTPUT_SIZE;
+    canvas.height = OUTPUT_SIZE;
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx) throw new Error('浏览器无法创建头像裁剪画布');
+    ctx.clearRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(st.sourceImage, dx, dy, dw, dh);
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        value => value ? resolve(value) : reject(new Error('头像裁剪 PNG 生成失败')),
+        'image/png',
+        1
+      );
+    });
+    return new File([blob], `${key}-cropped.png`, {
+      type: 'image/png',
+      lastModified: Date.now(),
+    });
+  }
+
+  applyBtn?.addEventListener('click', async () => {
+    const key = activeKey;
+    const st = currentState();
+    if (!key || !st) return;
+
+    const sourceCrop = {
+      zoom: st.zoom,
+      offsetX: st.offsetX,
+      offsetY: st.offsetY,
+    };
+
+    try {
+      applyBtn.disabled = true;
+      applyBtn.textContent = '正在应用…';
+
+      // 关键：把弹窗当前看到的正方形视图真正烘焙成 PNG。
+      // Photoshop 后续只收到这张 1:1 成品图，不再重算网页的 zoom / X / Y。
+      const file = await buildCroppedFile(key);
+      const input = inputFor(key);
+      if (!input) throw new Error('找不到头像文件输入框');
+
+      // Photoshop crop 固定为 1 / 0 / 0；现有 app.js 的 input 监听会同步 peopleState.crop。
+      resetControls(key);
+
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.dataset.avatarCropApplied = '1';
+      input.files = dt.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      delete input.dataset.avatarCropApplied;
+
+      // 裁剪器内部也切换到成品 PNG。再次打开时看到的就是已应用结果；
+      // 若要回到原始图片重新构图，使用“重置”重新选择文件。
+      if (st.url) URL.revokeObjectURL(st.url);
+      st.file = file;
+      st.url = URL.createObjectURL(file);
+      st.sourceImage = null;
+      st.zoom = 1;
+      st.offsetX = 0;
+      st.offsetY = 0;
+      st.applied = true;
+
+      const appliedImage = new Image();
+      appliedImage.onload = () => { st.sourceImage = appliedImage; };
+      appliedImage.src = st.url;
+
+      const readout = document.getElementById(`${key}-crop-readout`);
+      if (readout) readout.textContent = '已应用 · 成品头像 PNG';
+
+      document.dispatchEvent(new CustomEvent('avatar-crop-applied', {
+        detail: {
+          key,
+          file,
+          zoom: 1,
+          offsetX: 0,
+          offsetY: 0,
+          sourceCrop,
+          outputSize: OUTPUT_SIZE,
+        }
+      }));
+      closeModal();
+    } catch (err) {
+      console.error(err);
+      alert(`头像裁剪失败：${err.message || err}`);
+    } finally {
+      applyBtn.disabled = false;
+      applyBtn.textContent = '应用裁剪';
+    }
   });
 
   resetBtn?.addEventListener('click', resetAndChooseNew);
