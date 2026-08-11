@@ -6,8 +6,9 @@
   cursor:grab;
   overflow:auto;
   overscroll-behavior:contain;
-  scrollbar-gutter:stable both-edges;
+  scrollbar-width:none;
 }
+.poster-viewport.canvas-workspace::-webkit-scrollbar{width:0;height:0}
 .poster-viewport.canvas-workspace.is-zoomed{padding:0!important}
 .poster-pan-stage{
   position:relative;
