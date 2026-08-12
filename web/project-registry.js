@@ -27,7 +27,7 @@
       version: 1,
       contentProfile: CONTENT_PROFILE,
       templateProfile: 'meeting-poster-v10',
-      preview: Object.freeze({ type: 'placeholder', theme: 'tonghu' }),
+      preview: Object.freeze({ type: 'asset', src: './assets/tonghu-jiankang-base.jpg', theme: 'tonghu' }),
       assetPreview: SHARED_LAYOUT,
     }),
     Object.freeze({
@@ -36,7 +36,7 @@
       version: 1,
       contentProfile: CONTENT_PROFILE,
       templateProfile: 'meeting-poster-v10',
-      preview: Object.freeze({ type: 'placeholder', theme: 'tongxin' }),
+      preview: Object.freeze({ type: 'asset', src: './assets/tongxin-hujian-base.jpg', theme: 'tongxin' }),
       assetPreview: SHARED_LAYOUT,
     }),
   ]);
