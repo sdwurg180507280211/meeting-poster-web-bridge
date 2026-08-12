@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const modal = document.getElementById('avatarCropModal');
   const stage = document.getElementById('avatarCropStage');
   const image = document.getElementById('avatarCropImage');
@@ -30,7 +32,6 @@
     zoom: 1,
     offsetX: 0,
     offsetY: 0,
-    applied: false,
   }]));
 
   let activeKey = null;
@@ -43,14 +44,6 @@
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const inputFor = key => document.getElementById(`${key}-file`);
-  const zoomFor = key => document.getElementById(`${key}-zoom`);
-  const xFor = key => document.getElementById(`${key}-x`);
-  const yFor = key => document.getElementById(`${key}-y`);
-
-  function emitInput(el) {
-    if (!el) return;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  }
 
   function currentState() {
     return activeKey ? states[activeKey] : null;
@@ -70,7 +63,6 @@
       side,
       dw,
       dh,
-      // 小于 100% 时图片可能小于裁剪框；仍允许在空余范围内拖动定位。
       maxX: Math.abs(dw - side) / 2 / side * 100,
       maxY: Math.abs(dh - side) / 2 / side * 100,
     };
@@ -79,19 +71,19 @@
   function normalizeOffsets() {
     const st = currentState();
     if (!st) return;
-    const m = stageMetrics();
-    st.offsetX = clamp(st.offsetX, -m.maxX, m.maxX);
-    st.offsetY = clamp(st.offsetY, -m.maxY, m.maxY);
+    const metrics = stageMetrics();
+    st.offsetX = clamp(st.offsetX, -metrics.maxX, metrics.maxX);
+    st.offsetY = clamp(st.offsetY, -metrics.maxY, metrics.maxY);
   }
 
   function render() {
     const st = currentState();
     if (!st?.sourceImage) return;
     normalizeOffsets();
-    const m = stageMetrics();
-    image.style.width = `${m.dw}px`;
-    image.style.height = `${m.dh}px`;
-    image.style.transform = `translate(-50%, -50%) translate(${(st.offsetX / 100) * m.side}px, ${(st.offsetY / 100) * m.side}px)`;
+    const metrics = stageMetrics();
+    image.style.width = `${metrics.dw}px`;
+    image.style.height = `${metrics.dh}px`;
+    image.style.transform = `translate(-50%, -50%) translate(${(st.offsetX / 100) * metrics.side}px, ${(st.offsetY / 100) * metrics.side}px)`;
     zoomRange.value = String(Math.round(st.zoom * 100));
     if (zoomValue) zoomValue.textContent = `${Math.round(st.zoom * 100)}%`;
   }
@@ -116,26 +108,16 @@
     render();
   }
 
-  function syncFromControls(key) {
-    const st = states[key];
-    st.zoom = clamp(Number(zoomFor(key)?.value || 100) / 100, MIN_ZOOM, MAX_ZOOM);
-    st.offsetX = Number(xFor(key)?.value || 0);
-    st.offsetY = Number(yFor(key)?.value || 0);
-  }
-
-  function resetControls(key) {
-    const z = zoomFor(key), x = xFor(key), y = yFor(key);
-    if (z) z.value = '100';
-    if (x) x.value = '0';
-    if (y) y.value = '0';
-    emitInput(z); emitInput(x); emitInput(y);
+  function resetCrop(st) {
+    st.zoom = 1;
+    st.offsetX = 0;
+    st.offsetY = 0;
   }
 
   function showModal(key) {
     activeKey = key;
     const st = states[key];
     if (!st?.sourceImage) return;
-    syncFromControls(key);
     if (title) title.textContent = `裁剪${defs[key].label}头像`;
     image.src = st.url;
     modal.hidden = false;
@@ -150,41 +132,33 @@
     stage.classList.remove('dragging');
   }
 
-  function loadFile(key, file, { reset = true, open = true } = {}) {
+  function loadFile(key, file, { open = true } = {}) {
     if (!file) return;
     const st = states[key];
     st.file = file;
     if (st.url) URL.revokeObjectURL(st.url);
     st.url = URL.createObjectURL(file);
-    if (reset) resetControls(key);
+    resetCrop(st);
 
-    const im = new Image();
-    im.onload = () => {
-      st.sourceImage = im;
-      if (reset) {
-        st.zoom = 1;
-        st.offsetX = 0;
-        st.offsetY = 0;
-      } else {
-        syncFromControls(key);
-      }
-      st.applied = !reset;
+    const loaded = new Image();
+    loaded.onload = () => {
+      st.sourceImage = loaded;
       if (open) showModal(key);
     };
-    im.onerror = () => alert('头像图片读取失败，请换一张图片重试。');
-    im.src = st.url;
+    loaded.onerror = () => alert('头像图片读取失败，请换一张图片重试。');
+    loaded.src = st.url;
   }
 
   function open(key) {
     if (!defs[key]) return;
     const input = inputFor(key);
+    const file = input?.files?.[0];
     const st = states[key];
-    if (st.sourceImage && input?.files?.[0] === st.file) {
+    if (file && st.sourceImage && file === st.file) {
       showModal(key);
       return;
     }
-    const file = input?.files?.[0];
-    if (file) loadFile(key, file, { reset: false, open: true });
+    if (file) loadFile(key, file, { open: true });
     else input?.click();
   }
 
@@ -198,16 +172,11 @@
     st.file = null;
     st.url = '';
     st.sourceImage = null;
-    st.zoom = 1;
-    st.offsetX = 0;
-    st.offsetY = 0;
-    st.applied = false;
-
+    resetCrop(st);
     image.removeAttribute('src');
     image.style.width = '';
     image.style.height = '';
     image.style.transform = '';
-    resetControls(key);
     if (input) input.value = '';
 
     const readout = document.getElementById(`${key}-crop-readout`);
@@ -220,20 +189,13 @@
 
   Object.keys(defs).forEach(key => {
     const input = inputFor(key);
-    const z = zoomFor(key);
-    if (z) {
-      z.min = String(Math.round(MIN_ZOOM * 100));
-      z.max = String(Math.round(MAX_ZOOM * 100));
-      const current = Number(z.value) || 100;
-      z.value = String(clamp(current, MIN_ZOOM * 100, MAX_ZOOM * 100));
-    }
     if (!input) return;
     input.addEventListener('change', () => {
       if (input.dataset.avatarCropApplied === '1') return;
       const file = input.files?.[0];
       if (!file) return;
       const restoring = input.dataset.restoringDraft === '1';
-      loadFile(key, file, { reset: !restoring, open: !restoring });
+      loadFile(key, file, { open: !restoring });
     });
 
     const host = input.parentElement;
@@ -252,42 +214,42 @@
   });
 
   zoomRange.addEventListener('input', () => setZoom(zoomRange.value));
-  stage.addEventListener('wheel', e => {
+  stage.addEventListener('wheel', event => {
     const st = currentState();
     if (!st?.sourceImage) return;
-    e.preventDefault();
-    const next = Math.round(st.zoom * 100) + (e.deltaY < 0 ? 5 : -5);
-    setZoom(next, e);
+    event.preventDefault();
+    const next = Math.round(st.zoom * 100) + (event.deltaY < 0 ? 5 : -5);
+    setZoom(next, event);
   }, { passive: false });
 
-  stage.addEventListener('pointerdown', e => {
+  stage.addEventListener('pointerdown', event => {
     const st = currentState();
-    if (e.button !== 0 || !st?.sourceImage) return;
+    if (event.button !== 0 || !st?.sourceImage) return;
     dragging = true;
-    pointerId = e.pointerId;
-    startClientX = e.clientX;
-    startClientY = e.clientY;
+    pointerId = event.pointerId;
+    startClientX = event.clientX;
+    startClientY = event.clientY;
     startOffsetX = st.offsetX;
     startOffsetY = st.offsetY;
-    stage.setPointerCapture(e.pointerId);
+    stage.setPointerCapture(event.pointerId);
     stage.classList.add('dragging');
-    e.preventDefault();
+    event.preventDefault();
   });
 
-  stage.addEventListener('pointermove', e => {
+  stage.addEventListener('pointermove', event => {
     const st = currentState();
-    if (!dragging || e.pointerId !== pointerId || !st) return;
+    if (!dragging || event.pointerId !== pointerId || !st) return;
     const rect = stage.getBoundingClientRect();
-    st.offsetX = startOffsetX + (e.clientX - startClientX) / rect.width * 100;
-    st.offsetY = startOffsetY + (e.clientY - startClientY) / rect.height * 100;
+    st.offsetX = startOffsetX + (event.clientX - startClientX) / rect.width * 100;
+    st.offsetY = startOffsetY + (event.clientY - startClientY) / rect.height * 100;
     render();
   });
 
-  function endDrag(e) {
+  function endDrag(event) {
     if (!dragging) return;
     dragging = false;
     stage.classList.remove('dragging');
-    try { stage.releasePointerCapture(e.pointerId); } catch (_) {}
+    try { stage.releasePointerCapture(event.pointerId); } catch (_) {}
   }
   stage.addEventListener('pointerup', endDrag);
   stage.addEventListener('pointercancel', endDrag);
@@ -315,8 +277,7 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(st.sourceImage, dx, dy, dw, dh);
 
-    // Photoshop 可能忽略完全透明的画布边距。四角的 1×1 像素位于最终圆形蒙版外，
-    // 仅用于让智能对象保留完整 1024×1024 几何边界，不会出现在成品头像中。
+    // 四角锚点位于最终圆形蒙版外，仅用于让 Photoshop 智能对象保留完整 1024×1024 边界。
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, 1, 1);
     ctx.fillRect(OUTPUT_SIZE - 1, 0, 1, 1);
@@ -341,41 +302,25 @@
     const st = currentState();
     if (!key || !st) return;
 
-    const sourceCrop = {
-      zoom: st.zoom,
-      offsetX: st.offsetX,
-      offsetY: st.offsetY,
-    };
-
     try {
       applyBtn.disabled = true;
       applyBtn.textContent = '正在应用…';
-
       const file = await buildCroppedFile(key);
       const input = inputFor(key);
       if (!input) throw new Error('找不到头像文件输入框');
 
-      resetControls(key);
-
       const dt = new DataTransfer();
       dt.items.add(file);
       input.dataset.avatarCropApplied = '1';
-      input.dataset.avatarCropMode = 'baked';
-      input.dataset.avatarOutputSize = String(OUTPUT_SIZE);
       input.files = dt.files;
       input.dispatchEvent(new Event('change', { bubbles: true }));
       delete input.dataset.avatarCropApplied;
-      delete input.dataset.avatarCropMode;
-      delete input.dataset.avatarOutputSize;
 
       if (st.url) URL.revokeObjectURL(st.url);
       st.file = file;
       st.url = URL.createObjectURL(file);
       st.sourceImage = null;
-      st.zoom = 1;
-      st.offsetX = 0;
-      st.offsetY = 0;
-      st.applied = true;
+      resetCrop(st);
 
       const appliedImage = new Image();
       appliedImage.onload = () => { st.sourceImage = appliedImage; };
@@ -385,16 +330,7 @@
       if (readout) readout.textContent = '已应用 · 成品头像 PNG';
 
       document.dispatchEvent(new CustomEvent('avatar-crop-applied', {
-        detail: {
-          key,
-          file,
-          zoom: 1,
-          offsetX: 0,
-          offsetY: 0,
-          sourceCrop,
-          cropMode: 'baked',
-          outputSize: OUTPUT_SIZE,
-        }
+        detail: { key, file, cropMode: 'baked', outputSize: OUTPUT_SIZE }
       }));
       closeModal();
     } catch (err) {
@@ -409,8 +345,8 @@
   resetBtn?.addEventListener('click', resetAndChooseNew);
   closeBtn?.addEventListener('click', closeModal);
   cancelBtn?.addEventListener('click', closeModal);
-  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
+  modal.addEventListener('click', event => { if (event.target === modal) closeModal(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !modal.hidden) closeModal(); });
 
-  window.posterAvatarCrop = { open };
+  window.posterAvatarCrop = Object.freeze({ open });
 })();
