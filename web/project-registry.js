@@ -4,7 +4,6 @@
   const STORAGE_KEY = 'meetingPosterProjectV1';
   const DEFAULT_PROJECT_ID = 'yilu-changan';
   const CONTENT_PROFILE = 'meeting-series-common-v1';
-  const LEGACY_RENDER_PROFILE = 'chronic-care-v10';
 
   const projects = Object.freeze([
     Object.freeze({
@@ -12,46 +11,56 @@
       name: '医路长安',
       version: 1,
       contentProfile: CONTENT_PROFILE,
-      renderProfile: LEGACY_RENDER_PROFILE,
-      renderReady: true,
+      renderProfile: 'yilu-changan-v1',
       preview: Object.freeze({ type: 'asset', src: './assets/poster-base.jpg', theme: 'yilu' }),
+      assetPreview: Object.freeze({
+        chair: Object.freeze({ left: 342, top: 496, size: 168, label: '主席' }),
+        speaker1: Object.freeze({ left: 221, top: 836, size: 168, label: '讲者一' }),
+        speaker2: Object.freeze({ left: 457, top: 836, size: 168, label: '讲者二' }),
+        qr: Object.freeze({ left: 338, top: 1576, size: 148 }),
+      }),
     }),
     Object.freeze({
       id: 'tonghu-jiankang',
       name: '同护健康',
       version: 1,
       contentProfile: CONTENT_PROFILE,
-      renderProfile: null,
-      renderReady: false,
+      renderProfile: 'tonghu-jiankang-v1',
       preview: Object.freeze({ type: 'placeholder', theme: 'tonghu' }),
+      // 网页暂用近似占位布局；正式 Photoshop 输出会读取本地 PSD 智能对象的真实目标框。
+      assetPreview: Object.freeze({
+        chair: Object.freeze({ left: 334, top: 456, size: 168, label: '主席' }),
+        speaker1: Object.freeze({ left: 216, top: 780, size: 168, label: '讲者一' }),
+        speaker2: Object.freeze({ left: 448, top: 780, size: 168, label: '讲者二' }),
+        qr: Object.freeze({ left: 338, top: 1517, size: 148 }),
+      }),
     }),
     Object.freeze({
       id: 'tongxin-hujian',
       name: '同心护健',
       version: 1,
       contentProfile: CONTENT_PROFILE,
-      renderProfile: null,
-      renderReady: false,
+      renderProfile: 'tongxin-hujian-v1',
       preview: Object.freeze({ type: 'placeholder', theme: 'tongxin' }),
+      assetPreview: Object.freeze({
+        chair: Object.freeze({ left: 336, top: 474, size: 168, label: '主席' }),
+        speaker1: Object.freeze({ left: 208, top: 827, size: 168, label: '讲者一' }),
+        speaker2: Object.freeze({ left: 458, top: 827, size: 168, label: '讲者二' }),
+        qr: Object.freeze({ left: 329, top: 1585, size: 148 }),
+      }),
     }),
   ]);
 
   const byId = new Map(projects.map(project => [project.id, project]));
 
   function readStoredProject() {
-    try {
-      return localStorage.getItem(STORAGE_KEY) || '';
-    } catch (_) {
-      return '';
-    }
+    try { return localStorage.getItem(STORAGE_KEY) || ''; }
+    catch (_) { return ''; }
   }
 
   function projectFromUrl() {
-    try {
-      return new URL(window.location.href).searchParams.get('project') || '';
-    } catch (_) {
-      return '';
-    }
+    try { return new URL(window.location.href).searchParams.get('project') || ''; }
+    catch (_) { return ''; }
   }
 
   function resolveActiveProject() {
@@ -71,8 +80,13 @@
   posterProject.name = active.name;
   posterProject.contentProfile = active.contentProfile;
   posterProject.renderProfile = active.renderProfile;
-  posterProject.renderReady = active.renderReady;
   posterProject.preview = active.preview;
+  posterProject.assetPreview = {
+    chair: { ...active.assetPreview.chair },
+    speaker1: { ...active.assetPreview.speaker1 },
+    speaker2: { ...active.assetPreview.speaker2 },
+    qr: { ...active.assetPreview.qr },
+  };
 
   const previousRuntime = window.POSTER_RUNTIME || {};
   window.POSTER_RUNTIME = Object.freeze({
@@ -82,22 +96,8 @@
     projectVersion: active.version,
     contentProfile: active.contentProfile,
     renderProfile: active.renderProfile,
-    renderReady: active.renderReady,
+    previewMode: active.preview.type,
   });
-
-  const validation = window.PosterValidation;
-  if (validation?.validatePayload) {
-    window.PosterValidation = Object.freeze({
-      ...validation,
-      validatePayload(payload) {
-        const errors = [...validation.validatePayload(payload)];
-        if (!active.renderReady) {
-          errors.unshift(`项目“${active.name}”当前仅为占位底板，尚未导入并注册 Photoshop PSD 母版`);
-        }
-        return errors;
-      },
-    });
-  }
 
   function installPreviewState() {
     const poster = document.getElementById('posterCanvas');
@@ -133,47 +133,27 @@
     host.innerHTML = `
       <span class="project-switcher-label">项目</span>
       <select id="projectSelect" aria-label="选择海报项目"></select>
-      <span id="projectRenderState" class="project-render-state"></span>`;
+      <span id="projectPreviewState" class="project-preview-state"></span>`;
     topbar.insertBefore(host, actions);
 
     const select = host.querySelector('#projectSelect');
     projects.forEach(project => {
       const option = document.createElement('option');
       option.value = project.id;
-      option.textContent = `${project.name}${project.renderReady ? '' : ' · 占位'}`;
+      option.textContent = project.name;
       select.appendChild(option);
     });
     select.value = active.id;
     select.addEventListener('change', () => selectProject(select.value));
 
-    const state = host.querySelector('#projectRenderState');
-    state.textContent = active.renderReady ? 'PSD 已配置' : '占位底板 · 待导入 PSD';
-    state.classList.toggle('ready', active.renderReady);
-    state.classList.toggle('placeholder', !active.renderReady);
-  }
-
-  function gateFormalRender() {
-    if (active.renderReady) return;
-    const form = document.getElementById('posterForm');
-    const submit = document.getElementById('submitBtn');
-    if (!form || !submit) return;
-
-    const message = `项目“${active.name}”当前仅为占位底板。导入并注册对应 PSD 母版后才能生成正式海报。`;
-    const enforceDisabled = () => {
-      if (!submit.disabled) submit.disabled = true;
-      submit.dataset.projectBlocked = '1';
-      submit.title = message;
-      const small = submit.querySelector('small');
-      if (small) small.textContent = '占位项目：导入 PSD 后开放正式生成';
-    };
-    enforceDisabled();
-    new MutationObserver(enforceDisabled).observe(submit, { attributes: true, attributeFilter: ['disabled'] });
-
-    form.addEventListener('submit', event => {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      window.alert(message);
-    }, true);
+    const state = host.querySelector('#projectPreviewState');
+    if (active.preview.type === 'placeholder') {
+      state.textContent = '网页占位底板 · 正式输出使用本地 PSD';
+      state.classList.add('placeholder');
+    } else {
+      state.textContent = '网页底板已载入 · 正式输出使用本地 PSD';
+      state.classList.add('ready');
+    }
   }
 
   window.POSTER_PROJECT_REGISTRY = Object.freeze({
@@ -187,5 +167,4 @@
 
   installPreviewState();
   installSwitcher();
-  gateFormalRender();
 })();
