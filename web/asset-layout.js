@@ -56,16 +56,14 @@
   function currentLayout() {
     const result = {};
     KEYS.forEach(key => {
-      const spec = normalizeSpec(key, project.assetPreview[key]);
-      result[key] = spec;
+      result[key] = normalizeSpec(key, project.assetPreview[key]);
     });
     return result;
   }
 
   function setProjectSpec(key, value) {
     const normalized = normalizeSpec(key, value);
-    const target = project.assetPreview[key];
-    Object.assign(target, normalized);
+    Object.assign(project.assetPreview[key], normalized);
     return normalized;
   }
 
@@ -487,6 +485,7 @@
     getSelectedKeys: () => [...selected],
     getLayout: () => clone(currentLayout()),
     getStorageKey: () => STORAGE_KEY,
+    clearSelection,
     nudge: nudgeSelection,
     undo,
     redo,

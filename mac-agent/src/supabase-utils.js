@@ -1,13 +1,5 @@
 'use strict';
 
-function isMissingRpcError(error, functionName) {
-  if (!error) return false;
-  const code = String(error.code || error.statusCode || '');
-  const message = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`.toLowerCase();
-  const mentionsFunction = !functionName || message.includes(String(functionName).toLowerCase());
-  return mentionsFunction && (code === 'PGRST202' || code === '42883' || /function .* does not exist/.test(message));
-}
-
 function formatSupabaseError(error) {
   if (!error) return '未知 Supabase 错误';
   const parts = [error.code, error.message, error.details, error.hint]
@@ -34,4 +26,4 @@ function boundedErrorMessage(error, prefix = '', maxLength = 1200) {
   return `${prefix}${normalized}`.slice(0, maxLength);
 }
 
-module.exports = { boundedErrorMessage, checkedResult, formatSupabaseError, isMissingRpcError };
+module.exports = { boundedErrorMessage, checkedResult, formatSupabaseError };

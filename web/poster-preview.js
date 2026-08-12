@@ -3,8 +3,6 @@
 
   const poster = document.getElementById('posterCanvas');
   const project = window.POSTER_PROJECT;
-  const legacyToggleButton = document.getElementById('toggleTextLayout');
-  const legacyResetButton = document.getElementById('resetTextLayout');
   if (!poster || !project?.textItems?.length) return;
 
   const W = project.canvas.width;
@@ -534,16 +532,11 @@
     modeButton.classList.toggle('active', layoutMode);
     modeButton.querySelector('span:last-child').textContent = layoutMode ? '完成布局' : '选择文字';
     tools.hidden = !layoutMode;
-    legacyToggleButton?.classList.toggle('active', layoutMode);
-    if (legacyToggleButton) legacyToggleButton.textContent = layoutMode ? '完成文字布局' : '调整文字布局';
-    if (legacyResetButton) legacyResetButton.hidden = !layoutMode;
     if (!layoutMode) clearSelection();
     updateToolbarState();
   }
 
   modeButton.addEventListener('click', () => setLayoutMode(!layoutMode));
-  legacyToggleButton?.addEventListener('click', () => setLayoutMode(!layoutMode));
-  legacyResetButton?.addEventListener('click', resetLayout);
 
   dock.addEventListener('click', event => {
     const action = event.target.closest('button')?.dataset?.layoutAction;
@@ -591,13 +584,14 @@
   });
 
   updateToolbarState();
-  window.posterTextLayout = {
+  window.posterTextLayout = Object.freeze({
     setEnabled: setLayoutMode,
     isEnabled: () => layoutMode,
     getSelectedIds: () => [...selected].map(el => el.dataset.previewTextId),
+    clearSelection,
     nudge: nudgeSelection,
     undo,
     redo,
     reset: resetLayout,
-  };
+  });
 })();

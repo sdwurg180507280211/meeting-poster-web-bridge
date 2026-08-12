@@ -7,6 +7,7 @@
 
   const MAX_FILE_BYTES = 15 * 1024 * 1024;
   const MAX_PAYLOAD_BYTES = 32 * 1024;
+  const AVATAR_OUTPUT_SIZE = 1024;
   const ALLOWED_IMAGE_TYPES = Object.freeze(['image/png', 'image/jpeg', 'image/webp']);
   const IMAGE_EXTENSION_BY_TYPE = Object.freeze({
     'image/png': 'png',
@@ -162,39 +163,26 @@
     return errors;
   }
 
-  function validateCrop(errors, crop, label) {
-    const value = crop && typeof crop === 'object' ? crop : {};
-    const zoom = Number(value.zoom);
-    const offsetX = Number(value.offsetX);
-    const offsetY = Number(value.offsetY);
-    if (!Number.isFinite(zoom) || zoom < 0.2 || zoom > 3.5) errors.push(`${label}裁剪缩放参数无效`);
-    if (!Number.isFinite(offsetX) || offsetX < -100 || offsetX > 100) errors.push(`${label}裁剪横向参数无效`);
-    if (!Number.isFinite(offsetY) || offsetY < -100 || offsetY > 100) errors.push(`${label}裁剪纵向参数无效`);
-  }
-
-  function validateAsset(errors, asset, label, needsCrop) {
+  function validateStoragePath(errors, asset, label) {
     const value = asset && typeof asset === 'object' ? asset : {};
     const path = addStringError(errors, value.storagePath, `${label}存储路径`, LIMITS.storagePath, true);
     addStringError(errors, value.originalName, `${label}原始文件名`, LIMITS.originalName, false);
     if (path && (path.startsWith('/') || path.includes('..') || path.includes('\\'))) {
       errors.push(`${label}存储路径无效`);
     }
-    if (needsCrop) {
-      validateCrop(errors, value.crop, label);
-      const cropMode = value.cropMode == null ? 'raw' : String(value.cropMode);
-      if (cropMode !== 'raw' && cropMode !== 'baked') errors.push(`${label}裁剪模式无效`);
-      if (cropMode === 'baked') {
-        const outputSize = Number(value.outputSize);
-        if (!Number.isInteger(outputSize) || outputSize < 256 || outputSize > 4096) {
-          errors.push(`${label}裁剪输出尺寸无效`);
-        }
-        if (!path.toLowerCase().endsWith('.png')) errors.push(`${label}已裁剪图片必须是 PNG`);
-        if (Number(value.crop?.zoom) !== 1 || Number(value.crop?.offsetX) !== 0 || Number(value.crop?.offsetY) !== 0) {
-          errors.push(`${label}已裁剪图片不能再次应用裁剪参数`);
-        }
-      } else if (value.outputSize != null) {
-        errors.push(`${label}原始图片不能携带裁剪输出尺寸`);
-      }
+    return { value, path };
+  }
+
+  function validateAvatar(errors, asset, label) {
+    const { value, path } = validateStoragePath(errors, asset, label);
+    if (value.cropMode !== 'baked') errors.push(`${label}必须先点击“应用裁剪”`);
+    if (value.outputSize !== AVATAR_OUTPUT_SIZE) errors.push(`${label}裁剪输出必须为 ${AVATAR_OUTPUT_SIZE}×${AVATAR_OUTPUT_SIZE}`);
+    if (path && !path.toLowerCase().endsWith('.png')) errors.push(`${label}应用裁剪后必须为 PNG`);
+    if (!value.crop || typeof value.crop !== 'object'
+      || Number(value.crop.zoom) !== 1
+      || Number(value.crop.offsetX) !== 0
+      || Number(value.crop.offsetY) !== 0) {
+      errors.push(`${label}成品 PNG 裁剪参数必须为 zoom=1、offsetX=0、offsetY=0`);
     }
   }
 
@@ -203,10 +191,11 @@
     const value = payload && typeof payload === 'object' ? payload : {};
     errors.push(...validateMeeting(value.meeting));
     const assets = value.assets && typeof value.assets === 'object' ? value.assets : {};
-    validateAsset(errors, assets.chair, '会议主席头像', true);
-    validateAsset(errors, assets.speaker1, '讲者一头像', true);
-    validateAsset(errors, assets.speaker2, '讲者二头像', true);
-    validateAsset(errors, assets.qrCode, '二维码', false);
+    validateAvatar(errors, assets.chair, '会议主席头像');
+    validateAvatar(errors, assets.speaker1, '讲者一头像');
+    validateAvatar(errors, assets.speaker2, '讲者二头像');
+    validateStoragePath(errors, assets.qrCode, '二维码');
+
     let serialized = '';
     try {
       serialized = JSON.stringify(payload);
@@ -220,6 +209,7 @@
 
   return Object.freeze({
     ALLOWED_IMAGE_TYPES,
+    AVATAR_OUTPUT_SIZE,
     LIMITS,
     MAX_FILE_BYTES,
     MAX_PAYLOAD_BYTES,

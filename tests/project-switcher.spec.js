@@ -41,7 +41,7 @@ async function installMock(page) {
 
 test.beforeEach(async ({ page }) => { await installMock(page); });
 
-test('keeps existing project id for 医路长安 and exposes three projects', async ({ page }) => {
+test('keeps current project id for 医路长安 and exposes three projects', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#projectSelect')).toHaveValue('chronic-care-2026');
   const snapshot = await page.evaluate(() => ({
@@ -54,44 +54,35 @@ test('keeps existing project id for 医路长安 and exposes three projects', as
   expect(snapshot.projects).toEqual(['医路长安', '同护健康', '同心护健']);
 });
 
-test('同护健康 uses its imported web base and keeps the shared render contract', async ({ page }) => {
+test('同护健康 loads its web base and project-specific layouts', async ({ page }) => {
   await page.goto('/?project=tonghu-jiankang');
   await expect(page.locator('#projectSelect')).toHaveValue('tonghu-jiankang');
-  await expect(page.locator('#posterCanvas')).not.toHaveClass(/is-project-placeholder/);
-  await expect(page.locator('#projectPreviewState')).toContainText('网页底板已载入');
-  await expect(page.locator('#projectPreviewState')).toContainText('正式输出使用本地 PSD');
   const snapshot = await page.evaluate(() => ({
     id: window.POSTER_PROJECT.id,
-    profile: window.POSTER_PROJECT.contentProfile,
-    templateProfile: window.POSTER_PROJECT.templateProfile,
-    preview: window.POSTER_PROJECT.preview,
+    textLayoutProfile: window.POSTER_PROJECT.textLayoutProfile,
+    assetLayoutProfile: window.POSTER_PROJECT.assetLayoutProfile,
+    baseImage: document.getElementById('posterCanvas').style.getPropertyValue('--poster-base-image'),
     layout: window.POSTER_PROJECT.assetPreview,
-    blocked: document.getElementById('submitBtn').dataset.projectBlocked || '',
   }));
   expect(snapshot.id).toBe('tonghu-jiankang');
-  expect(snapshot.profile).toBe('meeting-series-common-v1');
-  expect(snapshot.templateProfile).toBe('meeting-poster-v10');
-  expect(snapshot.preview).toMatchObject({ type: 'asset', src: './assets/tonghu-jiankang-base.jpg' });
+  expect(snapshot.textLayoutProfile).toBe('tonghu-jiankang-text-v1');
+  expect(snapshot.assetLayoutProfile).toBe('tonghu-jiankang-assets-v1');
+  expect(snapshot.baseImage).toContain('./assets/tonghu-jiankang-base.jpg');
   expect(snapshot.layout.chair).toMatchObject({ left: 342, top: 496, size: 168 });
   expect(snapshot.layout.qr).toMatchObject({ left: 338, top: 1576, size: 148 });
-  expect(snapshot.blocked).toBe('');
 });
 
-test('同心护健 uses its imported web base with the same shared structure', async ({ page }) => {
+test('同心护健 loads its own base and shared canvas size', async ({ page }) => {
   await page.goto('/?project=tongxin-hujian');
   await expect(page.locator('#projectSelect')).toHaveValue('tongxin-hujian');
-  await expect(page.locator('#posterCanvas')).not.toHaveClass(/is-project-placeholder/);
-  await expect(page.locator('#projectPreviewState')).toContainText('网页底板已载入');
   const project = await page.evaluate(() => ({
     id: window.POSTER_PROJECT.id,
     name: window.POSTER_PROJECT.name,
     canvas: window.POSTER_PROJECT.canvas,
-    preview: window.POSTER_PROJECT.preview,
+    baseImage: document.getElementById('posterCanvas').style.getPropertyValue('--poster-base-image'),
   }));
-  expect(project).toEqual({
-    id: 'tongxin-hujian',
-    name: '同心护健',
-    canvas: { width: 837, height: 1880 },
-    preview: { type: 'asset', src: './assets/tongxin-hujian-base.jpg', theme: 'tongxin' },
-  });
+  expect(project.id).toBe('tongxin-hujian');
+  expect(project.name).toBe('同心护健');
+  expect(project.canvas).toEqual({ width: 837, height: 1880 });
+  expect(project.baseImage).toContain('./assets/tongxin-hujian-base.jpg');
 });

@@ -49,12 +49,8 @@ async function restore(token){if(!token)return null;try{return await fs.getEntry
 async function loadPrefs(){
   try{
     const p=JSON.parse(localStorage.getItem(PREF)||'{}');
-    if(p.templates&&typeof p.templates==='object'){
-      for(const project of PROJECTS){templateState(project.id).entry=await restore(p.templates[project.id]);}
-    }else if(p.template){
-      // v1 单母版设置自动迁移为现有“医路长安”项目，避免升级后要求重新选择旧 PSD。
-      templateState('chronic-care-2026').entry=await restore(p.template);
-    }
+    const templates=p.templates&&typeof p.templates==='object'?p.templates:{};
+    for(const project of PROJECTS){templateState(project.id).entry=await restore(templates[project.id]);}
     state.workspace=await restore(p.workspace);
     refreshTemplatePaths();
   }catch(e){log(`设置恢复失败：${e.message}`)}
@@ -109,18 +105,15 @@ async function validateSelectedTemplate(projectId){
   }
   setState(`正在校验 ${project.name} PSD 母版…`);
   try{
-    const repair=await core.executeAsModal(async()=>{
+    await core.executeAsModal(async()=>{
       let doc=null;
       try{
         doc=await app.open(template.entry);app.activeDocument=doc;
-        const result=engine.repairLegacyTextLayerNames(doc,SPEC);
         engine.validateTemplate(doc,SPEC);
-        return result;
       }finally{if(doc){try{doc.closeWithoutSaving();}catch(_){}}}
     },{commandName:`校验 ${project.name} PSD 母版`});
     template.ready=true;
-    if(repair?.renamed?.length)log(`[${project.name}] 母版自检通过；兼容修复旧文字层命名 ${repair.renamed.length} 个（仅内存校验，不修改母版）`);
-    else log(`[${project.name}] ✓ PSD 母版自检通过：${SPEC.TEMPLATE_VERSION||'template'} · ${SPEC.EXPECTED_WIDTH}×${SPEC.EXPECTED_HEIGHT}`);
+    log(`[${project.name}] ✓ PSD 母版自检通过：${SPEC.TEMPLATE_VERSION||'template'} · ${SPEC.EXPECTED_WIDTH}×${SPEC.EXPECTED_HEIGHT}`);
     refreshTemplatePaths();refreshOverallState();
     await writeHeartbeat(allProjectsReady()?undefined:'template_error');
     return true;
@@ -138,21 +131,13 @@ function safeTaskFileName(value,label){
   if(!/\.(?:png|jpe?g|webp)$/i.test(value))throw new Error(`${label}文件类型无效`);
   return value;
 }
-function normalizeWorkerAvatarAsset(asset,label){
-  const cropMode=asset.cropMode==null?'raw':asset.cropMode;
-  if(cropMode!=='raw'&&cropMode!=='baked')throw new Error(`${label}的 cropMode 只允许 raw 或 baked`);
-  const crop=asset.crop==null?{}:asset.crop;
+function validateBakedAvatar(asset,label){
+  if(asset.cropMode!=='baked')throw new Error(`${label}必须是 baked 模式`);
+  if(asset.outputSize!==1024)throw new Error(`${label}的 baked outputSize 必须为 1024`);
+  if(!/\.png$/i.test(asset.fileName))throw new Error(`${label}的 baked 成品必须是 PNG`);
+  const crop=asset.crop;
   if(!crop||typeof crop!=='object'||Array.isArray(crop))throw new Error(`${label}的裁剪参数无效`);
-  const zoom=crop.zoom==null?1:Number(crop.zoom);const offsetX=crop.offsetX==null?0:Number(crop.offsetX);const offsetY=crop.offsetY==null?0:Number(crop.offsetY);
-  if(!Number.isFinite(zoom)||zoom<0.2||zoom>3.5||!Number.isFinite(offsetX)||Math.abs(offsetX)>100||!Number.isFinite(offsetY)||Math.abs(offsetY)>100)throw new Error(`${label}的裁剪参数超出允许范围`);
-  asset.crop={zoom,offsetX,offsetY};
-  if(cropMode==='baked'){
-    if(asset.outputSize!==1024)throw new Error(`${label}的 baked outputSize 必须为 1024`);
-    if(!/\.png$/i.test(asset.fileName))throw new Error(`${label}的 baked 成品必须是 PNG`);
-    if(zoom!==1||offsetX!==0||offsetY!==0)throw new Error(`${label}的 baked 裁剪参数必须为 zoom=1、offsetX=0、offsetY=0`);
-    asset.outputSize=1024;
-  }else if(asset.outputSize!=null)throw new Error(`${label}的 raw 模式不应包含 outputSize`);
-  asset.cropMode=cropMode;return asset;
+  if(Number(crop.zoom)!==1||Number(crop.offsetX)!==0||Number(crop.offsetY)!==0)throw new Error(`${label}的 baked 裁剪参数必须为 zoom=1、offsetX=0、offsetY=0`);
 }
 function validateWorkerJob(job,folderName){
   if(!job||typeof job!=='object'||Array.isArray(job))throw new Error('job.json 根对象无效');
@@ -166,8 +151,9 @@ function validateWorkerJob(job,folderName){
     const asset=job.assets[key];
     if(!asset||typeof asset!=='object'||Array.isArray(asset))throw new Error(`job.json 缺少${label}`);
     safeTaskFileName(asset.fileName,label);
-    if(key==='qrCode'){if(asset.cropMode!=null||asset.outputSize!=null)throw new Error('二维码不支持头像裁剪模式');}
-    else normalizeWorkerAvatarAsset(asset,label);
+    if(key==='qrCode'){
+      if(asset.cropMode!=null||asset.outputSize!=null||asset.crop!=null)throw new Error('二维码不支持头像裁剪字段');
+    }else validateBakedAvatar(asset,label);
   }
   return job;
 }
@@ -190,9 +176,9 @@ async function processFolder(jobFolder,outbox){
     lastProgress='准备任务';log(`开始任务 ${job.id} · ${project.name}`);setState(`正在生成：${project.name} · ${job.id}`);
     const a=job.assets||{};
     const assets={
-      chairAvatar:{entry:await fileByName(jobFolder,a.chairAvatar.fileName),crop:a.chairAvatar.crop||{},cropMode:a.chairAvatar.cropMode,outputSize:a.chairAvatar.outputSize},
-      speaker1Avatar:{entry:await fileByName(jobFolder,a.speaker1Avatar.fileName),crop:a.speaker1Avatar.crop||{},cropMode:a.speaker1Avatar.cropMode,outputSize:a.speaker1Avatar.outputSize},
-      speaker2Avatar:{entry:await fileByName(jobFolder,a.speaker2Avatar.fileName),crop:a.speaker2Avatar.crop||{},cropMode:a.speaker2Avatar.cropMode,outputSize:a.speaker2Avatar.outputSize},
+      chairAvatar:{entry:await fileByName(jobFolder,a.chairAvatar.fileName),crop:a.chairAvatar.crop,cropMode:a.chairAvatar.cropMode,outputSize:a.chairAvatar.outputSize},
+      speaker1Avatar:{entry:await fileByName(jobFolder,a.speaker1Avatar.fileName),crop:a.speaker1Avatar.crop,cropMode:a.speaker1Avatar.cropMode,outputSize:a.speaker1Avatar.outputSize},
+      speaker2Avatar:{entry:await fileByName(jobFolder,a.speaker2Avatar.fileName),crop:a.speaker2Avatar.crop,cropMode:a.speaker2Avatar.cropMode,outputSize:a.speaker2Avatar.outputSize},
       qrCode:await fileByName(jobFolder,a.qrCode.fileName)
     };
     const runGenerate=()=>engine.generatePoster({templateEntry:template.entry,outputFolderEntry:out,meeting:job.meeting,assets,spec:SPEC,onProgress:m=>{lastProgress=m;log(`→ ${m}`);busyHeartbeat.pulse();}});

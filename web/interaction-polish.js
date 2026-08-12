@@ -3,9 +3,7 @@
 
   const poster = document.getElementById('posterCanvas');
   const viewport = document.querySelector('.poster-viewport');
-  const toolbarActions = document.querySelector('.stage-toolbar-actions');
-  const hint = document.getElementById('posterMouseHint');
-  const layoutButton = document.getElementById('toggleTextLayout');
+  const stageArea = document.querySelector('.stage-area');
   const clearLocalData = document.getElementById('clearLocalData');
   const toggleInspector = document.getElementById('toggleInspector');
   const jobStatus = document.getElementById('jobStatus');
@@ -16,51 +14,18 @@
     requestAnimationFrame(() => requestAnimationFrame(fn));
   }
 
-  function installSemanticsLegend() {
-    if (!toolbarActions || toolbarActions.querySelector('.output-semantics')) return;
-    const legend = document.createElement('div');
-    legend.className = 'output-semantics';
-    legend.setAttribute('aria-label', '网页预览与 Photoshop 输出说明');
-    legend.innerHTML = [
-      '<span class="sync-chip sync">同步 PSD：文字内容 · 图片裁剪结果</span>',
-      '<span class="sync-chip preview">仅网页预览：文字位置 · 文字大小</span>',
-    ].join('');
-    toolbarActions.insertBefore(legend, toolbarActions.firstChild);
-  }
-
-  function refreshLayoutCopy() {
-    if (!layoutButton) return;
-    const active = layoutButton.classList.contains('active');
-    layoutButton.textContent = active ? '完成预览文字布局' : '调整预览文字布局';
-    if (hint) {
-      hint.textContent = active
-        ? '预览布局模式：可拖动/缩放文字；不会改变 PSD 中的文字位置和字号'
-        : '点击文字编辑内容 · 应用后的图片裁剪结果会同步 Photoshop';
-    }
-  }
-
-  function installLayoutCopy() {
-    refreshLayoutCopy();
-    layoutButton?.addEventListener('click', () => queueMicrotask(refreshLayoutCopy));
-
-    const avatarHelp = document.querySelector('#avatarCropModal .crop-help');
-    if (avatarHelp) avatarHelp.textContent = '圆形区域就是最终头像可见范围；点击“应用裁剪”后会固化为 1024×1024 PNG，并同步给 Photoshop。';
-  }
-
   function installZoomControls() {
-    if (!poster || !viewport || !toolbarActions || toolbarActions.querySelector('.zoom-controls')) return;
+    if (!poster || !viewport || !stageArea || stageArea.querySelector('.zoom-controls')) return;
 
     const controls = document.createElement('div');
-    controls.className = 'zoom-controls';
+    controls.className = 'zoom-controls stage-zoom-controls';
     controls.setAttribute('aria-label', '海报预览缩放');
     controls.innerHTML = `
       <button type="button" data-zoom="out" title="缩小预览">−</button>
       <button type="button" data-zoom="fit" title="适应窗口">适应</button>
       <span class="zoom-value">100%</span>
       <button type="button" data-zoom="in" title="放大预览">＋</button>`;
-
-    const firstLayoutTool = toolbarActions.querySelector('.layout-tool-btn');
-    toolbarActions.insertBefore(controls, firstLayoutTool || null);
+    stageArea.appendChild(controls);
 
     const value = controls.querySelector('.zoom-value');
     let zoom = 1;
@@ -290,8 +255,6 @@
     });
   }
 
-  installSemanticsLegend();
-  installLayoutCopy();
   installZoomControls();
   decorateSchedule();
   installUtilityMenu();
