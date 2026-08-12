@@ -2,52 +2,42 @@
   'use strict';
 
   const STORAGE_KEY = 'meetingPosterProjectV1';
-  const DEFAULT_PROJECT_ID = 'yilu-changan';
+  const DEFAULT_PROJECT_ID = 'chronic-care-2026';
   const CONTENT_PROFILE = 'meeting-series-common-v1';
+  const SHARED_LAYOUT = Object.freeze({
+    chair: Object.freeze({ left: 342, top: 496, size: 168, label: '主席' }),
+    speaker1: Object.freeze({ left: 221, top: 836, size: 168, label: '讲者一' }),
+    speaker2: Object.freeze({ left: 457, top: 836, size: 168, label: '讲者二' }),
+    qr: Object.freeze({ left: 338, top: 1576, size: 148 }),
+  });
 
   const projects = Object.freeze([
     Object.freeze({
-      id: 'yilu-changan',
+      id: 'chronic-care-2026',
       name: '医路长安',
       version: 1,
       contentProfile: CONTENT_PROFILE,
-      renderProfile: 'yilu-changan-v1',
+      templateProfile: 'meeting-poster-v10',
       preview: Object.freeze({ type: 'asset', src: './assets/poster-base.jpg', theme: 'yilu' }),
-      assetPreview: Object.freeze({
-        chair: Object.freeze({ left: 342, top: 496, size: 168, label: '主席' }),
-        speaker1: Object.freeze({ left: 221, top: 836, size: 168, label: '讲者一' }),
-        speaker2: Object.freeze({ left: 457, top: 836, size: 168, label: '讲者二' }),
-        qr: Object.freeze({ left: 338, top: 1576, size: 148 }),
-      }),
+      assetPreview: SHARED_LAYOUT,
     }),
     Object.freeze({
       id: 'tonghu-jiankang',
       name: '同护健康',
       version: 1,
       contentProfile: CONTENT_PROFILE,
-      renderProfile: 'tonghu-jiankang-v1',
+      templateProfile: 'meeting-poster-v10',
       preview: Object.freeze({ type: 'placeholder', theme: 'tonghu' }),
-      // 网页暂用近似占位布局；正式 Photoshop 输出会读取本地 PSD 智能对象的真实目标框。
-      assetPreview: Object.freeze({
-        chair: Object.freeze({ left: 334, top: 456, size: 168, label: '主席' }),
-        speaker1: Object.freeze({ left: 216, top: 780, size: 168, label: '讲者一' }),
-        speaker2: Object.freeze({ left: 448, top: 780, size: 168, label: '讲者二' }),
-        qr: Object.freeze({ left: 338, top: 1517, size: 148 }),
-      }),
+      assetPreview: SHARED_LAYOUT,
     }),
     Object.freeze({
       id: 'tongxin-hujian',
       name: '同心护健',
       version: 1,
       contentProfile: CONTENT_PROFILE,
-      renderProfile: 'tongxin-hujian-v1',
+      templateProfile: 'meeting-poster-v10',
       preview: Object.freeze({ type: 'placeholder', theme: 'tongxin' }),
-      assetPreview: Object.freeze({
-        chair: Object.freeze({ left: 336, top: 474, size: 168, label: '主席' }),
-        speaker1: Object.freeze({ left: 208, top: 827, size: 168, label: '讲者一' }),
-        speaker2: Object.freeze({ left: 458, top: 827, size: 168, label: '讲者二' }),
-        qr: Object.freeze({ left: 329, top: 1585, size: 148 }),
-      }),
+      assetPreview: SHARED_LAYOUT,
     }),
   ]);
 
@@ -79,7 +69,7 @@
   posterProject.version = active.version;
   posterProject.name = active.name;
   posterProject.contentProfile = active.contentProfile;
-  posterProject.renderProfile = active.renderProfile;
+  posterProject.templateProfile = active.templateProfile;
   posterProject.preview = active.preview;
   posterProject.assetPreview = {
     chair: { ...active.assetPreview.chair },
@@ -95,7 +85,7 @@
     projectName: active.name,
     projectVersion: active.version,
     contentProfile: active.contentProfile,
-    renderProfile: active.renderProfile,
+    templateProfile: active.templateProfile,
     previewMode: active.preview.type,
   });
 
@@ -159,6 +149,7 @@
   window.POSTER_PROJECT_REGISTRY = Object.freeze({
     storageKey: STORAGE_KEY,
     defaultProjectId: DEFAULT_PROJECT_ID,
+    contentProfile: CONTENT_PROFILE,
     projects,
     active,
     get(id) { return byId.get(id) || null; },
