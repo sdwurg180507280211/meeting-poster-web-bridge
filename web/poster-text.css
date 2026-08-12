@@ -28,34 +28,7 @@
 .moveable-control-box{
   z-index:30!important;
 }
-.stage-toolbar-actions{
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  gap:8px;
-  min-width:0;
-}
-.layout-tool-btn{
-  flex:none;
-  border:1px solid #d9deea;
-  border-radius:8px;
-  background:#fff;
-  color:#596579;
-  padding:6px 9px;
-  font-size:10px;
-  font-weight:800;
-}
-.layout-tool-btn:hover{
-  border-color:#b7bee8;
-  color:#4f5bc4;
-}
-.layout-tool-btn.active{
-  border-color:#8f98e6;
-  background:#eef0ff;
-  color:#4f5bc4;
-}
 
-/* Compact Photoshop-like selection toolbar. The legacy stage toolbar stays hidden. */
 .stage-area{position:relative}
 .text-layout-dock{
   position:absolute;
