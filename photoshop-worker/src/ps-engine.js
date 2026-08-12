@@ -307,7 +307,11 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
       validateTemplate(doc, spec);
 
       const metrics = spec.FIT_TEXT_LAYERS.map((names) => snapshotTextMetrics(doc, names));
-      const joinNameTitle = (name, title) => [name, title].filter(Boolean).join(' ').trim();
+      // 姓名未填时整体留空，避免固定职称“教授”残留显示（fixed-defaults 将职称固定为“教授”）。
+      const joinNameTitle = (name, title) => {
+        const n = String(name || '').trim();
+        return n ? [n, title].filter(Boolean).join(' ').trim() : '';
+      };
 
       onProgress('填充会议时间/地点、主席、讲者与日程');
       setTextLayer(doc, spec.LAYERS.TEXT.MEETING_TIME, normalizeMeetingTime(meeting.meetingTime));
