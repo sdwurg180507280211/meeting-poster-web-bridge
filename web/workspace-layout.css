@@ -1,5 +1,4 @@
-/* Workspace layout: hide the stage toolbar and make the inspector width user-resizable. */
-.stage-toolbar{display:none!important}
+/* Workspace layout: resizable inspector and a clean poster stage. */
 .stage-area{padding:16px}
 
 .editor-workspace{
