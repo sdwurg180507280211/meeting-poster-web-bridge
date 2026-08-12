@@ -4,18 +4,22 @@
   const taskTab = document.getElementById('taskTab');
   if (!taskTab || taskTab.querySelector('.task-control-card')) return;
 
+  const cfg = window.POSTER_CONFIG || {};
   const card = document.createElement('section');
   card.className = 'task-control-card';
   card.innerHTML = `
     <div class="task-control-head"><h2>任务控制</h2><button type="button" class="task-control-refresh">刷新</button></div>
     <div class="task-control-list"><div class="task-control-empty">正在读取任务…</div></div>
-    <div class="task-control-note">排队中的任务可安全取消；Photoshop 已开始处理后不做强制中断。已完成、失败或取消的任务可使用原素材重新生成。</div>`;
+    <div class="task-control-note">排队中的任务可安全取消；Photoshop 已开始处理后不做强制中断。已完成任务可直接查看海报；已完成、失败或取消的任务可使用原素材重新生成。</div>`;
 
   const history = taskTab.querySelector('.history-card');
   taskTab.insertBefore(card, history || taskTab.querySelector('.debug-details') || null);
 
   const list = card.querySelector('.task-control-list');
   const refreshButton = card.querySelector('.task-control-refresh');
+  const previewUrls = new Map();
+  let currentJobs = [];
+  let expandedJobId = null;
   let loading = false;
   let actionBusy = false;
 
@@ -38,29 +42,50 @@
   function client() { return window.POSTER_APP_CLIENT || null; }
 
   function render(jobs) {
-    if (!Array.isArray(jobs) || !jobs.length) {
+    currentJobs = Array.isArray(jobs) ? jobs : [];
+    if (expandedJobId && !currentJobs.some(job => job.id === expandedJobId && job.status === 'succeeded')) {
+      expandedJobId = null;
+    }
+    if (!currentJobs.length) {
       list.innerHTML = '<div class="task-control-empty">暂无任务</div>';
       return;
     }
 
-    list.innerHTML = jobs.map(job => {
+    list.innerHTML = currentJobs.map(job => {
       const status = String(job.status || 'unknown');
       const name = job.payload?.meeting?.outputName || '系列会议海报';
       const time = job.created_at ? new Date(job.created_at).toLocaleString() : '';
       const canCancel = status === 'pending';
       const canRetry = ['failed', 'succeeded', 'cancelled'].includes(status);
-      const action = canCancel
-        ? '<button type="button" class="danger" data-job-action="cancel">取消任务</button>'
-        : canRetry
-          ? '<button type="button" class="primary" data-job-action="retry">重新生成</button>'
-          : '<button type="button" disabled>处理中不可强制取消</button>';
+      const isExpanded = status === 'succeeded' && expandedJobId === job.id;
+      const previewUrl = previewUrls.get(job.id) || '';
+
+      let actions = '';
+      if (status === 'succeeded') {
+        actions += `<button type="button" class="view" data-job-action="toggle-preview">${isExpanded ? '收起' : '查看'}</button>`;
+      }
+      if (canCancel) {
+        actions += '<button type="button" class="danger" data-job-action="cancel">取消任务</button>';
+      } else if (canRetry) {
+        actions += '<button type="button" class="primary" data-job-action="retry">重新生成</button>';
+      } else {
+        actions += '<button type="button" disabled>处理中不可强制取消</button>';
+      }
+
+      const preview = status === 'succeeded'
+        ? `<div class="task-control-preview"${isExpanded ? '' : ' hidden'}>${previewUrl
+          ? `<img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(name)}预览">`
+          : '<div class="task-control-preview-loading">正在加载海报…</div>'}</div>`
+        : '';
+
       return `
         <div class="task-control-item" data-job-id="${escapeHtml(job.id)}" data-job-status="${escapeHtml(status)}">
           <div class="task-control-main">
             <div style="min-width:0"><div class="task-control-name">${escapeHtml(name)}</div><div class="task-control-time">${escapeHtml(time)}</div></div>
             <span class="task-control-status ${escapeHtml(status)}">${escapeHtml(statusLabels[status] || status)}</span>
           </div>
-          <div class="task-control-actions">${action}</div>
+          <div class="task-control-actions">${actions}</div>
+          ${preview}
         </div>`;
     }).join('');
   }
@@ -76,7 +101,7 @@
     refreshButton.disabled = true;
     try {
       const { data, error } = await sb.from('poster_jobs')
-        .select('id,status,payload,created_at,error_message')
+        .select('id,status,payload,created_at,error_message,result_png_path')
         .order('created_at', { ascending: false })
         .limit(8);
       if (error) throw error;
@@ -86,6 +111,44 @@
     } finally {
       loading = false;
       refreshButton.disabled = false;
+    }
+  }
+
+  async function togglePreview(item) {
+    const jobId = item.dataset.jobId;
+    const job = currentJobs.find(entry => entry.id === jobId);
+    if (!job || job.status !== 'succeeded') return;
+
+    if (expandedJobId === jobId) {
+      expandedJobId = null;
+      render(currentJobs);
+      return;
+    }
+
+    expandedJobId = jobId;
+    render(currentJobs);
+    if (previewUrls.has(jobId)) return;
+
+    const sb = client();
+    if (!sb) return;
+    if (!job.result_png_path) {
+      expandedJobId = null;
+      render(currentJobs);
+      alert('该任务没有可查看的 PNG 结果');
+      return;
+    }
+
+    try {
+      const bucket = sb.storage.from(cfg.BUCKET || 'poster-assets');
+      const { data, error } = await bucket.createSignedUrl(job.result_png_path, 1800);
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('未返回海报预览地址');
+      previewUrls.set(jobId, data.signedUrl);
+      if (expandedJobId === jobId) render(currentJobs);
+    } catch (error) {
+      if (expandedJobId === jobId) expandedJobId = null;
+      render(currentJobs);
+      alert(`海报查看失败：${error.message || error}`);
     }
   }
 
@@ -130,7 +193,12 @@
     const button = event.target.closest('[data-job-action]');
     if (!button) return;
     const item = button.closest('.task-control-item');
-    if (item) void runAction(item, button.dataset.jobAction);
+    if (!item) return;
+    if (button.dataset.jobAction === 'toggle-preview') {
+      void togglePreview(item);
+      return;
+    }
+    void runAction(item, button.dataset.jobAction);
   });
   refreshButton.addEventListener('click', () => { void load(); });
 
