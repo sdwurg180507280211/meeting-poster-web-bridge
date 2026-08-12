@@ -2,12 +2,10 @@
 
 process.umask(0o077);
 
-const { execFile } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
-const { promisify } = require('util');
 const { createClient } = require('@supabase/supabase-js');
 const {
   ASSET_DEFINITIONS,
@@ -19,9 +17,8 @@ const {
   validateJob,
 } = require('./job-validation');
 const { acquireSingleInstance } = require('./single-instance-lock');
-const { boundedErrorMessage, checkedResult, formatSupabaseError, isMissingRpcError } = require('./supabase-utils');
+const { boundedErrorMessage, checkedResult } = require('./supabase-utils');
 
-const execFileAsync = promisify(execFile);
 const AGENT_ROOT = path.resolve(__dirname, '..');
 const ENV_PATH = path.join(AGENT_ROOT, '.env');
 require('dotenv').config({ path: ENV_PATH });
@@ -57,9 +54,9 @@ function safeAgentId(value) {
 }
 
 const URL = process.env.SUPABASE_URL;
-const KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const KEY = process.env.SUPABASE_SECRET_KEY;
 if (!URL || !KEY) {
-  throw new Error('请在 .env 配置 SUPABASE_URL，并填写 SUPABASE_SECRET_KEY（推荐）或旧版 SUPABASE_SERVICE_ROLE_KEY');
+  throw new Error('请在 .env 配置 SUPABASE_URL 和 SUPABASE_SECRET_KEY');
 }
 
 const BUCKET = process.env.SUPABASE_BUCKET || 'poster-assets';
@@ -76,7 +73,6 @@ const MAX_JOB_ATTEMPTS = integerSetting('MAX_JOB_ATTEMPTS', 3, { min: 1, max: 10
 const RECOVERY_INTERVAL_MS = integerSetting('RECOVERY_INTERVAL_MS', 60000, { min: 10000, max: 600000 });
 const LEASE_RENEW_INTERVAL_MS = integerSetting('LEASE_RENEW_INTERVAL_MS', 60000, { min: 10000, max: 300000 });
 const WORKER_HEARTBEAT_MAX_AGE_MS = integerSetting('WORKER_HEARTBEAT_MAX_AGE_MS', 120000, { min: 10000, max: 600000 });
-const RPC_PROBE_INTERVAL_MS = 5 * 60 * 1000;
 
 const SERVICE_DIR = path.join(WORKSPACE, '.service');
 const LOCK_FILE = path.join(SERVICE_DIR, 'mac-agent.lock');
@@ -88,9 +84,6 @@ let loopBusy = false;
 let lastServiceHeartbeatAt = 0;
 let lastRecoveryAt = 0;
 let lastLeaseRenewalAt = 0;
-let lastMigrationWarningAt = 0;
-let rpcMigrationAvailable = null;
-let nextRpcProbeAt = 0;
 let pollTimer = null;
 let instanceLock = null;
 let shuttingDown = false;
@@ -181,22 +174,8 @@ async function publishServiceHeartbeat(force = false) {
   checkedResult(result, '服务心跳上报', { requireData: true });
 }
 
-function warnMigrationRequired(error) {
-  rpcMigrationAvailable = false;
-  nextRpcProbeAt = Date.now() + RPC_PROBE_INTERVAL_MS;
-  if (Date.now() - lastMigrationWarningAt < 60000) return;
-  lastMigrationWarningAt = Date.now();
-  log('⚠ 数据库尚未执行 003 Agent 加固迁移，暂用兼容接单模式；请尽快部署迁移。', formatSupabaseError(error));
-}
-
-function patchForAvailableSchema(patch) {
-  const result = { ...patch };
-  if (rpcMigrationAvailable === false) delete result.lease_expires_at;
-  return result;
-}
-
 async function mutateJob(jobId, patch, { statuses, expectedAgent, context = '更新任务' } = {}) {
-  let query = sb.from('poster_jobs').update(patchForAvailableSchema(patch)).eq('id', jobId);
+  let query = sb.from('poster_jobs').update(patch).eq('id', jobId);
   if (Array.isArray(statuses) && statuses.length) query = query.in('status', statuses);
   if (expectedAgent === null) query = query.is('agent_id', null);
   else if (typeof expectedAgent === 'string') query = query.eq('agent_id', expectedAgent);
@@ -204,83 +183,31 @@ async function mutateJob(jobId, patch, { statuses, expectedAgent, context = '更
   return checkedResult(result, context, { requireData: true });
 }
 
-async function legacyRecoverClaimedJobs() {
-  const cutoff = new Date(Date.now() - STALE_AFTER_SECONDS * 1000).toISOString();
-  const result = await sb.from('poster_jobs')
-    .update({ status: 'pending', agent_id: null, claimed_at: null, error_message: null })
-    .eq('status', 'claimed')
-    .lt('claimed_at', cutoff)
-    .select('id');
-  const recovered = checkedResult(result, '兼容模式恢复过期 claimed 任务') || [];
-  if (recovered.length) log(`兼容模式已恢复 ${recovered.length} 个过期 claimed 任务`);
-}
-
 async function recoverStaleJobs(force = false) {
   const currentTime = Date.now();
   if (!force && currentTime - lastRecoveryAt < RECOVERY_INTERVAL_MS) return;
   lastRecoveryAt = currentTime;
 
-  const shouldProbeRpc = rpcMigrationAvailable !== false || currentTime >= nextRpcProbeAt;
-  if (shouldProbeRpc) {
-    const result = await sb.rpc('recover_stale_poster_jobs', {
-      p_stale_after_seconds: STALE_AFTER_SECONDS,
-      p_max_attempts: MAX_JOB_ATTEMPTS,
-    }).maybeSingle();
-    if (result.error && isMissingRpcError(result.error, 'recover_stale_poster_jobs')) {
-      warnMigrationRequired(result.error);
-    } else {
-      const summary = checkedResult(result, '恢复过期任务');
-      rpcMigrationAvailable = true;
-      const requeued = Number(summary?.requeued_count || 0);
-      const failed = Number(summary?.failed_count || 0);
-      if (requeued || failed) log(`过期任务恢复完成：重新排队 ${requeued}，失败 ${failed}`);
-      return;
-    }
-  }
-
-  await legacyRecoverClaimedJobs();
-}
-
-async function legacyClaimOne() {
-  const selected = await sb.from('poster_jobs')
-    .select('*')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true })
-    .limit(1);
-  const jobs = checkedResult(selected, '兼容模式读取待处理任务') || [];
-  if (!jobs.length) return null;
-  const job = jobs[0];
-  const result = await sb.from('poster_jobs')
-    .update({ status: 'claimed', agent_id: AGENT_ID, claimed_at: now() })
-    .eq('id', job.id)
-    .eq('status', 'pending')
-    .select('*')
-    .maybeSingle();
-  return checkedResult(result, '兼容模式认领任务');
+  const result = await sb.rpc('recover_stale_poster_jobs', {
+    p_stale_after_seconds: STALE_AFTER_SECONDS,
+    p_max_attempts: MAX_JOB_ATTEMPTS,
+  }).maybeSingle();
+  const summary = checkedResult(result, '恢复过期任务');
+  const requeued = Number(summary?.requeued_count || 0);
+  const failed = Number(summary?.failed_count || 0);
+  if (requeued || failed) log(`过期任务恢复完成：重新排队 ${requeued}，失败 ${failed}`);
 }
 
 async function claimOne() {
-  const currentTime = Date.now();
-  const shouldProbeRpc = rpcMigrationAvailable !== false || currentTime >= nextRpcProbeAt;
-  if (shouldProbeRpc) {
-    const result = await sb.rpc('claim_next_poster_job', {
-      p_agent_id: AGENT_ID,
-      p_lease_seconds: CLAIM_LEASE_SECONDS,
-      p_max_attempts: MAX_JOB_ATTEMPTS,
-    }).maybeSingle();
-    if (result.error && isMissingRpcError(result.error, 'claim_next_poster_job')) {
-      warnMigrationRequired(result.error);
-    } else {
-      const claimed = checkedResult(result, '原子认领任务');
-      rpcMigrationAvailable = true;
-      return claimed || null;
-    }
-  }
-  return legacyClaimOne();
+  const result = await sb.rpc('claim_next_poster_job', {
+    p_agent_id: AGENT_ID,
+    p_lease_seconds: CLAIM_LEASE_SECONDS,
+    p_max_attempts: MAX_JOB_ATTEMPTS,
+  }).maybeSingle();
+  return checkedResult(result, '原子认领任务') || null;
 }
 
 async function renewOwnedLeases() {
-  if (rpcMigrationAvailable !== true) return;
   const currentTime = Date.now();
   if (currentTime - lastLeaseRenewalAt < LEASE_RENEW_INTERVAL_MS) return;
   lastLeaseRenewalAt = currentTime;
@@ -580,33 +507,6 @@ async function tick() {
   }
 }
 
-async function findLegacyAgentProcesses() {
-  let stdout;
-  try {
-    ({ stdout } = await execFileAsync('/bin/ps', ['-axo', 'pid=,command=']));
-  } catch {
-    return [];
-  }
-  const candidates = String(stdout).split('\n').flatMap((line) => {
-    const match = line.match(/^\s*(\d+)\s+(.+)$/);
-    if (!match || Number(match[1]) === process.pid) return [];
-    if (!/(?:^|\/)node\s+(?:--[^\s]+\s+)*src\/agent\.js(?:\s|$)/.test(match[2])) return [];
-    return [Number(match[1])];
-  });
-
-  const matches = [];
-  for (const pid of candidates) {
-    try {
-      const result = await execFileAsync('/usr/sbin/lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn']);
-      const cwd = String(result.stdout).split('\n').find((line) => line.startsWith('n'))?.slice(1);
-      if (cwd && path.resolve(cwd) === AGENT_ROOT) matches.push(pid);
-    } catch {
-      // Process may have exited between ps and lsof.
-    }
-  }
-  return matches;
-}
-
 async function writePidFile() {
   await writeFileSecure(PID_FILE, `${process.pid}\n`);
 }
@@ -633,17 +533,6 @@ async function shutdown(signal) {
 async function main() {
   await ensureSecureFilesystem();
   instanceLock = await acquireSingleInstance(LOCK_FILE, { workspace: WORKSPACE });
-
-  // Give another new process that lost the atomic port race time to exit, then detect
-  // agents started by the previous code version (which did not own the new lock).
-  await new Promise((resolve) => setTimeout(resolve, 250));
-  const legacyPids = await findLegacyAgentProcesses();
-  if (legacyPids.length) {
-    const error = new Error(`检测到旧版 Mac Agent 仍在运行（PID ${legacyPids.join(', ')}），请先运行“停止海报服务.command”`);
-    error.code = 'LEGACY_AGENT_RUNNING';
-    throw error;
-  }
-
   await writePidFile();
   process.once('SIGINT', () => { void shutdown('SIGINT'); });
   process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
@@ -653,8 +542,9 @@ async function main() {
   log('Workspace:', WORKSPACE);
   log(`安全限制：单素材最多 ${Math.floor(MAX_INPUT_BYTES / 1024 / 1024)} MiB，仅 PNG/JPEG/WebP`);
 
-  await publishServiceHeartbeat(true).catch((error) => log('服务心跳上报失败:', error.message));
-  await recoverStaleJobs(true).catch((error) => log('启动时恢复过期任务失败:', error.message));
+  // Startup is fail-closed: the current database contract must be available before polling begins.
+  await publishServiceHeartbeat(true);
+  await recoverStaleJobs(true);
   await tick();
   pollTimer = setInterval(() => { void tick(); }, POLL_MS);
 }
