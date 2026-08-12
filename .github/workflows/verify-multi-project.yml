@@ -31,11 +31,12 @@ jobs:
       - run: node --check web/asset-layout.js
       - run: node --check photoshop-worker/src/projects.js
       - run: node --check photoshop-worker/src/worker.js
-      - name: Verify shared project catalog and local PSD dispatch
+      - name: Verify project routing and local PSD dispatch
         run: |
           node - <<'NODE'
           const fs = require('fs');
           const registry = fs.readFileSync('web/project-registry.js', 'utf8');
+          const switcherCss = fs.readFileSync('web/project-switcher.css', 'utf8');
           const assetProfiles = fs.readFileSync('web/asset-layout-profiles.js', 'utf8');
           const projects = fs.readFileSync('photoshop-worker/src/projects.js', 'utf8');
           const worker = fs.readFileSync('photoshop-worker/src/worker.js', 'utf8');
@@ -48,10 +49,12 @@ jobs:
             if (!projects.includes(value)) throw new Error(`Worker project catalog missing ${value}`);
           }
           if (!registry.includes("DEFAULT_PROJECT_ID = 'chronic-care-2026'")) {
-            throw new Error('existing project id must stay chronic-care-2026');
+            throw new Error('current default project must stay chronic-care-2026');
           }
-          if (!registry.includes("CONTENT_PROFILE = 'meeting-series-common-v1'")) {
-            throw new Error('the three projects must share one content profile');
+          for (const obsolete of ['contentProfile', 'templateProfile', 'preview.type', 'placeholder', 'is-project-placeholder']) {
+            if (registry.includes(obsolete) || switcherCss.includes(obsolete)) {
+              throw new Error(`obsolete project abstraction remains: ${obsolete}`);
+            }
           }
           const assetMappings = [
             ['chronic-care-2026', 'yilu-changan-assets-v1'],
@@ -69,12 +72,12 @@ jobs:
           if (!registry.includes('posterProject.assetPreview = projectAssetLayout')) {
             throw new Error('active project must install its own asset layout');
           }
-          if (!worker.includes("require('./src/projects')")) throw new Error('Worker must load the local project catalog');
+          if (!worker.includes("require('./src/projects')")) throw new Error('Worker must load the current project catalog');
           if (!worker.includes('job.meeting?.__renderContract?.project?.id')) throw new Error('Worker must route jobs by render-contract project id');
           if (!worker.includes('templateState(job.projectId)')) throw new Error('Worker must select a PSD token by project id');
           if (!worker.includes('allProjectsReady()')) throw new Error('Worker must require all registered PSDs before going online');
-          if (/p\.template\b|单母版设置|自动迁移/.test(worker)) {
-            throw new Error('Worker must not keep legacy single-template preference compatibility');
+          if (/\bp\.template\b|单母版设置|自动迁移/.test(worker)) {
+            throw new Error('Worker must not keep obsolete single-template preference compatibility');
           }
           if (!html.includes('id="templateProjects"')) throw new Error('Worker panel must expose project PSD bindings');
           if (!webHtml.includes('project-registry.js') || !webHtml.includes('project-switcher.css')) {
