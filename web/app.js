@@ -1,6 +1,9 @@
 (() => {
+  'use strict';
+
   const cfg = window.POSTER_CONFIG || {};
   const supabaseLib = window.supabase;
+  const project = window.POSTER_PROJECT;
   const debugEl = document.getElementById('debug');
   const cloudState = document.getElementById('cloudState');
   const jobStatus = document.getElementById('jobStatus');
@@ -14,7 +17,7 @@
   const validation = window.PosterValidation;
 
   const ACTIVE_JOB_KEY = 'meetingPosterActiveJobV1';
-  const AVATAR_OUTPUT_SIZE = 1024;
+  const AVATAR_OUTPUT_SIZE = validation?.AVATAR_OUTPUT_SIZE || 1024;
   const peopleDef = [['chair','会议主席'], ['speaker1','讲者一'], ['speaker2','讲者二']];
   const peopleState = {};
   let qrPreviewUrl = '';
@@ -83,13 +86,7 @@
     const root = document.getElementById('people');
     root.innerHTML = '';
     peopleDef.forEach(([key, label]) => {
-      peopleState[key] = {
-        file: null,
-        url: '',
-        crop: { zoom: 1, offsetX: 0, offsetY: 0 },
-        cropMode: 'raw',
-        outputSize: null,
-      };
+      peopleState[key] = { file: null, url: '', baked: false };
       const wrap = document.createElement('div');
       wrap.className = 'person';
       wrap.innerHTML = `
@@ -105,28 +102,11 @@
               <label>职称（可选）<input id="${key}-title" maxlength="40"></label>
             </div>
             <label style="margin-top:10px">医院<input id="${key}-hospital" maxlength="120" required></label>
-            <div class="crop-controls">
-              ${rangeHtml(key, 'zoom', '缩放', 100, 250, 100, '%')}
-              ${rangeHtml(key, 'x', '左右', -100, 100, 0, '')}
-              ${rangeHtml(key, 'y', '上下', -100, 100, 0, '')}
-            </div>
           </div>
         </div>`;
       root.appendChild(wrap);
-      document.getElementById(`${key}-file`).addEventListener('change', e => onAvatarFile(key, label, e.target));
-      ['zoom', 'x', 'y'].forEach(axis => document.getElementById(`${key}-${axis}`).addEventListener('input', e => {
-        const v = Number(e.target.value);
-        document.getElementById(`${key}-${axis}-v`).textContent = axis === 'zoom' ? `${v}%` : String(v);
-        if (axis === 'zoom') peopleState[key].crop.zoom = v / 100;
-        if (axis === 'x') peopleState[key].crop.offsetX = v;
-        if (axis === 'y') peopleState[key].crop.offsetY = v;
-        renderAvatar(key);
-      }));
+      document.getElementById(`${key}-file`).addEventListener('change', event => onAvatarFile(key, label, event.target));
     });
-  }
-
-  function rangeHtml(key, axis, label, min, max, value, suffix) {
-    return `<div class="range-row"><span>${label}</span><input id="${key}-${axis}" type="range" min="${min}" max="${max}" value="${value}"><span id="${key}-${axis}-v">${value}${suffix}</span></div>`;
   }
 
   function onAvatarFile(key, label, input) {
@@ -139,30 +119,23 @@
       alert(fileError);
       return;
     }
-    const st = peopleState[key];
-    const isBaked = input.dataset.avatarCropMode === 'baked'
-      || input.dataset.avatarCropApplied === '1';
-    st.file = file;
-    st.cropMode = isBaked ? 'baked' : 'raw';
-    st.outputSize = isBaked ? AVATAR_OUTPUT_SIZE : null;
-    if (isBaked) st.crop = { zoom: 1, offsetX: 0, offsetY: 0 };
-    if (st.url) URL.revokeObjectURL(st.url);
-    st.url = URL.createObjectURL(file);
+
+    const state = peopleState[key];
+    state.file = file;
+    state.baked = input.dataset.avatarCropApplied === '1' || input.dataset.restoringDraft === '1';
+    if (state.url) URL.revokeObjectURL(state.url);
+    state.url = URL.createObjectURL(file);
     const img = document.getElementById(`${key}-img`);
-    img.src = st.url;
-    img.onload = () => renderAvatar(key);
+    if (img) img.src = state.url;
   }
 
   function clearAvatar(key) {
-    const st = peopleState[key];
-    if (!st) return;
-    if (st.url) URL.revokeObjectURL(st.url);
-    st.file = null;
-    st.url = '';
-    st.crop = { zoom: 1, offsetX: 0, offsetY: 0 };
-    st.cropMode = 'raw';
-    st.outputSize = null;
-
+    const state = peopleState[key];
+    if (!state) return;
+    if (state.url) URL.revokeObjectURL(state.url);
+    state.file = null;
+    state.url = '';
+    state.baked = false;
     const img = document.getElementById(`${key}-img`);
     if (img) {
       img.onload = null;
@@ -172,43 +145,20 @@
       img.style.left = '';
       img.style.top = '';
     }
-
-    const values = { zoom: 100, x: 0, y: 0 };
-    for (const axis of ['zoom', 'x', 'y']) {
-      const input = document.getElementById(`${key}-${axis}`);
-      const readout = document.getElementById(`${key}-${axis}-v`);
-      if (input) input.value = String(values[axis]);
-      if (readout) readout.textContent = axis === 'zoom' ? '100%' : '0';
-    }
   }
 
-  document.addEventListener('avatar-image-reset', e => {
-    const key = e.detail?.key;
+  document.addEventListener('avatar-image-reset', event => {
+    const key = event.detail?.key;
     if (key) clearAvatar(key);
   });
 
-  document.addEventListener('avatar-crop-applied', e => {
-    const key = e.detail?.key;
-    const st = key ? peopleState[key] : null;
-    if (!st) return;
-    st.crop = { zoom: 1, offsetX: 0, offsetY: 0 };
-    st.cropMode = 'baked';
-    st.outputSize = AVATAR_OUTPUT_SIZE;
+  document.addEventListener('avatar-crop-applied', event => {
+    const key = event.detail?.key;
+    const state = key ? peopleState[key] : null;
+    if (!state) return;
+    if (event.detail?.file) state.file = event.detail.file;
+    state.baked = true;
   });
-
-  function renderAvatar(key) {
-    const st = peopleState[key];
-    const img = document.getElementById(`${key}-img`);
-    if (!st.file || !img.naturalWidth) return;
-    const box = 110;
-    const cover = Math.max(box / img.naturalWidth, box / img.naturalHeight) * st.crop.zoom;
-    const w = img.naturalWidth * cover;
-    const h = img.naturalHeight * cover;
-    img.style.width = `${w}px`;
-    img.style.height = `${h}px`;
-    img.style.left = `${(box - w) / 2 + (st.crop.offsetX / 100) * box}px`;
-    img.style.top = `${(box - h) / 2 + (st.crop.offsetY / 100) * box}px`;
-  }
 
   function buildSchedule() {
     const root = document.getElementById('schedule');
@@ -221,13 +171,13 @@
     }
   }
 
-  document.getElementById('qrFile').addEventListener('change', e => {
-    const f = e.target.files[0];
+  document.getElementById('qrFile').addEventListener('change', event => {
+    const file = event.target.files[0];
     const img = document.getElementById('qrPreview');
-    if (!f) { img.style.display = 'none'; return; }
-    const fileError = validation?.validateImageFile(f, '二维码');
+    if (!file) { img.style.display = 'none'; return; }
+    const fileError = validation?.validateImageFile(file, '二维码');
     if (fileError) {
-      e.target.value = '';
+      event.target.value = '';
       if (qrPreviewUrl) URL.revokeObjectURL(qrPreviewUrl);
       qrPreviewUrl = '';
       img.removeAttribute('src');
@@ -237,7 +187,7 @@
       return;
     }
     if (qrPreviewUrl) URL.revokeObjectURL(qrPreviewUrl);
-    qrPreviewUrl = URL.createObjectURL(f);
+    qrPreviewUrl = URL.createObjectURL(file);
     img.src = qrPreviewUrl;
     img.style.display = 'block';
   });
@@ -245,19 +195,21 @@
   async function init() {
     if (!supabaseLib?.createClient) throw new Error('云端连接组件加载失败，请刷新页面重试');
     if (!validation) throw new Error('页面校验组件加载失败，请刷新页面重试');
+    if (!project?.buildRenderContract) throw new Error('项目渲染协议组件未加载，请刷新页面重试');
     if (!cfg.SUPABASE_URL || cfg.SUPABASE_URL.includes('YOUR_PROJECT') || !cfg.SUPABASE_PUBLISHABLE_KEY || cfg.SUPABASE_PUBLISHABLE_KEY.includes('YOUR_')) {
       cloudState.textContent = '请先配置 config.js';
       cloudState.className = 'badge bad';
       return;
     }
     client = supabaseLib.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY);
+    window.POSTER_APP_CLIENT = client;
     const sessionResult = await client.auth.getSession();
     if (sessionResult.error) throw sessionResult.error;
     let { session } = sessionResult.data;
     if (!session) {
-      const r = await client.auth.signInAnonymously();
-      if (r.error) throw r.error;
-      session = r.data.session;
+      const result = await client.auth.signInAnonymously();
+      if (result.error) throw result.error;
+      session = result.data.session;
     }
     user = session.user;
     cloudState.textContent = '云端已连接';
@@ -332,8 +284,8 @@
     }
   }
 
-  document.getElementById('posterForm').addEventListener('submit', async e => {
-    e.preventDefault();
+  document.getElementById('posterForm').addEventListener('submit', async event => {
+    event.preventDefault();
     if (!client || !user) { alert('Supabase 尚未连接'); return; }
     const uploadedPaths = [];
     let jobCreated = false;
@@ -345,13 +297,17 @@
       setSubmitBusy(true);
       downloads.innerHTML = '';
       resultPreview.style.display = 'none';
+
       const qr = document.getElementById('qrFile').files[0];
       const files = {};
       for (const [key, label] of peopleDef) {
-        const file = peopleState[key].file;
+        const state = peopleState[key];
+        const file = state.file;
         if (!file) throw new Error(`请上传${label}头像`);
+        if (!state.baked) throw new Error(`${label}头像必须先点击“应用裁剪”`);
         const fileError = validation.validateImageFile(file, `${label}头像`);
         if (fileError) throw new Error(fileError);
+        if (file.type !== 'image/png') throw new Error(`${label}应用裁剪后必须为 PNG`);
         files[key] = file;
       }
       if (!qr) throw new Error('请上传二维码');
@@ -366,28 +322,26 @@
       const base = `${user.id}/${jobId}/input`;
       const assets = {};
       for (const [key] of peopleDef) {
-        const st = peopleState[key];
         const file = files[key];
-        const path = `${base}/${key}.${validation.imageExtension(file.type)}`;
-        const cropMode = st.cropMode === 'baked' ? 'baked' : 'raw';
+        const path = `${base}/${key}.png`;
         assets[key] = {
           storagePath: path,
-          crop: cropMode === 'baked'
-            ? { zoom: 1, offsetX: 0, offsetY: 0 }
-            : {
-              zoom: Number(st.crop.zoom),
-              offsetX: Number(st.crop.offsetX),
-              offsetY: Number(st.crop.offsetY),
-            },
-          cropMode,
+          crop: { zoom: 1, offsetX: 0, offsetY: 0 },
+          cropMode: 'baked',
+          outputSize: AVATAR_OUTPUT_SIZE,
           originalName: String(file.name || ''),
         };
-        if (cropMode === 'baked') assets[key].outputSize = AVATAR_OUTPUT_SIZE;
       }
       const qrPath = `${base}/qr.${validation.imageExtension(qr.type)}`;
       assets.qrCode = { storagePath: qrPath, originalName: String(qr.name || '') };
 
-      const payload = { meeting, assets };
+      const contract = project.buildRenderContract();
+      const payload = {
+        meeting,
+        assets,
+        protocolVersion: contract.protocolVersion,
+        project: contract.project,
+      };
       const payloadErrors = validation.validatePayload(payload);
       if (payloadErrors.length) throw new Error(payloadErrors[0]);
 
@@ -426,20 +380,21 @@
 
   function setStatus(text, status) {
     jobStatus.textContent = text;
-    jobStatus.className = `status-box ${status === 'succeeded' ? 'ok' : status === 'failed' ? 'bad' : ''}`;
+    jobStatus.className = `status-box ${status === 'succeeded' ? 'ok' : ['failed', 'cancelled'].includes(status) ? 'bad' : ''}`;
     const map = {
       pending: '① 已提交 → 等待 Mac',
       claimed: '② Mac Agent 已接单',
       rendering: '③ Photoshop 正在生成',
       uploading: '④ 正在上传结果',
       succeeded: '⑤ 已完成',
-      failed: '生成失败'
+      failed: '生成失败',
+      cancelled: '已取消',
     };
     progressSteps.textContent = map[status] || '';
   }
 
   function statusLabel(status) {
-    return ({ pending: '等待接单', claimed: '已接单', rendering: '生成中', uploading: '上传中', succeeded: '已完成', failed: '失败' })[status] || status;
+    return ({ pending: '等待接单', claimed: '已接单', rendering: '生成中', uploading: '上传中', succeeded: '已完成', failed: '失败', cancelled: '已取消' })[status] || status;
   }
 
   function startPolling() {
@@ -489,7 +444,8 @@
       rendering: 'Photoshop 正在生成正式海报…',
       uploading: 'Photoshop 已完成，正在上传结果…',
       succeeded: '生成完成',
-      failed: `生成失败：${data.error_message || '未知错误'}`
+      failed: `生成失败：${data.error_message || '未知错误'}`,
+      cancelled: '任务已取消',
     };
     setStatus(label[data.status] || data.status, data.status);
 
@@ -514,16 +470,16 @@
 
   async function downloadAs(url, filename) {
     try {
-      const r = await fetch(url);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const blob = await r.blob();
-      const a = document.createElement('a');
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const link = document.createElement('a');
       const objectUrl = URL.createObjectURL(blob);
-      a.href = objectUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
       setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
     } catch (err) {
       log('下载失败：' + err.message);
