@@ -88,9 +88,7 @@
     const moved = drag.moved;
     try {
       if (viewport.hasPointerCapture?.(drag.pointerId)) viewport.releasePointerCapture(drag.pointerId);
-    } catch (_) {
-      // Pointer capture can already be released by the browser.
-    }
+    } catch (_) {}
     drag = null;
     viewport.classList.remove('is-panning');
     if (moved) suppressNextClick = true;
@@ -170,15 +168,6 @@
     });
   }
 
-  function installWorkspaceHint() {
-    const toolbar = document.querySelector('.stage-toolbar>div:first-child');
-    if (!toolbar || toolbar.querySelector('.canvas-workspace-chip')) return;
-    const chip = document.createElement('span');
-    chip.className = 'canvas-workspace-chip';
-    chip.textContent = '左键拖动画布 · 双击空白复位';
-    toolbar.appendChild(chip);
-  }
-
   if (window.ResizeObserver) {
     const resizeObserver = new ResizeObserver(() => refreshWorkspace());
     resizeObserver.observe(viewport);
@@ -187,11 +176,10 @@
 
   window.addEventListener('resize', () => refreshWorkspace());
   installCenterControl();
-  installWorkspaceHint();
   requestAnimationFrame(() => refreshWorkspace({ preserveCenter: false }));
 
-  window.posterCanvasWorkspace = {
+  window.posterCanvasWorkspace = Object.freeze({
     center: centerViewport,
     refresh: refreshWorkspace,
-  };
+  });
 })();
