@@ -21,5 +21,11 @@
 .task-control-actions button:hover{background:#f7f8fc}
 .task-control-actions .danger{border-color:#f0d1d5;color:#b43f48;background:#fffafa}
 .task-control-actions .primary{border-color:#d9ddff;color:#4e59b9;background:#f7f7ff}
+.task-control-actions .view{border-color:#cfe9dc;color:#237755;background:#f5fbf8}
+.task-control-actions .view:hover{background:#edf8f2}
 .task-control-actions button:disabled{cursor:not-allowed;opacity:.55}
+.task-control-preview{margin-top:9px;padding:6px;border:1px solid #e6ebf1;border-radius:9px;background:#f7f9fc}
+.task-control-preview[hidden]{display:none!important}
+.task-control-preview img{display:block;width:100%;height:auto;border-radius:6px;background:#fff}
+.task-control-preview-loading{padding:24px 8px;color:#98a2b1;font-size:9px;text-align:center}
 .task-control-note{padding:0 12px 10px;color:#98a2b1;font-size:9px;line-height:1.45}

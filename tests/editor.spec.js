@@ -7,7 +7,7 @@ const jobs = [
   { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', status: 'pending', payload: { meeting: { outputName: '待处理海报' } }, created_at: now, error_message: null },
   { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', status: 'rendering', payload: { meeting: { outputName: '生成中的海报' } }, created_at: now, error_message: null },
   { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', status: 'failed', payload: { meeting: { outputName: '失败海报' } }, created_at: now, error_message: 'mock failure' },
-  { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', status: 'succeeded', payload: { meeting: { outputName: '已完成海报' } }, created_at: now, error_message: null },
+  { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', status: 'succeeded', payload: { meeting: { outputName: '已完成海报' } }, created_at: now, error_message: null, result_png_path: 'results/mock/preview.png' },
 ];
 
 function fakeJwt() {
@@ -89,6 +89,14 @@ async function installSupabaseMock(page) {
       }
       return;
     }
+    if (url.pathname.startsWith('/storage/v1/object/sign/poster-assets/')) {
+      await route.fulfill({
+        status: 200,
+        headers: cors,
+        body: JSON.stringify({ signedURL: `${url.pathname}?token=mock-signed-token` }),
+      });
+      return;
+    }
     if (url.pathname.startsWith('/auth/v1/')) {
       await route.fulfill({ status: 200, headers: cors, body: JSON.stringify({ user: { id: USER_ID } }) });
       return;
@@ -156,11 +164,23 @@ test('system preflight reports render contract and service readiness', async ({ 
   await expect(page.locator('.preflight-list')).toContainText('Photoshop Worker');
 });
 
-test('task tab exposes safe cancel and retry actions', async ({ page }) => {
+test('task tab exposes safe cancel, retry, view and collapse actions', async ({ page }) => {
   await page.locator('.inspector-tab[data-tab="task"]').click();
   await expect(page.locator('.task-control-item[data-job-status="pending"]')).toBeVisible();
   await expect(page.locator('.task-control-item[data-job-status="pending"] [data-job-action="cancel"]')).toHaveText('取消任务');
   await expect(page.locator('.task-control-item[data-job-status="failed"] [data-job-action="retry"]')).toHaveText('重新生成');
-  await expect(page.locator('.task-control-item[data-job-status="succeeded"] [data-job-action="retry"]')).toHaveText('重新生成');
+
+  const succeeded = page.locator('.task-control-item[data-job-status="succeeded"]');
+  await expect(succeeded.locator('[data-job-action="retry"]')).toHaveText('重新生成');
+  const viewButton = succeeded.locator('[data-job-action="toggle-preview"]');
+  await expect(viewButton).toHaveText('查看');
+  await viewButton.click();
+  await expect(viewButton).toHaveText('收起');
+  await expect(succeeded.locator('.task-control-preview')).toBeVisible();
+  await expect(succeeded.locator('.task-control-preview img')).toHaveAttribute('src', /mock-signed-token/);
+  await viewButton.click();
+  await expect(viewButton).toHaveText('查看');
+  await expect(succeeded.locator('.task-control-preview')).toBeHidden();
+
   await expect(page.locator('.task-control-item[data-job-status="rendering"] button')).toBeDisabled();
 });
