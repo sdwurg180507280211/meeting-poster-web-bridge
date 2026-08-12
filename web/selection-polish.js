@@ -21,7 +21,7 @@
         api,
         dockSelector: '.text-layout-dock',
         selectableSelector: '.poster-preview-text',
-        selected: () => api.getSelectedIds?.() || [],
+        selected: () => api.getSelectedIds(),
       };
     }
     if (kind === 'asset') {
@@ -32,7 +32,7 @@
         api,
         dockSelector: '.asset-layout-dock',
         selectableSelector: '.canvas-asset-slot',
-        selected: () => api.getSelectedKeys?.() || [],
+        selected: () => api.getSelectedKeys(),
       };
     }
     return null;
@@ -46,14 +46,7 @@
     if (!context || clearing || context.selected().length === 0) return false;
     clearing = true;
     try {
-      if (typeof context.api.clearSelection === 'function') {
-        context.api.clearSelection();
-      } else {
-        // The current editors keep selection private. Re-entering the same mode clears
-        // selection and Moveable without touching layout data, undo history or the PSD contract.
-        context.api.setEnabled?.(false);
-        context.api.setEnabled?.(true);
-      }
+      context.api.clearSelection();
       document.dispatchEvent(new CustomEvent('poster-selection-cleared', {
         detail: { mode: context.kind },
       }));
@@ -81,10 +74,7 @@
     const element = asElement(event.target);
     if (protectedTarget(context, element)) return;
 
-    // Ctrl/Cmd + blank poster drag is the existing additive marquee gesture in text mode.
-    // It intentionally preserves the current selection until the marquee editor resolves it.
     if (context.kind === 'text' && element && poster.contains(element) && (event.metaKey || event.ctrlKey)) return;
-
     clearSelection(context);
   }, true);
 
@@ -96,7 +86,6 @@
     const element = asElement(event.target);
     if (!element || protectedTarget(context, element)) return;
     if (!element.matches('input,textarea,select,button,a,[contenteditable="true"],summary,[tabindex]')) return;
-
     clearSelection(context);
   }, true);
 
