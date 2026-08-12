@@ -62,58 +62,6 @@ function layerGeometry(layer) {
   };
 }
 
-function repairLegacyTextLayerNames(doc, spec) {
-  const layouts = Array.isArray(spec.TEXT_LAYER_LAYOUTS) ? spec.TEXT_LAYER_LAYOUTS : [];
-  if (!layouts.length) return { renamed: [], unresolved: [] };
-
-  const textGroup = Array.from(doc.layers).find((layer) => layer.name === '05_可编辑文字');
-  if (!textGroup || textGroup.kind !== LayerKind.GROUP) {
-    return { renamed: [], unresolved: layouts.map((item) => item.name) };
-  }
-
-  const textLayers = walkLayers(textGroup.layers, []).filter((layer) => layer.kind === LayerKind.TEXT);
-  const expectedNames = new Set(layouts.map((item) => item.name));
-  const usedIds = new Set();
-  const renamed = [];
-  const unresolved = [];
-
-  for (const layout of layouts) {
-    const existing = textLayers.find((layer) => layer.name === layout.name && !usedIds.has(layer.id));
-    if (existing) usedIds.add(existing.id);
-  }
-
-  for (const layout of layouts) {
-    if (textLayers.some((layer) => layer.name === layout.name && usedIds.has(layer.id))) continue;
-
-    const [left, top, right, bottom] = layout.bounds;
-    const targetCenterX = (left + right) / 2;
-    const targetCenterY = (top + bottom) / 2;
-    let best = null;
-
-    for (const layer of textLayers) {
-      if (usedIds.has(layer.id)) continue;
-      if (expectedNames.has(layer.name)) continue;
-      const geometry = layerGeometry(layer);
-      const dx = Math.abs(geometry.centerX - targetCenterX);
-      const dy = Math.abs(geometry.centerY - targetCenterY);
-      const score = dy * 8 + dx;
-      if (!best || score < best.score) best = { layer, dx, dy, score };
-    }
-
-    if (!best || best.dy > 42 || best.dx > 220) {
-      unresolved.push(layout.name);
-      continue;
-    }
-
-    const oldName = best.layer.name;
-    best.layer.name = layout.name;
-    usedIds.add(best.layer.id);
-    renamed.push({ from: oldName, to: layout.name, layerId: best.layer.id });
-  }
-
-  return { renamed, unresolved };
-}
-
 function getTextSize(layer) {
   return numberValue(layer.textItem.characterStyle.size);
 }
@@ -247,16 +195,14 @@ async function replaceSmartObject(doc, names, fileEntry) {
   return refreshed;
 }
 
-async function fitSmartObjectToBox(layer, box, { cover = false, zoom = 1, offsetX = 0, offsetY = 0 } = {}) {
+async function fitSmartObjectToBox(layer, box) {
   if (!layer) return;
   let geometry = layerGeometry(layer);
   if (geometry.width <= 0 || geometry.height <= 0) throw new Error(`图层“${layer.name}”没有有效尺寸`);
 
-  const scaleX = box.width / geometry.width;
-  const scaleY = box.height / geometry.height;
-  const baseScale = cover ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
+  const scale = Math.min(box.width / geometry.width, box.height / geometry.height);
   await layer.scale(
-    baseScale * 100, baseScale * 100,
+    scale * 100, scale * 100,
     constants.AnchorPosition.MIDDLECENTER,
     { interpolation: constants.InterpolationMethod.BICUBIC }
   );
@@ -266,22 +212,6 @@ async function fitSmartObjectToBox(layer, box, { cover = false, zoom = 1, offset
     box.left + box.width / 2 - geometry.centerX,
     box.top + box.height / 2 - geometry.centerY
   );
-
-  const safeZoom = Math.max(1, Number(zoom) || 1);
-  if (Math.abs(safeZoom - 1) > 0.001) {
-    await layer.scale(
-      safeZoom * 100, safeZoom * 100,
-      constants.AnchorPosition.MIDDLECENTER,
-      { interpolation: constants.InterpolationMethod.BICUBIC }
-    );
-  }
-  const dx = (Number(offsetX) || 0) / 100 * box.width;
-  const dy = (Number(offsetY) || 0) / 100 * box.height;
-  if (dx || dy) await layer.translate(dx, dy);
-}
-
-function avatarCropMode(asset) {
-  return asset && asset.cropMode === 'baked' ? 'baked' : 'raw';
 }
 
 async function placeBakedAvatarToBox(layer, box) {
@@ -289,7 +219,6 @@ async function placeBakedAvatarToBox(layer, box) {
   let geometry = layerGeometry(layer);
   if (geometry.width <= 0 || geometry.height <= 0) throw new Error(`图层“${layer.name}”没有有效尺寸`);
 
-  // baked PNG 的四角锚点让 bounds 代表网页导出的完整方形画布，而不是头像的非透明内容。
   const sourceTolerance = Math.max(1, Math.max(geometry.width, geometry.height) * 0.002);
   if (Math.abs(geometry.width - geometry.height) > sourceTolerance) {
     throw new Error(`网页成品头像的完整边界必须为正方形，当前为 ${Math.round(geometry.width)}×${Math.round(geometry.height)}`);
@@ -298,7 +227,6 @@ async function placeBakedAvatarToBox(layer, box) {
     throw new Error(`PSD 头像目标框必须为正方形，当前为 ${box.width}×${box.height}`);
   }
 
-  // 只按完整画布宽度做一次固定比例映射；不使用 cover、zoom、offset 或内容边界重新构图。
   const scale = box.width / geometry.width;
   await layer.scale(
     scale * 100, scale * 100,
@@ -376,14 +304,6 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
       onProgress('打开 PSD 母版');
       doc = await app.open(templateEntry);
       app.activeDocument = doc;
-
-      const nameRepair = repairLegacyTextLayerNames(doc, spec);
-      if (nameRepair.renamed.length) {
-        onProgress(`已自动修复旧母版文字层命名：${nameRepair.renamed.length} 个`);
-      }
-      if (nameRepair.unresolved.length) {
-        onProgress(`仍有 ${nameRepair.unresolved.length} 个文字层无法按坐标识别，将进入严格预检`);
-      }
       validateTemplate(doc, spec);
 
       const metrics = spec.FIT_TEXT_LAYERS.map((names) => snapshotTextMetrics(doc, names));
@@ -412,7 +332,7 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
         setLayerVisible(doc, spec.LAYERS.TEXT.scheduleDot(i), Boolean(row.content));
       }
 
-      onProgress('替换头像：网页成品固定映射，旧版原图自动铺满');
+      onProgress('替换头像：网页成品固定映射');
       const avatarJobs = [
         ['主席头像', spec.LAYERS.AVATAR.CHAIR, assets.chairAvatar, spec.AVATAR_BOXES.CHAIR],
         ['讲者一头像', spec.LAYERS.AVATAR.SPEAKER1, assets.speaker1Avatar, spec.AVATAR_BOXES.SPEAKER1],
@@ -420,24 +340,17 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
       ];
       for (const [label, layerName, asset, box] of avatarJobs) {
         try {
-          const mode = avatarCropMode(asset);
-          onProgress(`${label} [${mode}]：替换图片`);
+          onProgress(`${label}：替换图片`);
           const avatarLayer = await replaceSmartObject(doc, layerName, asset.entry);
-          const before = layerGeometry(avatarLayer);
-          if (mode === 'baked') {
-            const outputSize = Number(asset.outputSize);
-            const sourceLabel = Number.isFinite(outputSize) && outputSize > 0
-              ? `${Math.round(outputSize)}×${Math.round(outputSize)}`
-              : '完整方形';
-            onProgress(`${label} [baked]：网页成品 ${sourceLabel}，固定映射到 ${box.width}×${box.height}`);
-            await placeBakedAvatarToBox(avatarLayer, box);
-          } else {
-            onProgress(`${label} [raw]：替换后尺寸 ${Math.round(before.width)}×${Math.round(before.height)}，自动铺满并应用裁剪参数`);
-            await fitSmartObjectToBox(avatarLayer, box, { cover: true, ...asset.crop });
-          }
+          const outputSize = Number(asset.outputSize);
+          const sourceLabel = Number.isFinite(outputSize) && outputSize > 0
+            ? `${Math.round(outputSize)}×${Math.round(outputSize)}`
+            : '完整方形';
+          onProgress(`${label}：网页成品 ${sourceLabel}，固定映射到 ${box.width}×${box.height}`);
+          await placeBakedAvatarToBox(avatarLayer, box);
           const afterLayer = findLayer(doc, layerName) || avatarLayer;
           const after = layerGeometry(afterLayer);
-          onProgress(`${label} [${mode}]：完成，显示尺寸 ${Math.round(after.width)}×${Math.round(after.height)}`);
+          onProgress(`${label}：完成，显示尺寸 ${Math.round(after.width)}×${Math.round(after.height)}`);
         } catch (error) {
           throw new Error(`${label}处理失败：${error && error.message ? error.message : String(error)}`);
         }
@@ -445,7 +358,7 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
 
       onProgress('替换二维码图片');
       const qrLayer = await replaceSmartObject(doc, spec.LAYERS.QR, assets.qrCode);
-      await fitSmartObjectToBox(qrLayer, spec.QR_BOX, { cover: false });
+      await fitSmartObjectToBox(qrLayer, spec.QR_BOX);
 
       onProgress('检查文字宽度并自动缩小');
       spec.FIT_TEXT_LAYERS.forEach((names, index) => {
@@ -473,7 +386,6 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
 
 module.exports = {
   findLayer,
-  repairLegacyTextLayerNames,
   validateTemplate,
   generatePoster,
   safeFileName,
