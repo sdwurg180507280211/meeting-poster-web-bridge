@@ -16,6 +16,7 @@
   let overrides = readOverrides();
   let layoutMode = false;
   let moveable = null;
+  let moveableTimer = null;
   let selected = new Set();
   let marquee = null;
   let suppressPosterClick = false;
@@ -143,7 +144,7 @@
     overrides = cloneOverrides(snapshot);
     saveOverrides();
     applyAllGeometry();
-    rebuildMoveable();
+    scheduleMoveableRebuild();
     updateToolbarState();
   }
 
@@ -187,6 +188,10 @@
   }
 
   function destroyMoveable() {
+    if (moveableTimer) {
+      clearTimeout(moveableTimer);
+      moveableTimer = null;
+    }
     moveable?.destroy?.();
     moveable = null;
   }
@@ -248,9 +253,22 @@
   }
 
   function rebuildMoveable() {
-    destroyMoveable();
+    if (moveableTimer) {
+      clearTimeout(moveableTimer);
+      moveableTimer = null;
+    }
+    moveable?.destroy?.();
+    moveable = null;
     if (!layoutMode || !selected.size) return;
     moveable = createMoveable([...selected]);
+  }
+
+  function scheduleMoveableRebuild() {
+    if (moveableTimer) clearTimeout(moveableTimer);
+    moveableTimer = setTimeout(() => {
+      moveableTimer = null;
+      rebuildMoveable();
+    }, 0);
   }
 
   function updateSelectionClasses() {
@@ -275,8 +293,8 @@
   function setSelection(next) {
     selected = new Set([...next].filter(el => el && elements.has(el.dataset.previewTextId)));
     updateSelectionClasses();
-    rebuildMoveable();
     updateToolbarState();
+    scheduleMoveableRebuild();
   }
 
   function clearSelection() {
@@ -496,7 +514,7 @@
 
     saveOverrides();
     commitHistory(before);
-    rebuildMoveable();
+    scheduleMoveableRebuild();
   }
 
   function resetLayout() {
@@ -506,7 +524,7 @@
     localStorage.removeItem(STORAGE_KEY);
     applyAllGeometry();
     commitHistory(before);
-    rebuildMoveable();
+    scheduleMoveableRebuild();
   }
 
   function setLayoutMode(enabled) {
@@ -569,7 +587,7 @@
 
   window.addEventListener('resize', () => {
     applyAllGeometry();
-    rebuildMoveable();
+    scheduleMoveableRebuild();
   });
 
   updateToolbarState();
