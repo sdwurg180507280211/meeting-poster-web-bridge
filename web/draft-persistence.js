@@ -2,7 +2,7 @@
   'use strict';
 
   const FORM_KEY = 'meetingPosterEditorDraftV2';
-  const DB_NAME = 'meetingPosterEditorFilesV1';
+  const DB_NAME = 'meetingPosterEditorFilesV2';
   const STORE = 'files';
   const form = document.getElementById('posterForm');
   if (!form) return;
@@ -214,7 +214,6 @@
   });
   document.addEventListener('qr-image-reset', () => deleteFile('qrFile'));
 
-  // Only baked avatars are persisted. Original avatar selections remain transient until “应用裁剪”.
   document.getElementById('qrFile')?.addEventListener('change', event => {
     if (event.target.dataset.restoringDraft === '1') return;
     const file = event.target.files?.[0];
