@@ -106,7 +106,7 @@ test('clicking inspector clears asset selection while its toolbar actions preser
   expect(await page.evaluate(() => window.posterAssetLayout.isEnabled())).toBe(true);
 });
 
-test('plain click on one member collapses a multi-selection, while modifiers keep additive semantics', async ({ page }) => {
+test('clearing a group removes the transform box and the next object click starts a clean selection', async ({ page }) => {
   await enableText(page);
   const chair = page.locator('[data-preview-text-id="section-chair"]');
   const speakers = page.locator('[data-preview-text-id="section-speakers"]');
@@ -114,12 +114,11 @@ test('plain click on one member collapses a multi-selection, while modifiers kee
   await speakers.click({ modifiers: ['Control'] });
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds().sort())).toEqual(['section-chair', 'section-speakers']);
 
-  await chair.click();
-  await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds())).toEqual(['section-chair']);
+  await page.locator('.brand').click();
+  await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds())).toEqual([]);
+  await expect(page.locator('.moveable-control-box')).toHaveCount(0);
 
-  await speakers.click({ modifiers: ['Control'] });
-  await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds().sort())).toEqual(['section-chair', 'section-speakers']);
-  await speakers.click({ modifiers: ['Control'] });
+  await chair.click();
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds())).toEqual(['section-chair']);
 });
 
