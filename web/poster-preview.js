@@ -225,7 +225,7 @@
         event.target.style.left = `${event.left}px`;
         event.target.style.top = `${event.top}px`;
       });
-      instance.on('dragEnd', event => {
+      instance.on('dragEnd', () => {
         saveSelectedFromDom(operationBefore);
         operationBefore = null;
       });
@@ -286,7 +286,7 @@
   function selectElement(el, additive = false) {
     if (!layoutMode || !el) return;
     if (!additive) {
-      if (selected.size === 1 && selected.has(el)) return;
+      if (selected.has(el)) return;
       setSelection([el]);
       return;
     }
