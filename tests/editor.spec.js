@@ -129,9 +129,10 @@ test('canvas supports left-button panning without changing poster geometry', asy
     top: document.querySelector('.poster-viewport').scrollTop,
     posterWidth: document.getElementById('posterCanvas').offsetWidth,
   }));
-  await page.mouse.move(box.x + 24, box.y + 24);
+  // Start below the compact floating text-layout tool so this test exercises the workspace itself.
+  await page.mouse.move(box.x + 24, box.y + 96);
   await page.mouse.down();
-  await page.mouse.move(box.x - 70, box.y - 45, { steps: 7 });
+  await page.mouse.move(box.x - 70, box.y + 27, { steps: 7 });
   await page.mouse.up();
   const after = await page.evaluate(() => ({
     left: document.querySelector('.poster-viewport').scrollLeft,
