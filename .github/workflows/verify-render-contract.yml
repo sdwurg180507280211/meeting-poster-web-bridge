@@ -38,7 +38,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: node --check web/validation.js
       - run: node --check web/poster-project.js
+      - run: node --check web/app.js
+      - run: node --check web/draft-persistence.js
+      - run: node --check web/avatar-crop-modal.js
+      - run: node --check web/poster-preview.js
+      - run: node --check web/asset-layout.js
+      - run: node --check web/selection-polish.js
       - run: node --check web/interaction-polish.js
       - run: node --check web/canvas-pan.js
       - run: node --check web/workspace-layout.js
@@ -49,7 +56,54 @@ jobs:
       - run: node --check mac-agent/src/agent.js
       - run: node --check photoshop-worker/src/constants.js
       - run: node --check photoshop-worker/src/render-contract.js
+      - run: node --check photoshop-worker/src/ps-engine.js
       - run: node --check photoshop-worker/src/worker.js
+      - name: Verify current-only implementation
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const agent = fs.readFileSync('mac-agent/src/agent.js', 'utf8');
+          const worker = fs.readFileSync('photoshop-worker/src/worker.js', 'utf8');
+          const engine = fs.readFileSync('photoshop-worker/src/ps-engine.js', 'utf8');
+          const validation = fs.readFileSync('web/validation.js', 'utf8');
+          const app = fs.readFileSync('web/app.js', 'utf8');
+          const project = fs.readFileSync('web/poster-project.js', 'utf8');
+          const draft = fs.readFileSync('web/draft-persistence.js', 'utf8');
+          const selection = fs.readFileSync('web/selection-polish.js', 'utf8');
+          const textLayout = fs.readFileSync('web/poster-preview.js', 'utf8');
+          const assetLayout = fs.readFileSync('web/asset-layout.js', 'utf8');
+
+          for (const token of [
+            'legacyClaimOne', 'legacyRecoverClaimedJobs', 'warnMigrationRequired',
+            'isMissingRpcError', 'SUPABASE_SERVICE_ROLE_KEY', 'findLegacyAgentProcesses',
+          ]) {
+            if (agent.includes(token)) throw new Error(`Agent still contains obsolete compatibility path: ${token}`);
+          }
+          if (!agent.includes("sb.rpc('claim_next_poster_job'")) throw new Error('Agent must use the current atomic claim RPC');
+          if (!agent.includes("sb.rpc('recover_stale_poster_jobs'")) throw new Error('Agent must use the current recovery RPC');
+
+          for (const token of ['repairLegacyTextLayerNames', 'p.template']) {
+            if (worker.includes(token) || engine.includes(token)) throw new Error(`Worker still contains obsolete compatibility path: ${token}`);
+          }
+          if (!worker.includes("asset.cropMode!=='baked'")) throw new Error('Worker must accept baked avatars only');
+          if (/cropMode\s*===?\s*['"]raw|cropMode\s*==\s*null\s*\?\s*['"]raw/i.test(worker + engine + validation + app + draft)) {
+            throw new Error('raw avatar mode must not exist in the current implementation');
+          }
+          if (!validation.includes("value.cropMode !== 'baked'")) throw new Error('browser validation must require baked avatars');
+          if (!app.includes("cropMode: 'baked'")) throw new Error('browser submission must emit baked avatars only');
+          if (!project.includes('project.buildRenderContract')) throw new Error('project module must expose an explicit render-contract builder');
+          if (/createClient\s*=|client\.from\s*=|originalInsert|__posterRenderContractWrapped/.test(project)) {
+            throw new Error('project module must not monkey-patch the Supabase client');
+          }
+          if (!app.includes('const contract = project.buildRenderContract()')) throw new Error('app must build the render contract explicitly');
+          if (!app.includes('window.POSTER_APP_CLIENT = client')) throw new Error('app must publish its authenticated client explicitly');
+          if (!textLayout.includes('clearSelection,') || !assetLayout.includes('clearSelection,')) {
+            throw new Error('layout modules must expose clearSelection directly');
+          }
+          if (!selection.includes('context.api.clearSelection()') || /setEnabled\?\.\(false\).*setEnabled\?\.\(true\)/s.test(selection)) {
+            throw new Error('selection coordinator must use explicit clearSelection APIs without mode-toggle fallback');
+          }
+          NODE
       - name: Verify Mac Agent retention default
         run: |
           node - <<'NODE'
@@ -73,15 +127,13 @@ jobs:
           const fs = require('fs');
           const html = fs.readFileSync('web/index.html', 'utf8');
           const polish = fs.readFileSync('web/interaction-polish.js', 'utf8');
-          if (!html.includes('interaction-polish.css')) {
-            throw new Error('index.html must load interaction-polish.css');
-          }
-          if (!html.includes('interaction-polish.js')) {
-            throw new Error('index.html must load interaction-polish.js');
+          if (!html.includes('interaction-polish.css') || !html.includes('interaction-polish.js')) {
+            throw new Error('index.html must load interaction-polish assets');
           }
           if (html.indexOf('interaction-polish.js') < html.indexOf('agenda-professor.js')) {
             throw new Error('interaction-polish.js must load after the existing editor modules');
           }
+          if (!polish.includes('stage-zoom-controls')) throw new Error('zoom controls must live directly on the stage');
           if (/supabase|poster_jobs|protocolVersion|assetLayout/.test(polish)) {
             throw new Error('interaction-polish.js must remain UI-only and must not own render protocol logic');
           }
@@ -118,8 +170,8 @@ jobs:
           if (!html.includes('workspace-layout.css') || !html.includes('workspace-layout.js')) {
             throw new Error('index.html must load workspace-layout assets');
           }
-          if (!/\.stage-toolbar\s*\{[^}]*display\s*:\s*none!important/i.test(css)) {
-            throw new Error('the visible stage toolbar must remain removed');
+          for (const token of ['stage-toolbar', 'toggleTextLayout', 'resetTextLayout']) {
+            if (html.includes(token) || css.includes(token)) throw new Error(`obsolete toolbar artifact must be deleted: ${token}`);
           }
           if (!js.includes("style.setProperty('--inspector-width'")) {
             throw new Error('inspector resizing must be driven by the workspace width CSS variable');
