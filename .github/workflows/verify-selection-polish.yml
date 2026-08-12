@@ -39,12 +39,14 @@ jobs:
             'clearSelection',
             "document.addEventListener('pointerdown'",
             "document.addEventListener('focusin'",
-            'DRAG_THRESHOLD',
-            'reselectSingle',
             "event.metaKey || event.ctrlKey",
             'MOVEABLE_SELECTOR',
+            'protectedTarget',
           ]) {
             if (!polish.includes(token)) throw new Error(`selection polish missing ${token}`);
+          }
+          if (/DRAG_THRESHOLD|reselectSingle|new PointerEvent/.test(polish)) {
+            throw new Error('selection coordinator should stay thin and must not synthesize member-selection gestures');
           }
           if (/supabase|poster_jobs|protocolVersion|assetLayout\s*:/i.test(polish)) {
             throw new Error('selection polish must stay UI-only');
