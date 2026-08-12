@@ -21,4 +21,4 @@ if [ ! -f .env ]; then
   exit 1
 fi
 chmod 600 .env
-exec node src/agent.js
+exec node src/start.js
