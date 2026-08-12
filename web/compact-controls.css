@@ -27,10 +27,9 @@
 .el-picker__popper{z-index:12000!important}
 .el-time-panel__content::after,.el-time-panel__content::before{margin-top:-7px!important}
 
-/* 右侧只保留内容字段。文件选择和裁剪都从海报本体进入。 */
+/* 右侧只保留内容字段。文件选择和裁剪从海报本体进入。 */
 .person-grid{grid-template-columns:1fr!important}
 .person-grid>div:first-child{display:none!important}
-.person .crop-controls{display:none!important}
 .avatar-crop-open,.avatar-crop-readout{display:none!important}
 .asset-input-hidden,.asset-preview-hidden{display:none!important}
 .asset-editor-hint{padding:10px 11px;border:1px dashed #dfe5ee;border-radius:9px;background:#f8fafc;color:#7f8a9b;font-size:10px;line-height:1.55;text-align:center}
