@@ -1,0 +1,52 @@
+name: Verify selection polish
+
+on:
+  pull_request:
+    paths:
+      - 'web/selection-polish.js'
+      - 'web/index.html'
+      - 'tests/selection-polish.spec.js'
+      - '.github/workflows/verify-selection-polish.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  selection-polish-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check web/selection-polish.js
+      - run: node --check tests/selection-polish.spec.js
+      - name: Verify unified selection lifecycle
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('web/index.html', 'utf8');
+          const polish = fs.readFileSync('web/selection-polish.js', 'utf8');
+          const textIndex = html.indexOf('poster-preview.js');
+          const assetIndex = html.indexOf('asset-layout.js');
+          const polishIndex = html.indexOf('selection-polish.js');
+          if (!(textIndex >= 0 && assetIndex > textIndex && polishIndex > assetIndex)) {
+            throw new Error('selection-polish.js must load after both layout editors');
+          }
+          for (const token of [
+            'posterTextLayout',
+            'posterAssetLayout',
+            'clearSelection',
+            "document.addEventListener('pointerdown'",
+            "document.addEventListener('focusin'",
+            'DRAG_THRESHOLD',
+            'reselectSingle',
+            "event.metaKey || event.ctrlKey",
+            'MOVEABLE_SELECTOR',
+          ]) {
+            if (!polish.includes(token)) throw new Error(`selection polish missing ${token}`);
+          }
+          if (/supabase|poster_jobs|protocolVersion|assetLayout\s*:/i.test(polish)) {
+            throw new Error('selection polish must stay UI-only');
+          }
+          NODE
