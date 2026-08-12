@@ -4,12 +4,6 @@
   const STORAGE_KEY = 'meetingPosterProjectV1';
   const DEFAULT_PROJECT_ID = 'chronic-care-2026';
   const CONTENT_PROFILE = 'meeting-series-common-v1';
-  const SHARED_LAYOUT = Object.freeze({
-    chair: Object.freeze({ left: 342, top: 496, size: 168, label: '主席' }),
-    speaker1: Object.freeze({ left: 221, top: 836, size: 168, label: '讲者一' }),
-    speaker2: Object.freeze({ left: 457, top: 836, size: 168, label: '讲者二' }),
-    qr: Object.freeze({ left: 338, top: 1576, size: 148 }),
-  });
 
   const projects = Object.freeze([
     Object.freeze({
@@ -19,8 +13,8 @@
       contentProfile: CONTENT_PROFILE,
       templateProfile: 'meeting-poster-v10',
       textLayoutProfile: 'yilu-changan-text-v1',
+      assetLayoutProfile: 'yilu-changan-assets-v1',
       preview: Object.freeze({ type: 'asset', src: './assets/poster-base.jpg', theme: 'yilu' }),
-      assetPreview: SHARED_LAYOUT,
     }),
     Object.freeze({
       id: 'tonghu-jiankang',
@@ -29,8 +23,8 @@
       contentProfile: CONTENT_PROFILE,
       templateProfile: 'meeting-poster-v10',
       textLayoutProfile: 'tonghu-jiankang-text-v1',
+      assetLayoutProfile: 'tonghu-jiankang-assets-v1',
       preview: Object.freeze({ type: 'asset', src: './assets/tonghu-jiankang-base.jpg', theme: 'tonghu' }),
-      assetPreview: SHARED_LAYOUT,
     }),
     Object.freeze({
       id: 'tongxin-hujian',
@@ -39,8 +33,8 @@
       contentProfile: CONTENT_PROFILE,
       templateProfile: 'meeting-poster-v10',
       textLayoutProfile: 'tongxin-hujian-text-v1',
+      assetLayoutProfile: 'tongxin-hujian-assets-v1',
       preview: Object.freeze({ type: 'asset', src: './assets/tongxin-hujian-base.jpg', theme: 'tongxin' }),
-      assetPreview: SHARED_LAYOUT,
     }),
   ]);
 
@@ -67,11 +61,16 @@
   const active = resolveActiveProject();
   const posterProject = window.POSTER_PROJECT;
   const textLayouts = window.POSTER_TEXT_LAYOUT_PROFILES;
+  const assetLayouts = window.POSTER_ASSET_LAYOUT_PROFILES;
   if (!posterProject) return;
 
   const projectTextItems = textLayouts?.cloneItems?.(active.textLayoutProfile);
   if (!projectTextItems?.length) {
     throw new Error(`缺少项目文字模板：${active.textLayoutProfile}`);
+  }
+  const projectAssetLayout = assetLayouts?.cloneLayout?.(active.assetLayoutProfile);
+  if (!projectAssetLayout) {
+    throw new Error(`缺少项目素材布局模板：${active.assetLayoutProfile}`);
   }
 
   posterProject.id = active.id;
@@ -80,14 +79,10 @@
   posterProject.contentProfile = active.contentProfile;
   posterProject.templateProfile = active.templateProfile;
   posterProject.textLayoutProfile = active.textLayoutProfile;
+  posterProject.assetLayoutProfile = active.assetLayoutProfile;
   posterProject.textItems = projectTextItems;
   posterProject.preview = active.preview;
-  posterProject.assetPreview = {
-    chair: { ...active.assetPreview.chair },
-    speaker1: { ...active.assetPreview.speaker1 },
-    speaker2: { ...active.assetPreview.speaker2 },
-    qr: { ...active.assetPreview.qr },
-  };
+  posterProject.assetPreview = projectAssetLayout;
 
   const previousRuntime = window.POSTER_RUNTIME || {};
   window.POSTER_RUNTIME = Object.freeze({
@@ -98,6 +93,7 @@
     contentProfile: active.contentProfile,
     templateProfile: active.templateProfile,
     textLayoutProfile: active.textLayoutProfile,
+    assetLayoutProfile: active.assetLayoutProfile,
     previewMode: active.preview.type,
   });
 
@@ -108,6 +104,7 @@
     poster.dataset.projectName = active.name;
     poster.dataset.projectTheme = active.preview.theme || '';
     poster.dataset.textLayoutProfile = active.textLayoutProfile;
+    poster.dataset.assetLayoutProfile = active.assetLayoutProfile;
     poster.classList.toggle('is-project-placeholder', active.preview.type === 'placeholder');
     if (active.preview.type === 'asset' && active.preview.src) {
       poster.style.setProperty('--poster-base-image', `url("${active.preview.src}")`);

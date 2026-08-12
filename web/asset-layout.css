@@ -1,0 +1,107 @@
+/* Photoshop-like avatar / QR layout controls. These coordinates sync to the PSD render contract. */
+.asset-layout-dock{
+  position:absolute;
+  top:68px;
+  left:28px;
+  z-index:46;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  max-width:calc(100% - 56px);
+  pointer-events:none;
+}
+.asset-layout-dock button,.asset-layout-tools{pointer-events:auto}
+.asset-layout-mode-btn{
+  height:34px;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:0 10px;
+  border:1px solid rgba(164,174,193,.72);
+  border-radius:9px;
+  background:rgba(255,255,255,.94);
+  color:#566276;
+  box-shadow:0 5px 18px rgba(31,42,68,.12);
+  backdrop-filter:blur(10px);
+  font-size:11px;
+  font-weight:800;
+}
+.asset-layout-mode-btn:hover{border-color:#57a783;color:#27815c}
+.asset-layout-mode-btn.active{border-color:#2c9b6b;background:#278b61;color:#fff}
+.asset-layout-mode-btn .tool-key{background:rgba(39,139,97,.10)}
+.asset-layout-mode-btn.active .tool-key{background:rgba(255,255,255,.18)}
+.asset-layout-tools{
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  gap:3px;
+  padding:4px 6px;
+  border:1px solid rgba(164,174,193,.72);
+  border-radius:9px;
+  background:rgba(255,255,255,.95);
+  box-shadow:0 5px 18px rgba(31,42,68,.12);
+  backdrop-filter:blur(12px);
+  overflow-x:auto;
+  scrollbar-width:none;
+}
+.asset-layout-tools[hidden]{display:none!important}
+.asset-layout-tools::-webkit-scrollbar{display:none}
+.asset-layout-tools button{
+  flex:none;
+  min-width:27px;
+  height:25px;
+  padding:0 6px;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:#657186;
+  font-size:9px;
+  font-weight:800;
+}
+.asset-layout-tools button:hover:not(:disabled){background:#eaf7f1;color:#27815c}
+.asset-layout-tools button:disabled{opacity:.28;cursor:default}
+.asset-layout-count,.asset-layout-readout{
+  flex:none;
+  color:#596579;
+  font-size:9px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.asset-layout-count{min-width:48px;padding:0 3px}
+.asset-layout-readout{max-width:210px;overflow:hidden;text-overflow:ellipsis}
+.asset-layout-divider{flex:none;width:1px;height:18px;margin:0 2px;background:#e0e5ed}
+.poster-canvas.is-asset-layout-mode .canvas-asset-slot{
+  cursor:move!important;
+  outline:1px dashed rgba(39,139,97,.68);
+  outline-offset:2px;
+}
+.poster-canvas.is-asset-layout-mode .canvas-asset-slot:hover,
+.canvas-asset-slot.is-layout-selected{
+  outline:2px solid rgba(39,139,97,.9)!important;
+  outline-offset:3px;
+}
+.canvas-asset-slot.is-layout-selected-multi{box-shadow:0 0 0 4px rgba(39,139,97,.10)!important}
+.poster-canvas.is-asset-layout-mode .canvas-asset-slot:after{
+  content:attr(data-key);
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  z-index:4;
+  padding:2px 4px;
+  border-radius:4px;
+  background:rgba(18,81,57,.72);
+  color:#fff;
+  font-size:7px;
+  line-height:1;
+  font-weight:800;
+  pointer-events:none;
+  opacity:.72;
+}
+.poster-canvas.is-asset-layout-mode .canvas-asset-slot img{pointer-events:none}
+
+@media(max-width:900px){
+  .asset-layout-dock{top:64px;left:24px;max-width:calc(100% - 48px)}
+  .asset-layout-tools{max-width:calc(100vw - 220px)}
+  .asset-layout-readout{display:none}
+}

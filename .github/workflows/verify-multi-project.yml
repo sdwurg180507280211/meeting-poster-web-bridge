@@ -5,6 +5,8 @@ on:
     paths:
       - 'web/project-registry.js'
       - 'web/project-switcher.css'
+      - 'web/asset-layout-profiles.js'
+      - 'web/asset-layout.js'
       - 'web/index.html'
       - 'photoshop-worker/index.html'
       - 'photoshop-worker/src/projects.js'
@@ -25,6 +27,8 @@ jobs:
         with:
           node-version: '22'
       - run: node --check web/project-registry.js
+      - run: node --check web/asset-layout-profiles.js
+      - run: node --check web/asset-layout.js
       - run: node --check photoshop-worker/src/projects.js
       - run: node --check photoshop-worker/src/worker.js
       - name: Verify shared project catalog and local PSD dispatch
@@ -32,6 +36,7 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const registry = fs.readFileSync('web/project-registry.js', 'utf8');
+          const assetProfiles = fs.readFileSync('web/asset-layout-profiles.js', 'utf8');
           const projects = fs.readFileSync('photoshop-worker/src/projects.js', 'utf8');
           const worker = fs.readFileSync('photoshop-worker/src/worker.js', 'utf8');
           const html = fs.readFileSync('photoshop-worker/index.html', 'utf8');
@@ -48,8 +53,21 @@ jobs:
           if (!registry.includes("CONTENT_PROFILE = 'meeting-series-common-v1'")) {
             throw new Error('the three projects must share one content profile');
           }
-          if (!registry.includes('assetPreview: SHARED_LAYOUT')) {
-            throw new Error('same-script projects must share the current image layout contract');
+          const assetMappings = [
+            ['chronic-care-2026', 'yilu-changan-assets-v1'],
+            ['tonghu-jiankang', 'tonghu-jiankang-assets-v1'],
+            ['tongxin-hujian', 'tongxin-hujian-assets-v1'],
+          ];
+          for (const [projectId, profileId] of assetMappings) {
+            if (!registry.includes(`id: '${projectId}'`) || !registry.includes(`assetLayoutProfile: '${profileId}'`)) {
+              throw new Error(`Missing asset layout mapping ${projectId} -> ${profileId}`);
+            }
+            if (!assetProfiles.includes(`'${profileId}': createProfile('${profileId}')`)) {
+              throw new Error(`Missing asset layout profile ${profileId}`);
+            }
+          }
+          if (!registry.includes('posterProject.assetPreview = projectAssetLayout')) {
+            throw new Error('active project must install its own asset layout');
           }
           if (!worker.includes("require('./src/projects')")) throw new Error('Worker must load the local project catalog');
           if (!worker.includes('job.meeting?.__renderContract?.project?.id')) throw new Error('Worker must route jobs by render-contract project id');

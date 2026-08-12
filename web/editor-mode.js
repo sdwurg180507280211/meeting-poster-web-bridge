@@ -42,7 +42,7 @@
 
   function createAvatarSlot(key, spec) {
     const slot = document.createElement('div');
-    slot.className = 'canvas-avatar-slot';
+    slot.className = 'canvas-avatar-slot canvas-asset-slot';
     slot.dataset.key = key;
     slot.style.left = pct(spec.left, W);
     slot.style.top = pct(spec.top, H);
@@ -90,6 +90,7 @@
     [zoom, sx, sy].forEach(control => control?.addEventListener('input', syncPreview));
 
     function openAvatarEditor() {
+      if (poster.classList.contains('is-asset-layout-mode')) return;
       openSection('people');
       if (window.posterAvatarCrop?.open) window.posterAvatarCrop.open(key);
       else if (!file?.files?.length) file?.click();
@@ -106,7 +107,8 @@
   ['chair', 'speaker1', 'speaker2'].forEach(key => createAvatarSlot(key, avatarSpec[key]));
 
   const qrSlot = document.createElement('div');
-  qrSlot.className = 'canvas-qr-slot';
+  qrSlot.className = 'canvas-qr-slot canvas-asset-slot';
+  qrSlot.dataset.key = 'qr';
   qrSlot.style.left = pct(qrSpec.left, W);
   qrSlot.style.top = pct(qrSpec.top, H);
   qrSlot.style.width = pct(qrSpec.size, W);
@@ -118,6 +120,7 @@
   const qrInput = document.getElementById('qrFile');
 
   function openQrEditor() {
+    if (poster.classList.contains('is-asset-layout-mode')) return;
     openSection('qr');
     if (window.posterQrCrop?.open) window.posterQrCrop.open();
     else if (!qrInput?.files?.length) qrInput?.click();
