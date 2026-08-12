@@ -82,8 +82,11 @@ jobs:
           if (!agent.includes("sb.rpc('claim_next_poster_job'")) throw new Error('Agent must use the current atomic claim RPC');
           if (!agent.includes("sb.rpc('recover_stale_poster_jobs'")) throw new Error('Agent must use the current recovery RPC');
 
-          for (const token of ['repairLegacyTextLayerNames', 'p.template']) {
-            if (worker.includes(token) || engine.includes(token)) throw new Error(`Worker still contains obsolete compatibility path: ${token}`);
+          if (worker.includes('repairLegacyTextLayerNames') || engine.includes('repairLegacyTextLayerNames')) {
+            throw new Error('Worker must not repair obsolete PSD layer names');
+          }
+          if (/\bp\.template\b/.test(worker)) {
+            throw new Error('Worker must not read the obsolete single-template preference');
           }
           if (!worker.includes("asset.cropMode!=='baked'")) throw new Error('Worker must accept baked avatars only');
           if (/cropMode\s*===?\s*['"]raw|cropMode\s*==\s*null\s*\?\s*['"]raw/i.test(worker + engine + validation + app + draft)) {
