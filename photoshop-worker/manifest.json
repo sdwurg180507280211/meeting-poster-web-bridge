@@ -1,7 +1,7 @@
 {
   "id":"com.yizhe.meeting-poster-web-worker",
   "name":"系列会议海报 · Web Worker",
-  "version":"1.1.0",
+  "version":"1.2.0",
   "main":"index.html",
   "host":{"app":"PS","minVersion":"26.1.0","data":{"apiVersion":2}},
   "manifestVersion":4,

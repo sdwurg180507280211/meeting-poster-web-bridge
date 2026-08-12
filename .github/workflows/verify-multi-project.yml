@@ -1,0 +1,65 @@
+name: Verify multi-project routing
+
+on:
+  pull_request:
+    paths:
+      - 'web/project-registry.js'
+      - 'web/project-switcher.css'
+      - 'web/index.html'
+      - 'photoshop-worker/index.html'
+      - 'photoshop-worker/src/projects.js'
+      - 'photoshop-worker/src/worker.js'
+      - 'photoshop-worker/src/constants.js'
+      - 'tests/project-switcher.spec.js'
+      - '.github/workflows/verify-multi-project.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  multi-project-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check web/project-registry.js
+      - run: node --check photoshop-worker/src/projects.js
+      - run: node --check photoshop-worker/src/worker.js
+      - name: Verify shared project catalog and local PSD dispatch
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const registry = fs.readFileSync('web/project-registry.js', 'utf8');
+          const projects = fs.readFileSync('photoshop-worker/src/projects.js', 'utf8');
+          const worker = fs.readFileSync('photoshop-worker/src/worker.js', 'utf8');
+          const html = fs.readFileSync('photoshop-worker/index.html', 'utf8');
+          const webHtml = fs.readFileSync('web/index.html', 'utf8');
+          const ids = ['chronic-care-2026', 'tonghu-jiankang', 'tongxin-hujian'];
+          const names = ['医路长安', '同护健康', '同心护健'];
+          for (const value of [...ids, ...names]) {
+            if (!registry.includes(value)) throw new Error(`web project registry missing ${value}`);
+            if (!projects.includes(value)) throw new Error(`Worker project catalog missing ${value}`);
+          }
+          if (!registry.includes("DEFAULT_PROJECT_ID = 'chronic-care-2026'")) {
+            throw new Error('existing project id must stay chronic-care-2026 for job/history compatibility');
+          }
+          if (!registry.includes("CONTENT_PROFILE = 'meeting-series-common-v1'")) {
+            throw new Error('the three projects must share one content profile');
+          }
+          if (!registry.includes('assetPreview: SHARED_LAYOUT')) {
+            throw new Error('same-script projects must share the current image layout contract');
+          }
+          if (!worker.includes("require('./src/projects')")) throw new Error('Worker must load the local project catalog');
+          if (!worker.includes('job.meeting?.__renderContract?.project?.id')) throw new Error('Worker must route jobs by render-contract project id');
+          if (!worker.includes('templateState(job.projectId)')) throw new Error('Worker must select a PSD token by project id');
+          if (!worker.includes('allProjectsReady()')) throw new Error('Worker must require all registered PSDs before going online');
+          if (!worker.includes("templateState('chronic-care-2026').entry=await restore(p.template)")) {
+            throw new Error('old single-template preference must migrate to 医路长安');
+          }
+          if (!html.includes('id="templateProjects"')) throw new Error('Worker panel must expose project PSD bindings');
+          if (!webHtml.includes('project-registry.js') || !webHtml.includes('project-switcher.css')) {
+            throw new Error('Web editor must load the project switcher assets');
+          }
+          NODE
