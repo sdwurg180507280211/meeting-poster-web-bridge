@@ -3,38 +3,31 @@
 
   const STORAGE_KEY = 'meetingPosterProjectV1';
   const DEFAULT_PROJECT_ID = 'chronic-care-2026';
-  const CONTENT_PROFILE = 'meeting-series-common-v1';
 
   const projects = Object.freeze([
     Object.freeze({
       id: 'chronic-care-2026',
       name: '医路长安',
       version: 1,
-      contentProfile: CONTENT_PROFILE,
-      templateProfile: 'meeting-poster-v10',
       textLayoutProfile: 'yilu-changan-text-v1',
       assetLayoutProfile: 'yilu-changan-assets-v1',
-      preview: Object.freeze({ type: 'asset', src: './assets/poster-base.jpg', theme: 'yilu' }),
+      previewSrc: './assets/poster-base.jpg',
     }),
     Object.freeze({
       id: 'tonghu-jiankang',
       name: '同护健康',
       version: 1,
-      contentProfile: CONTENT_PROFILE,
-      templateProfile: 'meeting-poster-v10',
       textLayoutProfile: 'tonghu-jiankang-text-v1',
       assetLayoutProfile: 'tonghu-jiankang-assets-v1',
-      preview: Object.freeze({ type: 'asset', src: './assets/tonghu-jiankang-base.jpg', theme: 'tonghu' }),
+      previewSrc: './assets/tonghu-jiankang-base.jpg',
     }),
     Object.freeze({
       id: 'tongxin-hujian',
       name: '同心护健',
       version: 1,
-      contentProfile: CONTENT_PROFILE,
-      templateProfile: 'meeting-poster-v10',
       textLayoutProfile: 'tongxin-hujian-text-v1',
       assetLayoutProfile: 'tongxin-hujian-assets-v1',
-      preview: Object.freeze({ type: 'asset', src: './assets/tongxin-hujian-base.jpg', theme: 'tongxin' }),
+      previewSrc: './assets/tongxin-hujian-base.jpg',
     }),
   ]);
 
@@ -62,61 +55,44 @@
   const posterProject = window.POSTER_PROJECT;
   const textLayouts = window.POSTER_TEXT_LAYOUT_PROFILES;
   const assetLayouts = window.POSTER_ASSET_LAYOUT_PROFILES;
-  if (!posterProject) return;
+  if (!posterProject) throw new Error('POSTER_PROJECT 未加载');
 
   const projectTextItems = textLayouts?.cloneItems?.(active.textLayoutProfile);
-  if (!projectTextItems?.length) {
-    throw new Error(`缺少项目文字模板：${active.textLayoutProfile}`);
-  }
+  if (!projectTextItems?.length) throw new Error(`缺少项目文字模板：${active.textLayoutProfile}`);
   const projectAssetLayout = assetLayouts?.cloneLayout?.(active.assetLayoutProfile);
-  if (!projectAssetLayout) {
-    throw new Error(`缺少项目素材布局模板：${active.assetLayoutProfile}`);
-  }
+  if (!projectAssetLayout) throw new Error(`缺少项目素材布局模板：${active.assetLayoutProfile}`);
 
   posterProject.id = active.id;
   posterProject.version = active.version;
   posterProject.name = active.name;
-  posterProject.contentProfile = active.contentProfile;
-  posterProject.templateProfile = active.templateProfile;
   posterProject.textLayoutProfile = active.textLayoutProfile;
   posterProject.assetLayoutProfile = active.assetLayoutProfile;
   posterProject.textItems = projectTextItems;
-  posterProject.preview = active.preview;
   posterProject.assetPreview = projectAssetLayout;
 
-  const previousRuntime = window.POSTER_RUNTIME || {};
   window.POSTER_RUNTIME = Object.freeze({
-    ...previousRuntime,
+    ...window.POSTER_RUNTIME,
     projectId: active.id,
     projectName: active.name,
     projectVersion: active.version,
-    contentProfile: active.contentProfile,
-    templateProfile: active.templateProfile,
     textLayoutProfile: active.textLayoutProfile,
     assetLayoutProfile: active.assetLayoutProfile,
-    previewMode: active.preview.type,
   });
 
-  function installPreviewState() {
+  function installPreview() {
     const poster = document.getElementById('posterCanvas');
-    if (!poster) return;
+    if (!poster) throw new Error('海报画布未加载');
     poster.dataset.projectId = active.id;
     poster.dataset.projectName = active.name;
-    poster.dataset.projectTheme = active.preview.theme || '';
     poster.dataset.textLayoutProfile = active.textLayoutProfile;
     poster.dataset.assetLayoutProfile = active.assetLayoutProfile;
-    poster.classList.toggle('is-project-placeholder', active.preview.type === 'placeholder');
-    if (active.preview.type === 'asset' && active.preview.src) {
-      poster.style.setProperty('--poster-base-image', `url("${active.preview.src}")`);
-    } else {
-      poster.style.removeProperty('--poster-base-image');
-    }
+    poster.style.setProperty('--poster-base-image', `url("${active.previewSrc}")`);
     poster.setAttribute('aria-label', `${active.name}海报编辑画布`);
   }
 
   function selectProject(id) {
     if (!byId.has(id) || id === active.id) return;
-    try { localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
+    localStorage.setItem(STORAGE_KEY, id);
     const url = new URL(window.location.href);
     url.searchParams.set('project', id);
     window.location.assign(url.toString());
@@ -125,15 +101,14 @@
   function installSwitcher() {
     const topbar = document.querySelector('.topbar');
     const actions = document.querySelector('.topbar-actions');
-    if (!topbar || !actions || document.getElementById('projectSwitcher')) return;
+    if (!topbar || !actions) throw new Error('项目切换器挂载点不存在');
 
     const host = document.createElement('div');
     host.id = 'projectSwitcher';
     host.className = 'project-switcher';
     host.innerHTML = `
       <span class="project-switcher-label">项目</span>
-      <select id="projectSelect" aria-label="选择海报项目"></select>
-      <span id="projectPreviewState" class="project-preview-state"></span>`;
+      <select id="projectSelect" aria-label="选择海报项目"></select>`;
     topbar.insertBefore(host, actions);
 
     const select = host.querySelector('#projectSelect');
@@ -145,27 +120,17 @@
     });
     select.value = active.id;
     select.addEventListener('change', () => selectProject(select.value));
-
-    const state = host.querySelector('#projectPreviewState');
-    if (active.preview.type === 'placeholder') {
-      state.textContent = '网页占位底板 · 正式输出使用本地 PSD';
-      state.classList.add('placeholder');
-    } else {
-      state.textContent = '网页底板已载入 · 正式输出使用本地 PSD';
-      state.classList.add('ready');
-    }
   }
 
   window.POSTER_PROJECT_REGISTRY = Object.freeze({
     storageKey: STORAGE_KEY,
     defaultProjectId: DEFAULT_PROJECT_ID,
-    contentProfile: CONTENT_PROFILE,
     projects,
     active,
     get(id) { return byId.get(id) || null; },
     select: selectProject,
   });
 
-  installPreviewState();
+  installPreview();
   installSwitcher();
 })();
