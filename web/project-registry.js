@@ -18,6 +18,7 @@
       version: 1,
       contentProfile: CONTENT_PROFILE,
       templateProfile: 'meeting-poster-v10',
+      textLayoutProfile: 'yilu-changan-text-v1',
       preview: Object.freeze({ type: 'asset', src: './assets/poster-base.jpg', theme: 'yilu' }),
       assetPreview: SHARED_LAYOUT,
     }),
@@ -27,6 +28,7 @@
       version: 1,
       contentProfile: CONTENT_PROFILE,
       templateProfile: 'meeting-poster-v10',
+      textLayoutProfile: 'tonghu-jiankang-text-v1',
       preview: Object.freeze({ type: 'asset', src: './assets/tonghu-jiankang-base.jpg', theme: 'tonghu' }),
       assetPreview: SHARED_LAYOUT,
     }),
@@ -36,6 +38,7 @@
       version: 1,
       contentProfile: CONTENT_PROFILE,
       templateProfile: 'meeting-poster-v10',
+      textLayoutProfile: 'tongxin-hujian-text-v1',
       preview: Object.freeze({ type: 'asset', src: './assets/tongxin-hujian-base.jpg', theme: 'tongxin' }),
       assetPreview: SHARED_LAYOUT,
     }),
@@ -63,13 +66,21 @@
 
   const active = resolveActiveProject();
   const posterProject = window.POSTER_PROJECT;
+  const textLayouts = window.POSTER_TEXT_LAYOUT_PROFILES;
   if (!posterProject) return;
+
+  const projectTextItems = textLayouts?.cloneItems?.(active.textLayoutProfile);
+  if (!projectTextItems?.length) {
+    throw new Error(`缺少项目文字模板：${active.textLayoutProfile}`);
+  }
 
   posterProject.id = active.id;
   posterProject.version = active.version;
   posterProject.name = active.name;
   posterProject.contentProfile = active.contentProfile;
   posterProject.templateProfile = active.templateProfile;
+  posterProject.textLayoutProfile = active.textLayoutProfile;
+  posterProject.textItems = projectTextItems;
   posterProject.preview = active.preview;
   posterProject.assetPreview = {
     chair: { ...active.assetPreview.chair },
@@ -86,6 +97,7 @@
     projectVersion: active.version,
     contentProfile: active.contentProfile,
     templateProfile: active.templateProfile,
+    textLayoutProfile: active.textLayoutProfile,
     previewMode: active.preview.type,
   });
 
@@ -95,6 +107,7 @@
     poster.dataset.projectId = active.id;
     poster.dataset.projectName = active.name;
     poster.dataset.projectTheme = active.preview.theme || '';
+    poster.dataset.textLayoutProfile = active.textLayoutProfile;
     poster.classList.toggle('is-project-placeholder', active.preview.type === 'placeholder');
     if (active.preview.type === 'asset' && active.preview.src) {
       poster.style.setProperty('--poster-base-image', `url("${active.preview.src}")`);
