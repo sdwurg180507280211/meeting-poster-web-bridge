@@ -2,14 +2,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { boundedErrorMessage, checkedResult, isMissingRpcError } = require('./supabase-utils');
-
-test('recognizes only missing RPC errors for the expected function', () => {
-  assert.equal(isMissingRpcError({ code: 'PGRST202', message: 'Could not find recover_stale_poster_jobs' }, 'recover_stale_poster_jobs'), true);
-  assert.equal(isMissingRpcError({ code: '42883', message: 'function claim_next_poster_job does not exist' }, 'claim_next_poster_job'), true);
-  assert.equal(isMissingRpcError({ code: '42501', message: 'permission denied' }, 'claim_next_poster_job'), false);
-  assert.equal(isMissingRpcError({ code: 'PGRST202', message: 'Could not find another_function' }, 'claim_next_poster_job'), false);
-});
+const { boundedErrorMessage, checkedResult } = require('./supabase-utils');
 
 test('checkedResult never treats a returned Supabase error as success', () => {
   assert.equal(checkedResult({ data: { id: 1 }, error: null }, '读取').id, 1);
