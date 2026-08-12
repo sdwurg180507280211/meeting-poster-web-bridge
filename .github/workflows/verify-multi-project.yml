@@ -48,7 +48,7 @@ jobs:
             if (!projects.includes(value)) throw new Error(`Worker project catalog missing ${value}`);
           }
           if (!registry.includes("DEFAULT_PROJECT_ID = 'chronic-care-2026'")) {
-            throw new Error('existing project id must stay chronic-care-2026 for job/history compatibility');
+            throw new Error('existing project id must stay chronic-care-2026');
           }
           if (!registry.includes("CONTENT_PROFILE = 'meeting-series-common-v1'")) {
             throw new Error('the three projects must share one content profile');
@@ -73,8 +73,8 @@ jobs:
           if (!worker.includes('job.meeting?.__renderContract?.project?.id')) throw new Error('Worker must route jobs by render-contract project id');
           if (!worker.includes('templateState(job.projectId)')) throw new Error('Worker must select a PSD token by project id');
           if (!worker.includes('allProjectsReady()')) throw new Error('Worker must require all registered PSDs before going online');
-          if (!worker.includes("templateState('chronic-care-2026').entry=await restore(p.template)")) {
-            throw new Error('old single-template preference must migrate to 医路长安');
+          if (/p\.template\b|单母版设置|自动迁移/.test(worker)) {
+            throw new Error('Worker must not keep legacy single-template preference compatibility');
           }
           if (!html.includes('id="templateProjects"')) throw new Error('Worker panel must expose project PSD bindings');
           if (!webHtml.includes('project-registry.js') || !webHtml.includes('project-switcher.css')) {
