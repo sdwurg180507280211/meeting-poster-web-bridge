@@ -40,6 +40,12 @@
     return target instanceof Element && Boolean(target.closest(INTERACTIVE_SELECTOR));
   }
 
+  function isPosterSelectionSurface(target) {
+    return poster.classList.contains('is-text-layout-mode')
+      && target instanceof Node
+      && poster.contains(target);
+  }
+
   function sizeStage() {
     const viewportWidth = viewport.clientWidth || 1;
     const viewportHeight = viewport.clientHeight || 1;
@@ -93,7 +99,7 @@
   viewport.addEventListener('pointerdown', event => {
     if (!event.isPrimary) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if (isInteractiveTarget(event.target)) return;
+    if (isInteractiveTarget(event.target) || isPosterSelectionSurface(event.target)) return;
 
     drag = {
       pointerId: event.pointerId,
@@ -133,7 +139,7 @@
   }, true);
 
   viewport.addEventListener('dblclick', event => {
-    if (isInteractiveTarget(event.target)) return;
+    if (isInteractiveTarget(event.target) || isPosterSelectionSurface(event.target)) return;
     event.preventDefault();
     document.querySelector('.zoom-controls [data-zoom="fit"]')?.click();
     requestAnimationFrame(() => requestAnimationFrame(() => centerViewport('smooth')));
