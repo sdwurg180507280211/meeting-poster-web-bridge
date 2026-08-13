@@ -4,261 +4,69 @@
   const poster = document.getElementById('posterCanvas');
   const viewport = document.querySelector('.poster-viewport');
   const stageArea = document.querySelector('.stage-area');
-  const clearLocalData = document.getElementById('clearLocalData');
-  const toggleInspector = document.getElementById('toggleInspector');
-  const jobStatus = document.getElementById('jobStatus');
-  const taskTab = document.querySelector('.inspector-tab[data-tab="task"]');
-  const project = window.POSTER_PROJECT;
+  if (!poster || !viewport || !stageArea || stageArea.querySelector('.zoom-controls')) return;
 
   function nextFrame(fn) {
     requestAnimationFrame(() => requestAnimationFrame(fn));
   }
 
-  function installZoomControls() {
-    if (!poster || !viewport || !stageArea || stageArea.querySelector('.zoom-controls')) return;
+  const controls = document.createElement('div');
+  controls.className = 'zoom-controls stage-zoom-controls';
+  controls.setAttribute('aria-label', '海报预览缩放');
+  controls.innerHTML = `
+    <button type="button" data-zoom="out" title="缩小预览">−</button>
+    <button type="button" data-zoom="fit" title="适应窗口">适应</button>
+    <span class="zoom-value">100%</span>
+    <button type="button" data-zoom="in" title="放大预览">＋</button>`;
+  stageArea.appendChild(controls);
 
-    const controls = document.createElement('div');
-    controls.className = 'zoom-controls stage-zoom-controls';
-    controls.setAttribute('aria-label', '海报预览缩放');
-    controls.innerHTML = `
-      <button type="button" data-zoom="out" title="缩小预览">−</button>
-      <button type="button" data-zoom="fit" title="适应窗口">适应</button>
-      <span class="zoom-value">100%</span>
-      <button type="button" data-zoom="in" title="放大预览">＋</button>`;
-    stageArea.appendChild(controls);
+  const value = controls.querySelector('.zoom-value');
+  let zoom = 1;
+  let fitWidth = poster.getBoundingClientRect().width || 1;
 
-    const value = controls.querySelector('.zoom-value');
-    let zoom = 1;
-    let fitWidth = poster.getBoundingClientRect().width || 1;
-
-    function notifyGeometryChange() {
-      nextFrame(() => window.dispatchEvent(new Event('resize')));
-    }
-
-    function updateReadout() {
-      value.textContent = `${Math.round(zoom * 100)}%`;
-    }
-
-    function setZoom(next) {
-      zoom = Math.min(2.2, Math.max(.7, Math.round(next * 10) / 10));
-      if (Math.abs(zoom - 1) < .001) {
-        zoom = 1;
-        poster.style.removeProperty('width');
-        viewport.classList.remove('is-zoomed');
-        nextFrame(() => {
-          fitWidth = poster.getBoundingClientRect().width || fitWidth;
-          updateReadout();
-          window.dispatchEvent(new Event('resize'));
-        });
-        return;
-      }
-      poster.style.width = `${Math.max(220, Math.round(fitWidth * zoom))}px`;
-      viewport.classList.toggle('is-zoomed', zoom > 1);
-      updateReadout();
-      notifyGeometryChange();
-    }
-
-    controls.addEventListener('click', event => {
-      const action = event.target?.dataset?.zoom;
-      if (!action) return;
-      if (action === 'out') setZoom(zoom - .1);
-      if (action === 'in') setZoom(zoom + .1);
-      if (action === 'fit') setZoom(1);
-    });
-
-    viewport.addEventListener('wheel', event => {
-      if (!event.ctrlKey && !event.metaKey) return;
-      event.preventDefault();
-      setZoom(zoom + (event.deltaY < 0 ? .1 : -.1));
-    }, { passive: false });
-
-    window.addEventListener('resize', () => {
-      if (zoom !== 1) return;
-      fitWidth = poster.getBoundingClientRect().width || fitWidth;
-      updateReadout();
-    });
+  function notifyGeometryChange() {
+    nextFrame(() => window.dispatchEvent(new Event('resize')));
   }
 
-  function decorateSchedule() {
-    const labels = ['时间', '内容', '讲者', '主席'];
-    const classes = ['time', 'content', 'speaker', 'chair'];
-    document.querySelectorAll('.schedule-row').forEach(row => {
-      if (row.classList.contains('schedule-card')) return;
-      const inputs = Array.from(row.children).filter(el => el.tagName === 'INPUT');
-      if (inputs.length !== 4) return;
-      row.classList.add('schedule-card');
-      inputs.forEach((input, index) => {
-        const label = document.createElement('label');
-        label.className = `schedule-field schedule-field-${classes[index]}`;
-        const caption = document.createElement('span');
-        caption.textContent = labels[index];
-        input.parentNode.insertBefore(label, input);
-        label.append(caption, input);
+  function updateReadout() {
+    value.textContent = `${Math.round(zoom * 100)}%`;
+  }
+
+  function setZoom(next) {
+    zoom = Math.min(2.2, Math.max(.7, Math.round(next * 10) / 10));
+    if (Math.abs(zoom - 1) < .001) {
+      zoom = 1;
+      poster.style.removeProperty('width');
+      viewport.classList.remove('is-zoomed');
+      nextFrame(() => {
+        fitWidth = poster.getBoundingClientRect().width || fitWidth;
+        updateReadout();
+        window.dispatchEvent(new Event('resize'));
       });
-    });
-  }
-
-  function installUtilityMenu() {
-    if (!clearLocalData || !toggleInspector || document.querySelector('.utility-menu')) return;
-    const parent = clearLocalData.parentNode;
-    const menu = document.createElement('details');
-    menu.className = 'utility-menu';
-    const summary = document.createElement('summary');
-    summary.className = 'icon-btn';
-    summary.title = '更多操作';
-    summary.setAttribute('aria-label', '更多操作');
-    summary.textContent = '⋯';
-    const popover = document.createElement('div');
-    popover.className = 'utility-menu-popover';
-    popover.innerHTML = '<div class="utility-menu-title">本机工具</div>';
-    const note = document.createElement('small');
-    note.className = 'utility-menu-note';
-    note.textContent = '清除本机草稿、素材缓存与匿名历史身份。不会删除云端已生成的任务。';
-
-    parent.insertBefore(menu, clearLocalData);
-    menu.append(summary, popover);
-    popover.append(clearLocalData, note);
-
-    clearLocalData.addEventListener('click', () => {
-      menu.open = false;
-    });
-
-    document.addEventListener('click', event => {
-      if (menu.open && !menu.contains(event.target)) menu.open = false;
-    });
-  }
-
-  function installSubmitDock() {
-    const inspector = document.getElementById('inspector');
-    const editTab = document.getElementById('editTab');
-    const submitBtn = document.getElementById('submitBtn');
-    const form = document.getElementById('posterForm');
-    if (!inspector || !editTab || !submitBtn || !form || inspector.querySelector('.submit-dock')) return;
-
-    const dock = document.createElement('div');
-    dock.className = 'submit-dock';
-    const meta = document.createElement('div');
-    meta.className = 'submit-dock-meta';
-    meta.innerHTML = '<strong>正式输出</strong><span>由 Mac Photoshop 生成 PSD / PNG</span>';
-
-    submitBtn.setAttribute('form', form.id);
-    submitBtn.classList.add('submit-dock-button');
-    dock.append(meta, submitBtn);
-    inspector.appendChild(dock);
-
-    function syncVisibility() {
-      dock.hidden = !editTab.classList.contains('active');
+      return;
     }
-
-    new MutationObserver(syncVisibility).observe(editTab, { attributes: true, attributeFilter: ['class'] });
-    syncVisibility();
+    poster.style.width = `${Math.max(220, Math.round(fitWidth * zoom))}px`;
+    viewport.classList.toggle('is-zoomed', zoom > 1);
+    updateReadout();
+    notifyGeometryChange();
   }
 
-  function installTaskBadge() {
-    if (!taskTab || !jobStatus) return;
-    let badge = taskTab.querySelector('.task-tab-badge');
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'task-tab-badge';
-      badge.hidden = true;
-      taskTab.appendChild(badge);
-    }
+  controls.addEventListener('click', event => {
+    const action = event.target?.dataset?.zoom;
+    if (action === 'out') setZoom(zoom - .1);
+    if (action === 'in') setZoom(zoom + .1);
+    if (action === 'fit') setZoom(1);
+  });
 
-    function sync() {
-      const text = (jobStatus.textContent || '').trim();
-      badge.className = 'task-tab-badge';
-      if (!text || text.includes('尚未提交')) {
-        badge.hidden = true;
-        return;
-      }
-      badge.hidden = false;
-      if (/失败|failed|错误/i.test(text)) {
-        badge.textContent = '!';
-        badge.classList.add('bad');
-      } else if (/完成|成功|succeeded/i.test(text)) {
-        badge.textContent = '✓';
-        badge.classList.add('ok');
-      } else {
-        badge.textContent = '•';
-        badge.classList.add('active');
-      }
-    }
+  viewport.addEventListener('wheel', event => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    setZoom(zoom + (event.deltaY < 0 ? .1 : -.1));
+  }, { passive: false });
 
-    new MutationObserver(sync).observe(jobStatus, { childList: true, subtree: true, characterData: true, attributes: true });
-    sync();
-  }
-
-  function pulseSection(sectionName, child) {
-    const section = document.querySelector(`.editor-section[data-section="${sectionName}"]`);
-    if (!section) return;
-    section.open = true;
-    section.classList.remove('is-linked');
-    child?.classList?.remove('is-linked');
-    void section.offsetWidth;
-    section.classList.add('is-linked');
-    child?.classList?.add('is-linked');
-    section.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    setTimeout(() => {
-      section.classList.remove('is-linked');
-      child?.classList?.remove('is-linked');
-    }, 1200);
-  }
-
-  function installInspectorLinking() {
-    const editor = window.posterEditor;
-    if (editor?.openSection && !editor.__interactionPolished) {
-      const original = editor.openSection.bind(editor);
-      editor.openSection = name => {
-        original(name);
-        nextFrame(() => pulseSection(name));
-      };
-      editor.__interactionPolished = true;
-    }
-
-    const people = Array.from(document.querySelectorAll('#people .person'));
-    ['chair', 'speaker1', 'speaker2'].forEach((key, index) => {
-      const card = people[index];
-      if (card) card.dataset.personKey = key;
-      const slot = document.querySelector(`.canvas-avatar-slot[data-key="${key}"]`);
-      if (!slot) return;
-      slot.addEventListener('click', () => {
-        document.querySelectorAll('.canvas-avatar-slot.is-active').forEach(el => el.classList.remove('is-active'));
-        slot.classList.add('is-active');
-        pulseSection('people', card);
-        setTimeout(() => slot.classList.remove('is-active'), 1400);
-      });
-    });
-
-    const qrSlot = document.querySelector('.canvas-qr-slot');
-    qrSlot?.addEventListener('click', () => {
-      qrSlot.classList.add('is-active');
-      pulseSection('qr');
-      setTimeout(() => qrSlot.classList.remove('is-active'), 1400);
-    });
-
-    const inputToPreview = new Map();
-    project?.textItems?.forEach(item => {
-      const id = item.source?.inputId;
-      if (!id) return;
-      const preview = document.querySelector(`[data-preview-text-id="${item.id}"]`);
-      if (preview) inputToPreview.set(id, preview);
-    });
-
-    document.getElementById('editTab')?.addEventListener('focusin', event => {
-      const preview = inputToPreview.get(event.target?.id);
-      if (!preview) return;
-      document.querySelectorAll('.poster-preview-text.is-linked').forEach(el => el.classList.remove('is-linked'));
-      preview.classList.add('is-linked');
-    });
-    document.getElementById('editTab')?.addEventListener('focusout', event => {
-      inputToPreview.get(event.target?.id)?.classList.remove('is-linked');
-    });
-  }
-
-  installZoomControls();
-  decorateSchedule();
-  installUtilityMenu();
-  installSubmitDock();
-  installTaskBadge();
-  installInspectorLinking();
+  window.addEventListener('resize', () => {
+    if (zoom !== 1) return;
+    fitWidth = poster.getBoundingClientRect().width || fitWidth;
+    updateReadout();
+  });
 })();
