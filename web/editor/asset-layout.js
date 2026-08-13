@@ -10,7 +10,6 @@
   const PROFILE_ID = project.assetLayoutProfile;
   const STORAGE_KEY = `posterAssetLayout:${project.id}:${PROFILE_ID}`;
   const KEYS = ['chair', 'speaker1', 'speaker2', 'qr'];
-  const LABELS = Object.freeze({ chair: '主席头像', speaker1: '讲者一头像', speaker2: '讲者二头像', qr: '二维码' });
   const HISTORY_LIMIT = 60;
   const MIN_SIZE = 24;
 
@@ -115,24 +114,11 @@
     return clone(currentLayout());
   }
 
-  function updateToolbar() {
-    const count = selected.size;
-    countLabel.textContent = count ? `已选 ${count} 项` : '未选择';
-    if (count === 1) {
-      const key = [...selected][0];
-      const spec = normalizeSpec(key, project.assetPreview[key]);
-      readout.textContent = `${LABELS[key]} · X ${spec.left} · Y ${spec.top} · ${spec.size}×${spec.size}`;
-    } else {
-      readout.textContent = count > 1 ? '批量移动 · 尺寸单独调整' : '';
-    }
-  }
-
   function commitHistory(before) {
     if (!before || JSON.stringify(before) === JSON.stringify(currentLayout())) return;
     undoStack.push(before);
     if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
     redoStack.length = 0;
-    updateToolbar();
   }
 
   function restoreSnapshot(value) {
@@ -140,7 +126,6 @@
     applyAllGeometry();
     saveLayout();
     scheduleMoveableRebuild();
-    updateToolbar();
   }
 
   function undo() {
@@ -178,7 +163,6 @@
     saveLayout();
     commitHistory(before);
     moveable?.updateRect?.();
-    updateToolbar();
   }
 
   function destroyMoveable() {
@@ -280,7 +264,6 @@
   function setSelection(next) {
     selected = new Set([...next].filter(key => slots.has(key)));
     updateSelectionClasses();
-    updateToolbar();
     scheduleMoveableRebuild();
   }
 
@@ -301,21 +284,6 @@
     setSelection(next);
   }
 
-  const dock = document.createElement('div');
-  dock.className = 'asset-layout-dock';
-  dock.innerHTML = `
-    <button type="button" class="asset-layout-mode-btn" data-asset-layout-mode aria-label="A 素材工具" data-tool-tip="A · 素材工具\n本项目的头像/二维码工具。选择后可拖动或缩放；双击重新裁剪。位置和尺寸会同步 Photoshop。"><span class="tool-key">A</span><span>素材工具</span></button>
-    <div class="asset-layout-tools" data-asset-layout-tools hidden>
-      <span class="asset-layout-count" data-asset-layout-count>未选择</span>
-      <span class="asset-layout-readout" data-asset-layout-readout></span>
-    </div>`;
-  document.querySelector('.stage-area')?.appendChild(dock);
-
-  const modeButton = dock.querySelector('[data-asset-layout-mode]');
-  const tools = dock.querySelector('[data-asset-layout-tools]');
-  const countLabel = dock.querySelector('[data-asset-layout-count]');
-  const readout = dock.querySelector('[data-asset-layout-readout]');
-
   function nudgeSelection(dx, dy) {
     if (!selected.size) return;
     const before = snapshot();
@@ -327,18 +295,12 @@
     saveLayout();
     commitHistory(before);
     moveable?.updateRect?.();
-    updateToolbar();
   }
 
   function setMode(enabled) {
     active = Boolean(enabled);
-    if (active) window.posterTextLayout?.setEnabled?.(false);
     poster.classList.toggle('is-asset-layout-mode', active);
-    dock.classList.toggle('is-active', active);
-    modeButton.classList.toggle('active', active);
-    tools.hidden = !active;
     if (!active) clearSelection();
-    updateToolbar();
   }
 
   slots.forEach((slot, key) => {
@@ -354,11 +316,6 @@
     slot.addEventListener('click', suppressOpenEditor, true);
     slot.addEventListener('dblclick', suppressOpenEditor, true);
   });
-
-  modeButton.addEventListener('click', () => setMode(!active));
-  document.querySelector('[data-layout-mode]')?.addEventListener('click', () => {
-    if (active) setMode(false);
-  }, true);
 
   function isEditingTarget(target) {
     return target instanceof Element && Boolean(target.closest('input,textarea,select,[contenteditable="true"]'));
@@ -397,7 +354,6 @@
   });
 
   installStoredLayout();
-  updateToolbar();
 
   window.posterAssetLayout = Object.freeze({
     setEnabled: setMode,

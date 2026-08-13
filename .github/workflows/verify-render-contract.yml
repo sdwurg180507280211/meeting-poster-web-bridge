@@ -45,6 +45,7 @@ jobs:
       - run: node --check web/media/avatar-crop-modal.js
       - run: node --check web/editor/poster-preview.js
       - run: node --check web/editor/asset-layout.js
+      - run: node --check web/editor/layout-tool.js
       - run: node --check web/editor/selection-polish.js
       - run: node --check web/editor/interaction-polish.js
       - run: node --check web/editor/canvas-pan.js
@@ -72,6 +73,7 @@ jobs:
           const selection = fs.readFileSync('web/editor/selection-polish.js', 'utf8');
           const textLayout = fs.readFileSync('web/editor/poster-preview.js', 'utf8');
           const assetLayout = fs.readFileSync('web/editor/asset-layout.js', 'utf8');
+          const layoutTool = fs.readFileSync('web/editor/layout-tool.js', 'utf8');
 
           for (const token of [
             'legacyClaimOne', 'legacyRecoverClaimedJobs', 'warnMigrationRequired',
@@ -102,6 +104,9 @@ jobs:
           if (!app.includes('window.POSTER_APP_CLIENT = client')) throw new Error('app must publish its authenticated client explicitly');
           if (!textLayout.includes('clearSelection,') || !assetLayout.includes('clearSelection,')) {
             throw new Error('layout modules must expose clearSelection directly');
+          }
+          if (!layoutTool.includes('window.posterLayoutTool') || !layoutTool.includes("activate('asset')") || !layoutTool.includes("activate('text')")) {
+            throw new Error('unified layout tool must coordinate the existing text and asset layout modules');
           }
           if (!selection.includes('context.api.clearSelection()') || /setEnabled\?\.\(false\).*setEnabled\?\.\(true\)/s.test(selection)) {
             throw new Error('selection coordinator must use explicit clearSelection APIs without mode-toggle fallback');
@@ -193,18 +198,25 @@ jobs:
           const html = fs.readFileSync('web/index.html', 'utf8');
           const preflight = fs.readFileSync('web/service/preflight.js', 'utf8');
           const controls = fs.readFileSync('web/service/task-controls.js', 'utf8');
-          const migration = fs.readFileSync('supabase/005_preflight_and_job_controls.sql', 'utf8');
+          const schema = fs.readFileSync('supabase/005_preflight_and_job_controls.sql', 'utf8');
           const restriction = fs.readFileSync('supabase/006_restrict_preflight_rpc.sql', 'utf8');
           if (!html.includes('service/preflight.css') || !html.includes('service/preflight.js')) throw new Error('preflight assets are not wired');
           if (!html.includes('service/task-controls.css') || !html.includes('service/task-controls.js')) throw new Error('task control assets are not wired');
           if (!preflight.includes("rpc('poster_preflight'")) throw new Error('preflight must use the database capability RPC');
           if (!preflight.includes('window.POSTER_APP_CLIENT')) throw new Error('preflight must reuse the authenticated application client');
-          if (!controls.includes("rpc(rpcName")) throw new Error('task controls must call RPCs through the authenticated app client');
-          for (const token of ['cancel_poster_job', 'retry_poster_job', 'poster_preflight', "'cancelled'"]) {
-            if (!migration.includes(token)) throw new Error(`005 migration is missing ${token}`);
+          if (!controls.includes("rpc('cancel_poster_job'")) throw new Error('task controls must call cancel_poster_job through the authenticated app client');
+          if (/retry_poster_job|data-job-action=["']retry["']|重新生成/.test(controls)) throw new Error('obsolete retry task control remains');
+          for (const token of ['cancel_poster_job', 'poster_preflight', "'cancelled'"]) {
+            if (!schema.includes(token)) throw new Error(`005 schema is missing ${token}`);
+          }
+          if (/create\s+or\s+replace\s+function\s+public\.retry_poster_job/i.test(schema)) {
+            throw new Error('005 schema must not define the obsolete retry_poster_job RPC');
+          }
+          if (!/drop\s+function\s+if\s+exists\s+public\.retry_poster_job\(uuid\)/i.test(schema)) {
+            throw new Error('005 schema must remove an already-installed obsolete retry_poster_job RPC');
           }
           if (!/revoke\s+execute\s+on\s+function\s+public\.poster_preflight\(text\)\s+from\s+anon/i.test(restriction)) {
-            throw new Error('006 migration must remove anonymous execution of poster_preflight');
+            throw new Error('006 schema must remove anonymous execution of poster_preflight');
           }
           NODE
       - name: Verify PSD template preflight guard

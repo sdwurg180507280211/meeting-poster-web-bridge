@@ -43,10 +43,9 @@ async function installMock(page) {
 }
 
 async function enableAssets(page) {
-  await expect(page.locator('[data-asset-layout-mode]')).toBeVisible();
-  await page.locator('[data-asset-layout-mode]').click();
-  await expect(page.locator('[data-asset-layout-tools]')).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.posterAssetLayout?.isEnabled?.())).toBe(true);
+  await expect(page.locator('[data-layout-mode]')).toBeVisible();
+  await page.locator('[data-layout-mode]').click();
+  await expect.poll(() => page.evaluate(() => window.posterLayoutTool?.isEnabled?.())).toBe(true);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -69,14 +68,14 @@ test('each project owns an independent asset layout profile', async ({ page }) =
   expect(snapshot.activeProfile).toBe('yilu-changan-assets-v1');
 });
 
-test('A is explained as the project asset tool and has no reset or arrow action buttons', async ({ page }) => {
+test('layout tool is the only visible entry for text and asset geometry', async ({ page }) => {
   await page.goto('/?project=chronic-care-2026');
   await page.waitForFunction(() => Boolean(window.posterAssetLayout && window.Moveable));
 
-  const mode = page.locator('.asset-layout-mode-btn');
-  await expect(mode).toHaveAttribute('aria-label', 'A 素材工具');
-  await expect(mode).toHaveAttribute('data-tool-tip', /A · 素材工具/);
-  await expect(mode).toHaveAttribute('data-tool-tip', /位置和尺寸会同步 Photoshop/);
+  const mode = page.locator('[data-layout-mode]');
+  await expect(mode).toHaveAttribute('aria-label', '布局工具');
+  await expect(mode).toHaveAttribute('data-tool-tip', /文字和头像\/二维码均可移动或缩放/);
+  await expect(page.locator('[data-asset-layout-mode]')).toBeHidden();
 
   await enableAssets(page);
   await expect(page.locator('[data-asset-action]')).toHaveCount(0);
@@ -133,16 +132,13 @@ test('double-clicking an avatar in asset mode reopens crop editing', async ({ pa
   await expect(page.locator('#avatarCropModal')).toBeVisible();
 });
 
-test('asset overrides stay project-local and text/asset modes are mutually exclusive', async ({ page }) => {
+test('asset overrides stay project-local under the unified layout tool', async ({ page }) => {
   await page.goto('/?project=chronic-care-2026');
   await page.waitForFunction(() => Boolean(window.posterAssetLayout && window.posterTextLayout));
   await enableAssets(page);
   await page.locator('.canvas-asset-slot[data-key="speaker1"]').click();
   await page.keyboard.press('ArrowLeft');
   expect(await page.evaluate(() => window.POSTER_PROJECT.assetPreview.speaker1.left)).toBe(220);
-
-  await page.locator('[data-layout-mode]').click();
-  expect(await page.evaluate(() => ({ text: window.posterTextLayout.isEnabled(), assets: window.posterAssetLayout.isEnabled() }))).toEqual({ text: true, assets: false });
 
   await page.goto('/?project=tonghu-jiankang');
   await page.waitForFunction(() => Boolean(window.posterAssetLayout));

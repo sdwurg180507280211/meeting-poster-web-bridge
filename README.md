@@ -10,7 +10,7 @@ Browser
   → Photoshop UXP Worker
   → PNG
   → Mac Agent 上传结果
-  → Browser 下载
+  → Browser 自动下载 / 任务下载
 ```
 
 当前渲染协议：**Render Protocol v2**。
@@ -30,7 +30,7 @@ Browser
 - 自己的头像 / 二维码布局
 - 自己绑定的本地 PSD 文件
 
-网页文字位置和字号只用于预览；文字内容同步 PSD。头像和二维码的位置 / 尺寸由当前项目的 `assetPreview` 生成 Render Contract，并同步 Photoshop。
+网页文字位置和缩放只用于预览；文字内容同步 PSD。头像和二维码的位置 / 尺寸由当前项目的 `assetPreview` 生成 Render Contract，并同步 Photoshop。
 
 ## 目录
 
@@ -90,32 +90,18 @@ python3 -m http.server 5173
 
 浏览器打开 `http://localhost:5173`。
 
-### 文字布局
+### 直接编辑文字
 
-`V 选择文字` 只编辑当前项目的 Web 预览：
+可编辑的动态文字无需进入布局模式，直接在海报上双击即可原位编辑并同步右侧表单。会议时间、日程时间、姓名、医院等继续复用现有字段和校验逻辑。
 
-- 单选 / Ctrl(Cmd) 多选
-- 框选
-- 批量拖动
-- 方向键 1px
-- Shift + 方向键 10px
-- 对齐 / 分布
-- 撤销 / 重做
+### 布局工具
 
-文字布局不会覆盖 PSD 中的文字位置。
+页面只保留一个 `L 布局工具`。开启后按点击对象自动切换对应布局模块：
 
-### 素材布局
+- 文字：单选 / Ctrl(Cmd) 多选、框选、拖动、单项等比缩放、方向键 1px、Shift + 方向键 10px、撤销 / 重做。
+- 头像 / 二维码：单选 / Ctrl(Cmd) 多选、拖动、单项等比缩放、方向键 1px、Shift + 方向键 10px、撤销 / 重做。
 
-`A 素材布局` 编辑主席头像、两位讲者头像和二维码：
-
-- 单选 / Ctrl(Cmd) 多选
-- 拖动
-- 单项等比缩放
-- 方向键 1px / Shift 10px
-- 对齐
-- 撤销 / 重做
-
-素材布局写入当前项目 `assetPreview`，提交时进入 Render Contract，因此会同步到 Photoshop。
+文字布局自动保存到当前项目的云端文字布局记录，但不会覆盖 PSD 中的文字位置。素材布局写入当前项目 `assetPreview`，提交时进入 Render Contract，因此会同步到 Photoshop。
 
 ## 4. 头像规则
 
@@ -223,7 +209,7 @@ Worker 不修复旧图层名，也不接受旧单模板设置。PSD 不符合当
 
 出现阻断项时不应提交任务。
 
-## 8. 任务状态
+## 8. 任务状态与下载
 
 ```text
 pending
@@ -242,9 +228,12 @@ cancelled
 
 任务控制：
 
-- `pending`：可取消
-- `claimed / rendering / uploading`：不暴力中断
-- `failed / succeeded / cancelled`：可重新生成
+- `pending`：可取消。
+- `claimed / rendering / uploading`：不暴力中断。
+- `succeeded`：可查看并下载已有 PNG，不重新创建任务。
+- `failed / cancelled`：不提供重新生成入口。
+
+用户点击“生成正式海报”创建的任务成功后，页面会自动触发一次 PNG 下载；自动下载只绑定本次提交的任务，不会因为查看旧历史任务而重复触发。
 
 ## 9. 测试
 
@@ -260,11 +249,12 @@ GitHub Actions 验证：
 
 - Mac Agent 单元测试
 - Web / Agent / Worker JavaScript 语法
-- 当前-only 协议：无旧 DB fallback、无 raw avatar、无 PSD 旧层名修复
+- 当前-only 协议：无旧 DB fallback、无 raw avatar、无 PSD 旧层名修复、无任务重试入口
 - Render Contract v2
 - 多项目 PSD 路由
 - 项目文字 / 素材布局
-- A / V 选择状态
+- 统一布局工具与选择状态
+- 默认双击文字编辑
 - 画布平移和缩放
 - 系统自检与任务控制
 - Chromium Playwright E2E
