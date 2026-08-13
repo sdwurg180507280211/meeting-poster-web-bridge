@@ -35,9 +35,7 @@
   top:28px;
   left:28px;
   z-index:45;
-  display:flex;
-  align-items:center;
-  gap:6px;
+  display:block;
   max-width:calc(100% - 56px);
   pointer-events:none;
 }
@@ -46,20 +44,21 @@
   pointer-events:auto;
 }
 .text-layout-mode-btn{
-  height:34px;
-  display:inline-flex;
-  align-items:center;
-  gap:7px;
-  padding:0 10px;
+  width:36px;
+  height:36px;
+  display:inline-grid;
+  place-items:center;
+  padding:0;
   border:1px solid rgba(164,174,193,.72);
-  border-radius:9px;
-  background:rgba(255,255,255,.94);
+  border-radius:9px 9px 4px 4px;
+  background:rgba(255,255,255,.96);
   color:#566276;
   box-shadow:0 5px 18px rgba(31,42,68,.12);
   backdrop-filter:blur(10px);
   font-size:11px;
   font-weight:800;
 }
+.text-layout-mode-btn>span:last-child{display:none}
 .text-layout-mode-btn:hover{
   border-color:#8f98e6;
   color:#4f5bc4;
@@ -72,23 +71,26 @@
 .tool-key{
   display:grid;
   place-items:center;
-  width:18px;
-  height:18px;
+  width:22px;
+  height:22px;
   border-radius:5px;
   background:rgba(89,102,220,.10);
-  font-size:10px;
+  font-size:11px;
   font-weight:900;
 }
 .text-layout-mode-btn.active .tool-key{background:rgba(255,255,255,.18)}
 .text-layout-tools{
+  position:absolute;
+  left:44px;
+  top:1px;
   min-height:34px;
   display:flex;
   align-items:center;
-  gap:3px;
+  gap:4px;
   padding:4px 6px;
   border:1px solid rgba(164,174,193,.72);
   border-radius:9px;
-  background:rgba(255,255,255,.95);
+  background:rgba(255,255,255,.96);
   box-shadow:0 5px 18px rgba(31,42,68,.12);
   backdrop-filter:blur(12px);
   overflow-x:auto;
@@ -110,6 +112,10 @@
 }
 .text-layout-tools button:hover:not(:disabled){background:#eef0ff;color:#4f5bc4}
 .text-layout-tools button:disabled{opacity:.28;cursor:default}
+.text-layout-tools [data-align],
+.text-layout-tools .text-layout-divider{
+  display:none!important;
+}
 .text-layout-count{
   flex:none;
   min-width:48px;
@@ -118,13 +124,6 @@
   font-size:9px;
   font-weight:800;
   white-space:nowrap;
-}
-.text-layout-divider{
-  flex:none;
-  width:1px;
-  height:18px;
-  margin:0 2px;
-  background:#e0e5ed;
 }
 .text-selection-marquee{
   position:absolute;
@@ -143,6 +142,6 @@
 
 @media(max-width:900px){
   .text-layout-dock{top:24px;left:24px;max-width:calc(100% - 48px)}
-  .text-layout-tools{max-width:calc(100vw - 220px)}
+  .text-layout-tools{max-width:calc(100vw - 150px)}
   .text-layout-count{display:none}
 }
