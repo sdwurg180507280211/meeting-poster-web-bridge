@@ -19,7 +19,6 @@
       return {
         kind,
         api,
-        dockSelector: '.text-layout-dock',
         selectableSelector: '.poster-preview-text',
         selected: () => api.getSelectedIds(),
       };
@@ -30,7 +29,6 @@
       return {
         kind,
         api,
-        dockSelector: '.asset-layout-dock',
         selectableSelector: '.canvas-asset-slot',
         selected: () => api.getSelectedKeys(),
       };
@@ -56,9 +54,8 @@
     }
   }
 
-  function protectedTarget(context, element) {
-    if (!context || !element) return false;
-    if (element.closest(context.dockSelector)) return true;
+  function protectedPosterTarget(context, element) {
+    if (!context || !element || !poster.contains(element)) return false;
     if (element.closest(MOVEABLE_SELECTOR)) return true;
     if (element.closest(context.selectableSelector)) return true;
     return false;
@@ -72,9 +69,12 @@
     if (!context || context.selected().length === 0) return;
 
     const element = asElement(event.target);
-    if (protectedTarget(context, element)) return;
-
-    if (context.kind === 'text' && element && poster.contains(element) && (event.metaKey || event.ctrlKey)) return;
+    if (!element || !poster.contains(element)) {
+      clearSelection(context);
+      return;
+    }
+    if (protectedPosterTarget(context, element)) return;
+    if (context.kind === 'text' && (event.metaKey || event.ctrlKey)) return;
     clearSelection(context);
   }, true);
 
@@ -84,7 +84,11 @@
     if (!context || context.selected().length === 0) return;
 
     const element = asElement(event.target);
-    if (!element || protectedTarget(context, element)) return;
+    if (!element || !poster.contains(element)) {
+      clearSelection(context);
+      return;
+    }
+    if (protectedPosterTarget(context, element)) return;
     if (!element.matches('input,textarea,select,button,a,[contenteditable="true"],summary,[tabindex]')) return;
     clearSelection(context);
   }, true);
