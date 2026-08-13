@@ -10,6 +10,29 @@
     requestAnimationFrame(() => requestAnimationFrame(fn));
   }
 
+  function installJobStatePolish() {
+    const state = document.querySelector('.canvas-job-state');
+    const status = document.getElementById('jobStatus');
+    if (!state || !status || state.dataset.polishReady === '1') return;
+    state.dataset.polishReady = '1';
+
+    const sync = () => {
+      const text = status.textContent.trim();
+      state.classList.toggle('is-idle', !text || text === '准备就绪');
+      state.classList.toggle('is-success', status.classList.contains('ok'));
+    };
+
+    new MutationObserver(sync).observe(status, {
+      attributes: true,
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+    sync();
+  }
+
+  installJobStatePolish();
+
   const controls = document.createElement('div');
   controls.className = 'zoom-controls stage-zoom-controls';
   controls.setAttribute('aria-label', '海报预览缩放');
