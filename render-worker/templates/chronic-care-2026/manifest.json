@@ -1,102 +1,290 @@
 {
   "schemaVersion": 1,
   "projectId": "chronic-care-2026",
-  "canvas": { "width": 837, "height": 1880 },
+  "canvas": {
+    "width": 837,
+    "height": 1880
+  },
   "background": "background.png",
-  "fonts": {
-    "regular": "fonts/regular.otf",
-    "semibold": "fonts/semibold.otf"
+  "images": {
+    "chair": {
+      "left": 342,
+      "top": 496,
+      "size": 168
+    },
+    "speaker1": {
+      "left": 220,
+      "top": 836,
+      "size": 165
+    },
+    "speaker2": {
+      "left": 458,
+      "top": 836,
+      "size": 164
+    },
+    "qrCode": {
+      "left": 338,
+      "top": 1576,
+      "size": 148
+    }
   },
   "texts": {
-    "meetingTime": {
-      "source": "meetingTime",
-      "prefix": "会议时间：",
-      "box": { "left": 82, "top": 1158, "width": 470, "height": 34 },
-      "fontSize": 24,
+    "sectionChair": {
+      "x": 419,
+      "y": 456,
+      "fontSize": 34,
       "minFontSize": 12,
       "weight": "semibold",
-      "color": "#191919",
-      "align": "left",
-      "letterSpacing": 0
+      "align": "center",
+      "tracking": 40,
+      "color": "#5435D6",
+      "text": "会议主席"
+    },
+    "sectionSpeakers": {
+      "x": 419,
+      "y": 801,
+      "fontSize": 34,
+      "minFontSize": 12,
+      "weight": "semibold",
+      "align": "center",
+      "tracking": 40,
+      "color": "#5435D6",
+      "text": "会议讲者"
+    },
+    "sectionAgenda": {
+      "x": 419,
+      "y": 1132,
+      "fontSize": 34,
+      "minFontSize": 12,
+      "weight": "semibold",
+      "align": "center",
+      "tracking": 40,
+      "color": "#5435D6",
+      "text": "会议日程"
+    },
+    "agendaHeadTime": {
+      "x": 125,
+      "y": 1263,
+      "fontSize": 25,
+      "minFontSize": 12,
+      "weight": "semibold",
+      "align": "center",
+      "tracking": 0,
+      "color": "#FFFFFF",
+      "text": "时间"
+    },
+    "agendaHeadContent": {
+      "x": 294.5,
+      "y": 1263,
+      "fontSize": 25,
+      "minFontSize": 12,
+      "weight": "semibold",
+      "align": "center",
+      "tracking": 0,
+      "color": "#FFFFFF",
+      "text": "内容"
+    },
+    "agendaHeadSpeaker": {
+      "x": 521.5,
+      "y": 1264,
+      "fontSize": 25,
+      "minFontSize": 12,
+      "weight": "semibold",
+      "align": "center",
+      "tracking": 0,
+      "color": "#FFFFFF",
+      "text": "讲者"
+    },
+    "agendaHeadChair": {
+      "x": 681,
+      "y": 1264,
+      "fontSize": 25,
+      "minFontSize": 12,
+      "weight": "semibold",
+      "align": "center",
+      "tracking": 0,
+      "color": "#FFFFFF",
+      "text": "主席"
     },
     "chairName": {
-      "source": "chair.name",
-      "suffix": " 教授",
-      "box": { "left": 342, "top": 682, "width": 168, "height": 31 },
-      "fontSize": 23,
+      "x": 419,
+      "y": 701,
+      "fontSize": 21,
       "minFontSize": 12,
       "weight": "semibold",
-      "color": "#191919",
       "align": "center",
-      "letterSpacing": 2.1
+      "tracking": 90,
+      "color": "#191919",
+      "source": "chair.name"
     },
     "chairHospital": {
-      "source": "chair.hospital",
-      "box": { "left": 342, "top": 716, "width": 168, "height": 24 },
+      "x": 419,
+      "y": 731,
       "fontSize": 16,
       "minFontSize": 12,
       "weight": "regular",
-      "color": "#191919",
       "align": "center",
-      "letterSpacing": 0
+      "tracking": 0,
+      "color": "#191919",
+      "source": "chair.hospital"
     },
     "speaker1Name": {
-      "source": "speakers.0.name",
-      "suffix": " 教授",
-      "box": { "left": 221, "top": 1017, "width": 168, "height": 31 },
+      "x": 301.5,
+      "y": 1039,
       "fontSize": 22,
       "minFontSize": 12,
       "weight": "semibold",
-      "color": "#191919",
       "align": "center",
-      "letterSpacing": 1.8
+      "tracking": 80,
+      "color": "#191919",
+      "source": "speakers.0.name"
     },
     "speaker1Hospital": {
-      "source": "speakers.0.hospital",
-      "box": { "left": 221, "top": 1044, "width": 168, "height": 24 },
+      "x": 301,
+      "y": 1062,
       "fontSize": 15,
       "minFontSize": 12,
       "weight": "regular",
-      "color": "#191919",
       "align": "center",
-      "letterSpacing": 0
+      "tracking": 0,
+      "color": "#191919",
+      "source": "speakers.0.hospital"
     },
     "speaker2Name": {
-      "source": "speakers.1.name",
-      "suffix": " 教授",
-      "box": { "left": 457, "top": 1017, "width": 168, "height": 31 },
+      "x": 548.5,
+      "y": 1039,
       "fontSize": 22,
       "minFontSize": 12,
       "weight": "semibold",
-      "color": "#191919",
       "align": "center",
-      "letterSpacing": 1.8
+      "tracking": 80,
+      "color": "#191919",
+      "source": "speakers.1.name"
     },
     "speaker2Hospital": {
-      "source": "speakers.1.hospital",
-      "box": { "left": 457, "top": 1044, "width": 168, "height": 24 },
+      "x": 548,
+      "y": 1062,
       "fontSize": 15,
       "minFontSize": 12,
       "weight": "regular",
-      "color": "#191919",
       "align": "center",
-      "letterSpacing": 0
+      "tracking": 0,
+      "color": "#191919",
+      "source": "speakers.1.hospital"
+    },
+    "meetingTime": {
+      "x": 82,
+      "y": 1178,
+      "fontSize": 16,
+      "minFontSize": 12,
+      "weight": "semibold",
+      "align": "left",
+      "tracking": 0,
+      "color": "#191919",
+      "source": "meetingTime"
+    },
+    "meetingLocation": {
+      "x": 82,
+      "y": 1217,
+      "fontSize": 24,
+      "minFontSize": 12,
+      "weight": "semibold",
+      "align": "left",
+      "tracking": 0,
+      "color": "#191919",
+      "source": "meetingLocation"
+    },
+    "qrNote": {
+      "x": 419,
+      "y": 1760,
+      "fontSize": 17,
+      "minFontSize": 12,
+      "weight": "semibold",
+      "align": "center",
+      "tracking": 0,
+      "color": "#FFFFFF",
+      "text": "请扫描二维码观看会议直播"
+    },
+    "sortNote": {
+      "x": 628,
+      "y": 1568,
+      "fontSize": 13,
+      "minFontSize": 12,
+      "weight": "regular",
+      "align": "center",
+      "tracking": 0,
+      "color": "#191919",
+      "text": "*排名不分先后,以姓名首字母拼音进行排序"
     }
   },
   "schedule": {
-    "rows": [1307, 1373, 1437, 1502],
+    "rows": [
+      1324,
+      1389,
+      1454,
+      1519
+    ],
     "columns": {
-      "time": { "box": { "left": 86, "top": 1307, "width": 118, "height": 25 } },
-      "content": { "box": { "left": 263, "top": 1307, "width": 190, "height": 25 } },
-      "speaker": { "box": { "left": 483, "top": 1307, "width": 77, "height": 25 } },
-      "chair": { "box": { "left": 642, "top": 1307, "width": 77, "height": 25 } }
+      "time": {
+        "x": 145.5,
+        "y": 1324,
+        "fontSize": 20,
+        "minFontSize": 12,
+        "weight": "regular",
+        "align": "center",
+        "tracking": 0,
+        "color": "#191919"
+      },
+      "content": {
+        "x": 263,
+        "y": 1325,
+        "fontSize": 20,
+        "minFontSize": 12,
+        "weight": "regular",
+        "align": "left",
+        "tracking": 0,
+        "color": "#191919"
+      },
+      "speaker": {
+        "x": 521.5,
+        "y": 1324,
+        "fontSize": 20,
+        "minFontSize": 12,
+        "weight": "regular",
+        "align": "center",
+        "tracking": 0,
+        "color": "#191919",
+        "hiddenRows": [
+          3
+        ]
+      },
+      "chair": {
+        "x": 680.5,
+        "y": 1323,
+        "fontSize": 20,
+        "minFontSize": 12,
+        "weight": "regular",
+        "align": "center",
+        "tracking": 0,
+        "color": "#191919",
+        "hiddenRows": [
+          1,
+          2
+        ]
+      }
     },
-    "text": {
-      "time": { "fontSize": 20, "minFontSize": 12, "weight": "regular", "color": "#191919", "align": "center", "letterSpacing": 0 },
-      "content": { "fontSize": 20, "minFontSize": 12, "weight": "regular", "color": "#191919", "align": "left", "letterSpacing": 0 },
-      "speaker": { "fontSize": 20, "minFontSize": 12, "weight": "regular", "color": "#191919", "align": "center", "letterSpacing": 0 },
-      "chair": { "fontSize": 20, "minFontSize": 12, "weight": "regular", "color": "#191919", "align": "center", "letterSpacing": 0 }
-    },
-    "dot": { "left": 232, "topOffset": 7, "size": 8, "color": "#5435D6" }
+    "dot": {
+      "size": 13,
+      "color": "#5435D6",
+      "x": 236.5,
+      "ys": [
+        1320,
+        1386,
+        1450
+      ],
+      "hiddenRows": [
+        3
+      ]
+    }
   }
 }

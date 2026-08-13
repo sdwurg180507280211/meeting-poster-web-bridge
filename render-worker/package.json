@@ -12,8 +12,10 @@
     "test": "node --test src/*.test.js"
   },
   "dependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "@supabase/supabase-js": "2.112.2",
     "dotenv": "16.6.1",
+    "fontkit": "2.0.4",
     "sharp": "0.35.3"
   }
 }

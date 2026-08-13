@@ -1,5 +1,7 @@
 mac-agent/.env
 mac-agent/node_modules/
 mac-agent/agent.log
+render-worker/.env
+render-worker/node_modules/
 .workbuddy/
 .DS_Store
