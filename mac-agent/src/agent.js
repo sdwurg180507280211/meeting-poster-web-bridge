@@ -415,10 +415,8 @@ async function processResult(jobId) {
     return;
   }
 
-  let psdLocal;
   let pngLocal;
   try {
-    psdLocal = await validateOutputFile(directory, result.psdFileName, '.psd');
     pngLocal = await validateOutputFile(directory, result.pngFileName, '.png');
   } catch (error) {
     if (error.code === 'INVALID_LOCAL_RESULT') await quarantineResult(resultPath);
@@ -432,15 +430,7 @@ async function processResult(jobId) {
   }, '将任务推进到 uploading');
 
   const base = `${job.owner_id.toLowerCase()}/${jobId}/output`;
-  const psdPath = `${base}/poster.psd`;
   const pngPath = `${base}/poster.png`;
-  const psdBuffer = await fs.readFile(psdLocal);
-  const psdUpload = await sb.storage.from(BUCKET).upload(psdPath, psdBuffer, {
-    contentType: 'image/vnd.adobe.photoshop',
-    upsert: true,
-  });
-  checkedResult(psdUpload, '上传 PSD 结果', { requireData: true });
-
   const pngBuffer = await fs.readFile(pngLocal);
   const pngUpload = await sb.storage.from(BUCKET).upload(pngPath, pngBuffer, {
     contentType: 'image/png',
@@ -450,7 +440,6 @@ async function processResult(jobId) {
 
   await mutateJob(jobId, {
     status: 'succeeded',
-    result_psd_path: psdPath,
     result_png_path: pngPath,
     finished_at: now(),
     error_message: null,

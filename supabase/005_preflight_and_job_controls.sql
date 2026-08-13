@@ -119,7 +119,6 @@ begin
      set status = 'pending',
          agent_id = null,
          error_message = null,
-         result_psd_path = null,
          result_png_path = null,
          created_at = statement_timestamp(),
          claimed_at = null,

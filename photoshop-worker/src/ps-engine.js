@@ -262,7 +262,7 @@ function normalizeMeetingLocation(value) {
 
 function safeFileName(value) {
   const cleaned = String(value || '会议海报')
-    .replace(/\.(psd|png)$/i, '')
+    .replace(/\.png$/i, '')
     .replace(/[\\/:*?"<>|]/g, '_')
     .replace(/[. ]+$/g, '')
     .trim();
@@ -283,20 +283,19 @@ function assertTemplateNotAlreadyOpen(templateEntry) {
   }
 }
 
-async function createOutputFiles(folderEntry, baseName) {
+async function createOutputFile(folderEntry, baseName) {
   const requested = safeFileName(baseName);
   const entries = await folderEntry.getEntries();
   const existing = new Set(entries.map((entry) => String(entry.name || '').toLowerCase()));
   let safeName = requested;
   let suffix = 2;
-  while (existing.has(`${safeName}.psd`.toLowerCase()) || existing.has(`${safeName}.png`.toLowerCase())) {
+  while (existing.has(`${safeName}.png`.toLowerCase())) {
     safeName = `${requested}_${suffix}`;
     suffix += 1;
     if (suffix > 10000) throw new Error('输出目录中同名文件过多，请修改输出文件名');
   }
-  const psdEntry = await folderEntry.createFile(`${safeName}.psd`, { overwrite: false });
   const pngEntry = await folderEntry.createFile(`${safeName}.png`, { overwrite: false });
-  return { safeName, psdEntry, pngEntry };
+  return { safeName, pngEntry };
 }
 
 async function generatePoster({ templateEntry, outputFolderEntry, meeting, assets, spec, onProgress = () => {} }) {
@@ -368,14 +367,12 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
         fitText(doc, names, metrics[index], spec.MIN_FONT_SIZE);
       });
 
-      output = await createOutputFiles(outputFolderEntry, meeting.outputName || '系列会议海报');
-      onProgress('保存 PSD 与 PNG');
-      await doc.saveAs.psd(output.psdEntry, { embedColorProfile: true }, true);
+      output = await createOutputFile(outputFolderEntry, meeting.outputName || '系列会议海报');
+      onProgress('保存 PNG');
       await doc.saveAs.png(output.pngEntry, { interlaced: false }, true);
 
       executionContext.reportProgress({ value: 1, commandName: '会议海报生成完成' });
       return {
-        psdPath: output.psdEntry.nativePath,
         pngPath: output.pngEntry.nativePath,
         baseName: output.safeName,
       };
