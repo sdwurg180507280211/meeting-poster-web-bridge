@@ -108,7 +108,7 @@ async function validateSelectedTemplate(projectId){
     await core.executeAsModal(async()=>{
       let doc=null;
       try{
-        doc=await app.open(template.entry);app.activeDocument=doc;
+        doc=await app.open(template.entry, undefined, false);app.activeDocument=doc;
         engine.validateTemplate(doc,SPEC);
       }finally{if(doc){try{doc.closeWithoutSaving();}catch(_){}}}
     },{commandName:`校验 ${project.name} PSD 母版`});

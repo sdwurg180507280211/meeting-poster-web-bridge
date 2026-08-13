@@ -309,7 +309,7 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
     let output = null;
     try {
       onProgress('打开 PSD 母版');
-      doc = await app.open(templateEntry);
+      doc = await app.open(templateEntry, undefined, false);
       app.activeDocument = doc;
       validateTemplate(doc, spec);
 
