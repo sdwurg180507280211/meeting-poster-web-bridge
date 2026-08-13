@@ -114,11 +114,7 @@
       return save(project, baseLayout(project));
     }
 
-    const normalized = normalizeLayout(project, data.layout);
-    if (JSON.stringify(normalized) !== JSON.stringify(data.layout || {})) {
-      await save(project, normalized);
-    }
-    return clone(normalized);
+    return clone(normalizeLayout(project, data.layout));
   }
 
   window.posterTextLayoutStore = Object.freeze({
