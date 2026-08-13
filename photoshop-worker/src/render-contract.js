@@ -70,6 +70,14 @@ function assertBakedAvatar(asset, label) {
   }
 }
 
+function currentSchedule(schedule) {
+  if (!Array.isArray(schedule)) return schedule;
+  return schedule.map((row, index) => {
+    if (index !== 0 || !isObject(row)) return row;
+    return { ...row, speaker: '' };
+  });
+}
+
 engine.generatePoster = function generatePosterWithRenderContract(args) {
   const meeting = args?.meeting;
   const assets = args?.assets;
@@ -81,7 +89,7 @@ engine.generatePoster = function generatePosterWithRenderContract(args) {
   assertBakedAvatar(assets.speaker2Avatar, '讲者二头像');
 
   const contract = meeting.__renderContract;
-  const cleanMeeting = { ...meeting };
+  const cleanMeeting = { ...meeting, schedule: currentSchedule(meeting.schedule) };
   delete cleanMeeting.__renderContract;
 
   return originalGeneratePoster({
