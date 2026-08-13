@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const poster = document.getElementById('posterCanvas');
   const project = window.POSTER_PROJECT;
   if (!poster || !project) return;
@@ -7,6 +9,9 @@
   const H = project.canvas.height;
   const avatarSpec = project.assetPreview;
   const qrSpec = project.assetPreview.qr;
+  const itemsById = new Map((project.textItems || []).map(item => [item.id, item]));
+  const MOBILE_QUERY = '(max-width: 760px)';
+  let mobileEdit = null;
 
   function pct(value, total) {
     return `${(value / total) * 100}%`;
@@ -105,7 +110,133 @@
     qrImg.style.transform = 'none';
   });
 
+  function isMobileViewport() {
+    return window.matchMedia?.(MOBILE_QUERY)?.matches === true;
+  }
+
+  function mobileTitle(item) {
+    if (item?.source?.type === 'personName') return '编辑姓名';
+    if (item?.source?.type === 'meetingDate') return '编辑会议时间';
+    if (item?.edit?.action === 'scheduleTime') return '编辑日程时间';
+    if (item?.id?.includes('hospital')) return '编辑医院';
+    return '编辑文字';
+  }
+
+  function mobilePlaceholder(item) {
+    if (item?.source?.type === 'personName') return '请输入姓名';
+    if (item?.source?.type === 'meetingDate') return '例如：2026年8月12日 19:00-21:30';
+    if (item?.edit?.action === 'scheduleTime') return '例如：19:00-19:30';
+    return item?.placeholder || '请输入文字';
+  }
+
+  function normalizeMobileValue(item, value) {
+    let next = String(value || '').replace(/\u00a0/g, ' ').trim();
+    if (item?.source?.type === 'personName') next = next.replace(/\s*教授\s*$/u, '').trim();
+    if (item?.source?.type === 'meetingDate') next = next.replace(/^会议时间\s*[:：]\s*/u, '').trim();
+    return next;
+  }
+
+  function ensureMobileEditor() {
+    let host = document.querySelector('.mobile-text-sheet');
+    if (host) return host;
+
+    host = document.createElement('div');
+    host.className = 'mobile-text-sheet';
+    host.hidden = true;
+    host.innerHTML = `
+      <div class="mobile-text-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="mobileTextTitle">
+        <div class="mobile-text-sheet-head">
+          <strong id="mobileTextTitle">编辑文字</strong>
+          <button type="button" data-mobile-text-close aria-label="关闭">×</button>
+        </div>
+        <input class="mobile-text-sheet-input" type="text" autocomplete="off" enterkeyhint="done" />
+        <div class="mobile-text-sheet-actions">
+          <button type="button" data-mobile-text-cancel>取消</button>
+          <button type="button" class="primary" data-mobile-text-apply>完成</button>
+        </div>
+      </div>`;
+    document.body.appendChild(host);
+
+    const field = host.querySelector('.mobile-text-sheet-input');
+    const close = () => closeMobileEditor(false);
+    host.querySelector('[data-mobile-text-close]')?.addEventListener('click', close);
+    host.querySelector('[data-mobile-text-cancel]')?.addEventListener('click', close);
+    host.querySelector('[data-mobile-text-apply]')?.addEventListener('click', () => closeMobileEditor(true));
+    host.addEventListener('click', event => {
+      if (event.target === host) closeMobileEditor(false);
+    });
+    field?.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        closeMobileEditor(true);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMobileEditor(false);
+      }
+    });
+    return host;
+  }
+
+  function openMobileEditor(item) {
+    const inputId = item?.source?.inputId;
+    const input = inputId ? document.getElementById(inputId) : null;
+    if (!input || input.disabled) return false;
+
+    const host = ensureMobileEditor();
+    const field = host.querySelector('.mobile-text-sheet-input');
+    host.querySelector('#mobileTextTitle').textContent = mobileTitle(item);
+    field.placeholder = mobilePlaceholder(item);
+    field.value = String(input.value || '');
+    mobileEdit = { item, input, originalValue: input.value };
+    host.hidden = false;
+    document.body.classList.add('mobile-text-editor-open');
+    requestAnimationFrame(() => {
+      field.focus({ preventScroll: true });
+      field.select();
+    });
+    return true;
+  }
+
+  function closeMobileEditor(commit) {
+    const host = document.querySelector('.mobile-text-sheet');
+    const state = mobileEdit;
+    if (!host || !state) {
+      if (host) host.hidden = true;
+      mobileEdit = null;
+      document.body.classList.remove('mobile-text-editor-open');
+      return;
+    }
+
+    if (commit) {
+      const field = host.querySelector('.mobile-text-sheet-input');
+      const value = normalizeMobileValue(state.item, field?.value || '');
+      if (state.input.value !== value) {
+        state.input.value = value;
+        state.input.dispatchEvent(new Event('input', { bubbles: true }));
+        state.input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+
+    mobileEdit = null;
+    host.hidden = true;
+    document.body.classList.remove('mobile-text-editor-open');
+  }
+
+  document.addEventListener('click', event => {
+    if (!isMobileViewport() || window.posterLayoutTool?.isEnabled?.()) return;
+    const target = event.target instanceof Element ? event.target : null;
+    const preview = target?.closest('.poster-preview-text');
+    if (!preview || !poster.contains(preview)) return;
+    const item = itemsById.get(preview.dataset.previewTextId);
+    if (!item?.source?.inputId) return;
+    if (!openMobileEditor(item)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+  }, true);
+
   document.addEventListener('dblclick', event => {
+    if (isMobileViewport()) return;
     const target = event.target instanceof Element ? event.target : null;
     if (!target || !poster.contains(target)) return;
     const preview = target.closest('.poster-preview-text');
@@ -114,4 +245,8 @@
     event.stopPropagation();
     window.posterTextLayout?.beginInlineEdit?.(preview.dataset.previewTextId);
   }, true);
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && mobileEdit) closeMobileEditor(false);
+  });
 })();

@@ -15,3 +15,12 @@
 .poster-preview-text{transition:outline-color .15s ease,background-color .15s ease,box-shadow .15s ease}
 .poster-preview-text:hover:not(.is-selected){outline:1px solid rgba(89,102,220,.55);outline-offset:2px;background:rgba(238,240,255,.52);box-shadow:0 0 0 3px rgba(89,102,220,.05)}
 @media(max-width:900px){.stage-zoom-controls{top:136px;right:20px}}
+@media(max-width:760px){
+  .stage-zoom-controls{top:10px;right:10px;position:absolute}
+  .zoom-controls{height:34px}
+  .zoom-controls [data-zoom="out"],.zoom-controls [data-zoom="in"],.zoom-value{display:none}
+  .zoom-controls button{min-width:44px;padding:0 10px;border:0!important}
+  .pan-center-btn{border-left:1px solid #edf0f5!important}
+  .canvas-avatar-slot:hover,.canvas-qr-slot:hover{outline:none;box-shadow:0 4px 12px rgba(40,55,89,.08)}
+  .canvas-avatar-slot:hover::after,.canvas-qr-slot:hover::after{opacity:0}
+}
