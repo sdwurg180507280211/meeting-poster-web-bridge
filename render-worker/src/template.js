@@ -35,15 +35,20 @@ function validateBox(value, label, canvas) {
   return box;
 }
 
-function validateTextSlot(slot, label, canvas) {
+function validateTextStyle(slot, label) {
   if (!isObject(slot)) fail(`${label} 缺失`);
-  if (typeof slot.source !== 'string' || !slot.source.trim()) fail(`${label}.source 缺失`);
-  validateBox(slot.box, `${label}.box`, canvas);
   positiveInteger(slot.fontSize, `${label}.fontSize`);
   positiveInteger(slot.minFontSize, `${label}.minFontSize`);
   if (Number(slot.minFontSize) > Number(slot.fontSize)) fail(`${label}.minFontSize 不能大于 fontSize`);
   if (!['regular', 'semibold'].includes(slot.weight)) fail(`${label}.weight 只允许 regular / semibold`);
   if (!['left', 'center', 'right'].includes(slot.align)) fail(`${label}.align 非法`);
+}
+
+function validateTextSlot(slot, label, canvas) {
+  if (!isObject(slot)) fail(`${label} 缺失`);
+  if (typeof slot.source !== 'string' || !slot.source.trim()) fail(`${label}.source 缺失`);
+  validateBox(slot.box, `${label}.box`, canvas);
+  validateTextStyle(slot, label);
 }
 
 function validateManifest(manifest, expectedProjectId = null) {
@@ -69,8 +74,14 @@ function validateManifest(manifest, expectedProjectId = null) {
   }
   for (const row of manifest.schedule.rows) positiveInteger(row, 'schedule.rows[]');
   if (!isObject(manifest.schedule.columns)) fail('schedule.columns 缺失');
+  if (!isObject(manifest.schedule.text)) fail('schedule.text 缺失');
   for (const key of ['time', 'content', 'speaker', 'chair']) {
     validateBox(manifest.schedule.columns[key]?.box, `schedule.columns.${key}.box`, canvas);
+    validateTextStyle(manifest.schedule.text[key], `schedule.text.${key}`);
+  }
+  if (manifest.schedule.dot) {
+    positiveInteger(manifest.schedule.dot.size, 'schedule.dot.size');
+    if (!Number.isInteger(Number(manifest.schedule.dot.left)) || Number(manifest.schedule.dot.left) < 0) fail('schedule.dot.left 非法');
   }
   return manifest;
 }
