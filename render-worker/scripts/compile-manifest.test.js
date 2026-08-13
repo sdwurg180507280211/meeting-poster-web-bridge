@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const { compileManifest, slotFrom, widthFromBounds } = require('./compile-manifest');
 
@@ -55,7 +57,6 @@ test('compileManifest preserves optional schedule cells instead of turning initi
     '第三行_时间', '第三行_内容', '第三行_讲者', '第三行_主席_默认隐藏', '第三行_圆点',
     '第四行_时间', '第四行_内容', '第四行_讲者_默认隐藏', '第四行_主席', '第四行_圆点_默认隐藏',
   ];
-
   const texts = names.map((name, index) => textLayer(name, [100 + index, 200 + index], [0, 0, 80, 20], {
     visible: !name.includes('默认隐藏'),
     font: name.includes('标题') || name.includes('表头') || name.includes('圆点') ? 'PingFangSC-Semibold' : 'PingFangSC-Regular',
@@ -69,17 +70,19 @@ test('compileManifest preserves optional schedule cells instead of turning initi
     { name: '二维码图片_可替换', parent: '04_二维码_可替换', bounds: [338, 1576, 486, 1724] },
   ];
 
-  const manifest = compileManifest({
-    error: null,
-    doc: { width: 837, height: 1880 },
-    layers,
-    texts,
-  });
-
+  const manifest = compileManifest({ error: null, doc: { width: 837, height: 1880 }, layers, texts });
   assert.equal(manifest.schedule.rows.length, 4);
   assert.ok(manifest.schedule.rows[1].chair);
   assert.ok(manifest.schedule.rows[3].speaker);
   assert.ok(manifest.schedule.rows[3].dot);
   assert.equal(manifest.texts.meetingTime.prefix, '会议时间：');
   assert.equal(manifest.texts.chairName.suffix, ' 教授');
+});
+
+test('committed chronic-care manifest is exactly compiler-derived from the migration dump', () => {
+  const dumpPath = path.resolve(__dirname, '../../tools/template-migration/chronic-care-2026/template-dump-20260813.json');
+  const manifestPath = path.resolve(__dirname, '../templates/chronic-care-2026/manifest.json');
+  const dump = JSON.parse(fs.readFileSync(dumpPath, 'utf8'));
+  const committed = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  assert.deepEqual(committed, compileManifest(dump));
 });
