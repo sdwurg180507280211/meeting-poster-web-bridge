@@ -1,164 +1,207 @@
 'use strict';
 
-// manifest compiler（一次性迁移工具）
-// 输入：tools/ps-remote/template-dump-20260813.json（PS 远程提取的母版排版数据）
-// 输出：render-worker/templates/chronic-care-2026/manifest.json
-// 用途：把 Photoshop 中隐含的设计知识（位置/字号/颜色/字距/对齐/可见性）迁移为 manifest，
-//       此后 Node 渲染不再依赖 Photoshop。
+// One-time migration tool: Photoshop template dump -> runtime manifest.
+// Runtime never reads this dump and never depends on Photoshop.
 
 const fs = require('fs');
 const path = require('path');
 
-const DUMP = process.argv[2] || path.resolve(__dirname, '../../tools/ps-remote/template-dump-20260813.json');
-const OUT_DIR = process.argv[3] || path.resolve(__dirname, '../templates/chronic-care-2026');
+const DEFAULT_DUMP = path.resolve(
+  __dirname,
+  '../../tools/template-migration/chronic-care-2026/template-dump-20260813.json'
+);
+const DEFAULT_OUT_DIR = path.resolve(__dirname, '../templates/chronic-care-2026');
 const PROJECT_ID = 'chronic-care-2026';
-const CANVAS = { width: 837, height: 1880 };
+const CANVAS = Object.freeze({ width: 837, height: 1880 });
 
-// 图层名 → manifest 文字字段
-const TEXT_MAP = [
-  { layer: '标题_会议主席', key: 'sectionChair', text: '会议主席' },
-  { layer: '标题_会议讲者', key: 'sectionSpeakers', text: '会议讲者' },
-  { layer: '标题_会议日程', key: 'sectionAgenda', text: '会议日程' },
-  { layer: '表头_时间', key: 'agendaHeadTime', text: '时间' },
-  { layer: '表头_内容', key: 'agendaHeadContent', text: '内容' },
-  { layer: '表头_讲者', key: 'agendaHeadSpeaker', text: '讲者' },
-  { layer: '表头_主席', key: 'agendaHeadChair', text: '主席' },
-  { layer: '主席姓名', key: 'chairName', source: 'chair.name' },
+const TEXT_MAP = Object.freeze([
+  { layer: '标题_会议主席', key: 'sectionChair', text: '会议主席', fit: false },
+  { layer: '标题_会议讲者', key: 'sectionSpeakers', text: '会议讲者', fit: false },
+  { layer: '标题_会议日程', key: 'sectionAgenda', text: '会议日程', fit: false },
+  { layer: '表头_时间', key: 'agendaHeadTime', text: '时间', fit: false },
+  { layer: '表头_内容', key: 'agendaHeadContent', text: '内容', fit: false },
+  { layer: '表头_讲者', key: 'agendaHeadSpeaker', text: '讲者', fit: false },
+  { layer: '表头_主席', key: 'agendaHeadChair', text: '主席', fit: false },
+  { layer: '主席姓名', key: 'chairName', source: 'chair.name', suffix: ' 教授' },
   { layer: '主席医院', key: 'chairHospital', source: 'chair.hospital' },
-  { layer: '讲者一姓名', key: 'speaker1Name', source: 'speakers.0.name' },
+  { layer: '讲者一姓名', key: 'speaker1Name', source: 'speakers.0.name', suffix: ' 教授' },
   { layer: '讲者一医院', key: 'speaker1Hospital', source: 'speakers.0.hospital' },
-  { layer: '讲者二姓名', key: 'speaker2Name', source: 'speakers.1.name' },
+  { layer: '讲者二姓名', key: 'speaker2Name', source: 'speakers.1.name', suffix: ' 教授' },
   { layer: '讲者二医院', key: 'speaker2Hospital', source: 'speakers.1.hospital' },
-  { layer: '会议时间', key: 'meetingTime', source: 'meetingTime' },
-  { layer: '会议地点', key: 'meetingLocation', source: 'meetingLocation' },
-  { layer: '二维码说明', key: 'qrNote', text: '请扫描二维码观看会议直播' },
-  { layer: '排名说明', key: 'sortNote', text: '*排名不分先后,以姓名首字母拼音进行排序' },
-];
+  { layer: '会议时间', key: 'meetingTime', source: 'meetingTime', prefix: '会议时间：' },
+  { layer: '会议地点', key: 'meetingLocation', source: 'meetingLocation', prefix: '会议地点：' },
+  { layer: '二维码说明', key: 'qrNote', text: '请扫描二维码观看会议直播', fit: false },
+  { layer: '排名说明', key: 'sortNote', text: '*排名不分先后,以姓名首字母拼音进行排序', fit: false },
+]);
 
-const SCHEDULE_LAYERS = {
-  time: ['第一行_时间', '第二行_时间', '第三行_时间', '第四行_时间'],
-  content: ['第一行_内容', '第二行_内容', '第三行_内容', '第四行_内容'],
-  speaker: ['第一行_讲者', '第二行_讲者', '第三行_讲者', '第四行_讲者'],
-  chair: ['第一行_主席', '第二行_主席', '第三行_主席', '第四行_主席'],
-};
-// 每列是否存在"正常层"（非 _默认隐藏 变体）：无正常层的行该列永远隐藏
-const SCHEDULE_NORMAL_LAYERS = {
-  speaker: ['第一行_讲者', '第二行_讲者', '第三行_讲者'],
-  chair: ['第一行_主席', '第四行_主席'],
-};
-const DOT_NORMAL_LAYERS = ['第一行_圆点', '第二行_圆点', '第三行_圆点'];
+// These are the actual PSD layers, including the optional layers whose initial state is hidden.
+// Initial PSD visibility is NOT a runtime rule: optional cells become visible whenever job data is non-empty.
+const SCHEDULE_LAYERS = Object.freeze([
+  {
+    time: '第一行_时间',
+    content: '第一行_内容',
+    speaker: '第一行_讲者',
+    chair: '第一行_主席',
+    dot: '第一行_圆点',
+  },
+  {
+    time: '第二行_时间',
+    content: '第二行_内容',
+    speaker: '第二行_讲者',
+    chair: '第二行_主席_默认隐藏',
+    dot: '第二行_圆点',
+  },
+  {
+    time: '第三行_时间',
+    content: '第三行_内容',
+    speaker: '第三行_讲者',
+    chair: '第三行_主席_默认隐藏',
+    dot: '第三行_圆点',
+  },
+  {
+    time: '第四行_时间',
+    content: '第四行_内容',
+    speaker: '第四行_讲者_默认隐藏',
+    chair: '第四行_主席',
+    dot: '第四行_圆点_默认隐藏',
+  },
+]);
+
+function fail(message) {
+  throw new Error(`manifest compile failed: ${message}`);
+}
 
 function hexColor(text) {
   const raw = String(text?.color || '').toUpperCase();
-  if (!/^[0-9A-F]{6}$/.test(raw)) return '#191919';
-  return `#${raw}`;
+  return /^[0-9A-F]{6}$/.test(raw) ? `#${raw}` : '#191919';
 }
 
-function slotFrom(text, patch = {}) {
-  const weight = String(text?.font || '').toLowerCase().includes('semibold') ? 'semibold' : 'regular';
-  const alignMap = { CENTER: 'center', LEFT: 'left', RIGHT: 'right' };
-  const align = alignMap[String(text?.justification || '').replace('Justification.', '')] || 'left';
-  const pos = text?.position || [0, 0];
-  const bounds = text?.bounds || null;
-  const width = bounds ? Math.round(bounds[2] - bounds[0]) : 0;
-  return {
-    x: Number(pos[0]),
-    y: Number(pos[1]),
-    fontSize: Number(text?.sizePx || 20),
+function fontRole(text) {
+  return /semibold/i.test(String(text?.font || '')) ? 'semibold' : 'regular';
+}
+
+function alignment(text) {
+  const key = String(text?.justification || '').replace('Justification.', '').toUpperCase();
+  return ({ LEFT: 'left', CENTER: 'center', RIGHT: 'right' })[key] || 'left';
+}
+
+function widthFromBounds(info) {
+  const bounds = info?.bounds;
+  if (!Array.isArray(bounds) || bounds.length !== 4) return null;
+  const width = Number(bounds[2]) - Number(bounds[0]);
+  return Number.isFinite(width) && width > 0 ? Math.max(1, Math.round(width)) : null;
+}
+
+function slotFrom(info, patch = {}, { fit = true } = {}) {
+  if (!info?.text) fail(`not a text layer: ${info?.name || '-'}`);
+  const text = info.text;
+  const position = text.position;
+  if (!Array.isArray(position) || position.length !== 2) fail(`missing textItem.position: ${info.name}`);
+
+  const slot = {
+    x: Number(position[0]),
+    y: Number(position[1]),
+    fontSize: Number(text.sizePx || 20),
     minFontSize: 12,
-    weight,
-    align,
-    tracking: Number(text?.tracking || 0),
+    weight: fontRole(text),
+    align: alignment(text),
+    tracking: Number(text.tracking || 0),
     color: hexColor(text),
-    ...(width > 0 ? { maxWidth: width } : {}),
     ...patch,
+  };
+
+  if (fit) {
+    const maxWidth = widthFromBounds(info);
+    if (maxWidth) slot.maxWidth = maxWidth;
+  }
+  return slot;
+}
+
+function requireText(byName, name) {
+  const info = byName.get(name);
+  if (!info?.text) fail(`missing text layer: ${name}`);
+  return info;
+}
+
+function findLayer(dump, name, parent = null) {
+  const hits = (dump.layers || []).filter((layer) => layer.name === name && (parent == null || layer.parent === parent));
+  if (hits.length !== 1) fail(`expected one layer ${parent ? `${parent}/` : ''}${name}, found ${hits.length}`);
+  return hits[0];
+}
+
+function imageSpecFromBounds(layer, label) {
+  const bounds = layer?.bounds;
+  if (!Array.isArray(bounds) || bounds.length !== 4) fail(`missing bounds: ${label}`);
+  const width = Math.round(Number(bounds[2]) - Number(bounds[0]));
+  const height = Math.round(Number(bounds[3]) - Number(bounds[1]));
+  if (width <= 0 || height <= 0 || Math.abs(width - height) > 1) fail(`${label} is not a square`);
+  return {
+    left: Math.round(Number(bounds[0])),
+    top: Math.round(Number(bounds[1])),
+    size: Math.round((width + height) / 2),
+  };
+}
+
+function compileManifest(dump) {
+  if (!dump || dump.error) fail(dump?.error || 'invalid dump');
+  if (Number(dump.doc?.width) !== CANVAS.width || Number(dump.doc?.height) !== CANVAS.height) {
+    fail(`canvas must be ${CANVAS.width}x${CANVAS.height}`);
+  }
+
+  const byName = new Map();
+  for (const info of dump.texts || []) {
+    if (!info?.name) continue;
+    if (byName.has(info.name)) fail(`duplicate text layer name: ${info.name}`);
+    byName.set(info.name, info);
+  }
+
+  const texts = {};
+  for (const rule of TEXT_MAP) {
+    const { layer, key, source, text, prefix, suffix, fit = true } = rule;
+    const patch = source ? { source } : { text };
+    if (prefix) patch.prefix = prefix;
+    if (suffix) patch.suffix = suffix;
+    texts[key] = slotFrom(requireText(byName, layer), patch, { fit });
+  }
+
+  const scheduleRows = SCHEDULE_LAYERS.map((rowLayers) => ({
+    time: slotFrom(requireText(byName, rowLayers.time)),
+    content: slotFrom(requireText(byName, rowLayers.content)),
+    speaker: slotFrom(requireText(byName, rowLayers.speaker)),
+    chair: slotFrom(requireText(byName, rowLayers.chair)),
+    dot: slotFrom(requireText(byName, rowLayers.dot), { text: '●' }, { fit: false }),
+  }));
+
+  const images = {
+    chair: imageSpecFromBounds(findLayer(dump, '圆形裁切底层_勿删', '主席头像_可替换'), 'chair'),
+    speaker1: imageSpecFromBounds(findLayer(dump, '圆形裁切底层_勿删', '讲者一头像_可替换'), 'speaker1'),
+    speaker2: imageSpecFromBounds(findLayer(dump, '圆形裁切底层_勿删', '讲者二头像_可替换'), 'speaker2'),
+    qrCode: imageSpecFromBounds(findLayer(dump, '二维码图片_可替换'), 'qrCode'),
+  };
+
+  return {
+    schemaVersion: 1,
+    projectId: PROJECT_ID,
+    canvas: { ...CANVAS },
+    background: 'background.png',
+    images,
+    texts,
+    schedule: { rows: scheduleRows },
   };
 }
 
 function main() {
-  const dump = JSON.parse(fs.readFileSync(DUMP, 'utf8'));
-  const byName = new Map();
-  for (const t of dump.texts || []) byName.set(t.name, t.text);
-
-  const texts = {};
-  for (const { layer, key, text, source } of TEXT_MAP) {
-    const entry = byName.get(layer);
-    if (!entry) {
-      console.warn(`[warn] 缺少图层：${layer}`);
-      continue;
-    }
-    texts[key] = slotFrom(entry, source ? { source } : { text });
-  }
-
-  // schedule
-  const rows = [];
-  for (const name of SCHEDULE_LAYERS.time) {
-    const entry = byName.get(name);
-    if (entry) rows.push(Number(entry.position[1]));
-  }
-  while (rows.length < 4) rows.push(0);
-
-  const columns = {};
-  for (const column of ['time', 'content', 'speaker', 'chair']) {
-    const base = byName.get(SCHEDULE_LAYERS[column][0]);
-    if (!base) {
-      console.warn(`[warn] schedule 列缺基线图层：${column}`);
-      continue;
-    }
-    const normal = SCHEDULE_NORMAL_LAYERS[column] || SCHEDULE_LAYERS[column];
-    const hiddenRows = [];
-    SCHEDULE_LAYERS[column].forEach((layerName, index) => {
-      const layer = byName.get(layerName);
-      const isNormal = normal.includes(layerName);
-      if (!layer || !isNormal) hiddenRows.push(index);
-    });
-    columns[column] = { ...slotFrom(base), hiddenRows: hiddenRows.length ? hiddenRows : undefined };
-  }
-
-  // 圆点：只画有正常层的行
-  const dotYs = [];
-  const dotHidden = [];
-  SCHEDULE_LAYERS.time.forEach((_, index) => {
-    const dotName = DOT_NORMAL_LAYERS[index];
-    const dotLayer = byName.get(dotName);
-    if (dotLayer) dotYs.push(Number(dotLayer.position[1]));
-    else dotHidden.push(index);
-  });
-  const dot = { size: 13, color: '#5435D6', x: 236.5, ys: dotYs, hiddenRows: dotHidden };
-
-  // images：从 PSD 智能对象/裁切层 bounds 取（chair/speaker1/speaker2 用"圆形裁切底层_勿删"，qr 用智能对象）
-  const imageBounds = {
-    chair: [342, 496, 510, 664],
-    speaker1: [220, 836, 385, 1001],
-    speaker2: [458, 836, 622, 1000],
-    qrCode: [338, 1576, 486, 1724],
-  };
-  const images = {};
-  for (const [key, b] of Object.entries(imageBounds)) {
-    const size = Math.round(b[2] - b[0]);
-    images[key] = { left: Math.round(b[0]), top: Math.round(b[1]), size };
-  }
-
-  const manifest = {
-    schemaVersion: 1,
-    projectId: PROJECT_ID,
-    canvas: CANVAS,
-    background: 'background.png',
-    images,
-    texts,
-    schedule: {
-      rows,
-      columns,
-      dot,
-    },
-  };
-
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  const outPath = path.join(OUT_DIR, 'manifest.json');
-  fs.writeFileSync(outPath, JSON.stringify(manifest, null, 2) + '\n');
-  console.log('written:', outPath);
-  console.log('texts:', Object.keys(texts).length, '| schedule rows:', rows, '| dot:', JSON.stringify(dot));
-  console.log('hiddenRows:', JSON.stringify(Object.fromEntries(Object.entries(columns).map(([k, v]) => [k, v.hiddenRows]))));
+  const dumpPath = process.argv[2] || DEFAULT_DUMP;
+  const outDir = process.argv[3] || DEFAULT_OUT_DIR;
+  const dump = JSON.parse(fs.readFileSync(dumpPath, 'utf8'));
+  const manifest = compileManifest(dump);
+  fs.mkdirSync(outDir, { recursive: true });
+  const outPath = path.join(outDir, 'manifest.json');
+  fs.writeFileSync(outPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  console.log(`written: ${outPath}`);
+  console.log(`texts: ${Object.keys(manifest.texts).length}, schedule rows: ${manifest.schedule.rows.length}`);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { compileManifest, slotFrom, widthFromBounds };
