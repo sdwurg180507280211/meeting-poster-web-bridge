@@ -1,0 +1,19 @@
+{
+  "name": "meeting-poster-render-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node src/worker.js",
+    "check": "node --check src/worker.js && node --check src/renderer.js && node --check src/template.js && node --check src/supabase.js",
+    "test": "node --test src/*.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.2",
+    "dotenv": "16.6.1",
+    "sharp": "0.35.3"
+  }
+}
