@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="系列会议海报在线编辑与 Photoshop PSD 生成工具。" />
-  <title>系列会议海报编辑器</title>
+  <meta name="description" content="简化版 Photoshop 海报编辑器：网页编辑文字与素材，由 Node 模板渲染正式 PNG。" />
+  <title>简化版 Photoshop 海报编辑器</title>
   <link rel="stylesheet" href="styles/styles.css" />
   <link rel="stylesheet" href="media/crop-modal.css" />
   <link rel="stylesheet" href="styles/compact-controls.css" />
@@ -14,7 +14,6 @@
   <link rel="stylesheet" href="editor/interaction-polish.css" />
   <link rel="stylesheet" href="editor/canvas-pan.css" />
   <link rel="stylesheet" href="editor/workspace-layout.css" />
-  <link rel="stylesheet" href="service/preflight.css" />
   <link rel="stylesheet" href="service/task-controls.css" />
   <link rel="stylesheet" href="project/project-switcher.css" />
 </head>
@@ -24,8 +23,8 @@
       <div class="brand">
         <div class="brand-mark">PS</div>
         <div>
-          <h1>系列会议海报编辑器</h1>
-          <p>直接在海报上操作 · Photoshop 母版生成</p>
+          <h1>简化版 Photoshop 海报编辑器</h1>
+          <p>直接编辑文字与素材 · Node 模板生成正式 PNG</p>
         </div>
       </div>
       <div class="topbar-actions">
@@ -95,7 +94,7 @@
                 </label>
                 <button id="submitBtn" type="submit" class="primary">
                   <span>生成正式海报</span>
-                  <small>交给 Mac Photoshop 渲染 PSD / PNG</small>
+                  <small>Node Renderer 生成 PNG</small>
                 </button>
               </div>
             </details>
@@ -146,7 +145,7 @@
             <div class="avatar-crop-mask"></div>
           </div>
         </div>
-        <p class="crop-help">圆形区域就是最终海报头像可见范围；弹窗中的缩放和位移会直接同步给 Photoshop。</p>
+        <p class="crop-help">圆形区域就是最终海报头像可见范围；应用后生成 1024×1024 PNG，直接交给 Node Renderer。</p>
         <div class="crop-controls-large">
           <label for="avatarCropZoom">缩放</label>
           <input id="avatarCropZoom" type="range" min="20" max="350" step="1" value="100" />
@@ -210,8 +209,6 @@
   <script src="project/text-layout-profiles.js"></script>
   <script src="project/project-registry.js"></script>
   <script src="core/app.js"></script>
-  <script src="core/fixed-defaults.js"></script>
-  <script src="service/service-status.js"></script>
   <script src="service/text-layout-store.js"></script>
   <script src="core/draft-persistence.js"></script>
   <script src="editor/time-controls.js"></script>
@@ -225,7 +222,6 @@
   <script src="editor/interaction-polish.js"></script>
   <script src="editor/canvas-pan.js"></script>
   <script src="editor/workspace-layout.js"></script>
-  <script src="service/preflight.js"></script>
   <script src="service/task-controls.js"></script>
 </body>
 </html>
