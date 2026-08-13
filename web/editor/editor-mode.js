@@ -38,20 +38,6 @@
     expandInspector();
   }
 
-  function openTextEditor(edit) {
-    if (!edit) return;
-    openSection(edit.section);
-    if (edit.action === 'meetingTime') {
-      window.posterTimeControls?.openMeeting?.();
-      return;
-    }
-    if (edit.action === 'scheduleTime') {
-      window.posterTimeControls?.openSchedule?.(edit.scheduleIndex);
-      return;
-    }
-    if (edit.inputId) document.getElementById(edit.inputId)?.focus();
-  }
-
   window.posterEditor = { openSection, showTab, expandInspector };
 
   function createAvatarSlot(key, spec) {
@@ -179,11 +165,9 @@
     if (poster.classList.contains('is-text-layout-mode')) {
       const preview = target.closest('.poster-preview-text');
       if (!preview) return;
-      const item = project.textItems?.find(candidate => candidate.id === preview.dataset.previewTextId);
-      if (!item?.edit) return;
       event.preventDefault();
       event.stopPropagation();
-      openTextEditor(item.edit);
+      window.posterTextLayout?.beginInlineEdit?.(preview.dataset.previewTextId);
     }
   }, true);
 
