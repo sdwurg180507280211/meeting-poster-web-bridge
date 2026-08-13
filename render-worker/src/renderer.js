@@ -110,9 +110,9 @@ function cleanSchedule(schedule) {
 function scheduleSlot(manifest, column, rowIndex) {
   const base = manifest.schedule.columns[column];
   const rowTop = Number(manifest.schedule.rows[rowIndex]);
-  const template = manifest.schedule.text[column] || manifest.schedule.text.default;
+  const style = manifest.schedule.text[column];
   return {
-    ...template,
+    ...style,
     box: {
       left: base.box.left,
       top: rowTop,
@@ -124,8 +124,13 @@ function scheduleSlot(manifest, column, rowIndex) {
 
 async function renderPoster({ template, payload, assets }) {
   const { manifest } = template;
-  if (payload?.schemaVersion !== 1) throw new Error('只支持 schemaVersion=1');
-  if (payload.projectId !== manifest.projectId) throw new Error(`项目 ${payload.projectId} 没有匹配模板`);
+  if (payload?.protocolVersion !== 2) throw new Error('只支持 render protocol v2');
+  const project = payload.project;
+  if (!project || project.id !== manifest.projectId) throw new Error(`项目 ${project?.id || '-'} 没有匹配模板`);
+  if (Number(project.canvas?.width) !== manifest.canvas.width || Number(project.canvas?.height) !== manifest.canvas.height) {
+    throw new Error('任务画布与模板画布不一致');
+  }
+
   const meeting = payload.meeting || {};
   const canvas = manifest.canvas;
   const background = sharp(template.backgroundPath);
@@ -134,12 +139,12 @@ async function renderPoster({ template, payload, assets }) {
     throw new Error(`background.png 应为 ${canvas.width}×${canvas.height}，当前为 ${metadata.width}×${metadata.height}`);
   }
 
-  const assetLayout = payload.assetLayout || {};
+  const assetLayout = project.assetLayout || {};
   const boxes = {
-    chairAvatar: normalizeRuntimeBox(assetLayout.chair, 'assetLayout.chair', canvas),
-    speaker1Avatar: normalizeRuntimeBox(assetLayout.speaker1, 'assetLayout.speaker1', canvas),
-    speaker2Avatar: normalizeRuntimeBox(assetLayout.speaker2, 'assetLayout.speaker2', canvas),
-    qrCode: normalizeRuntimeBox(assetLayout.qrCode, 'assetLayout.qrCode', canvas),
+    chairAvatar: normalizeRuntimeBox(assetLayout.chair, 'project.assetLayout.chair', canvas),
+    speaker1Avatar: normalizeRuntimeBox(assetLayout.speaker1, 'project.assetLayout.speaker1', canvas),
+    speaker2Avatar: normalizeRuntimeBox(assetLayout.speaker2, 'project.assetLayout.speaker2', canvas),
+    qrCode: normalizeRuntimeBox(assetLayout.qrCode, 'project.assetLayout.qrCode', canvas),
   };
 
   const layers = [];
