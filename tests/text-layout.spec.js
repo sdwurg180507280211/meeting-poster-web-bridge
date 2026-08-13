@@ -14,6 +14,7 @@ function fakeJwt() {
 
 async function installSupabaseMock(page) {
   const accessToken = fakeJwt();
+  let textLayoutRow = null;
   await page.addInitScript(({ projectRef, userId, token }) => {
     const session = {
       access_token: token,
@@ -50,6 +51,17 @@ async function installSupabaseMock(page) {
         agent_last_seen_at: new Date().toISOString(), worker_last_seen_at: new Date().toISOString(), worker_status: 'ready',
       }) });
     }
+    if (url.pathname === '/rest/v1/poster_project_text_layouts') {
+      if (request.method() === 'GET') {
+        const rows = textLayoutRow ? [{ layout: textLayoutRow.layout }] : [];
+        return route.fulfill({ status: 200, headers: { ...cors, 'content-range': `0-${Math.max(0, rows.length - 1)}/${rows.length}` }, body: JSON.stringify(rows) });
+      }
+      if (request.method() === 'POST' || request.method() === 'PATCH') {
+        const body = request.postDataJSON();
+        textLayoutRow = Array.isArray(body) ? body[0] : body;
+        return route.fulfill({ status: 201, headers: cors, body: '{}' });
+      }
+    }
     if (url.pathname === '/rest/v1/poster_jobs') {
       return route.fulfill({ status: 200, headers: { ...cors, 'content-range': '0-0/0' }, body: '[]' });
     }
@@ -62,6 +74,7 @@ async function installSupabaseMock(page) {
 
 async function enableLayout(page) {
   await expect(page.locator('.text-layout-mode-btn')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.posterTextLayout?.isReady?.())).toBe(true);
   await page.locator('.text-layout-mode-btn').click();
   await expect(page.locator('.text-layout-tools')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.posterTextLayout?.isEnabled?.())).toBe(true);
@@ -80,17 +93,20 @@ test.beforeEach(async ({ page }) => {
   await installSupabaseMock(page);
   await page.goto('/');
   await page.waitForFunction(() => Boolean(window.posterTextLayout && window.Moveable));
+  await expect.poll(() => page.evaluate(() => window.posterTextLayout.isReady())).toBe(true);
 });
 
-test('V is explained as the text tool and has no reset or arrow action buttons', async ({ page }) => {
+test('V is explained as cloud-saved Web text layout and has no reset or arrow action buttons', async ({ page }) => {
   const mode = page.locator('.text-layout-mode-btn');
   await expect(mode).toHaveAttribute('aria-label', 'V 文字工具');
-  await expect(mode).toHaveAttribute('data-tool-tip', /V · 文字工具/);
-  await expect(mode).toHaveAttribute('data-tool-tip', /双击可编辑文字可直接原位修改/);
+  await expect(mode).toHaveAttribute('data-tool-tip', /V · 文字布局/);
+  await expect(mode).toHaveAttribute('data-tool-tip', /自动保存到云端/);
+  await expect(mode).toHaveAttribute('data-tool-tip', /不改变 PSD 文字排版/);
 
   await enableLayout(page);
   await selectTwo(page);
   await expect(page.locator('[data-layout-count]')).toContainText('已选 2 项');
+  await expect(page.locator('[data-layout-save-state]')).toHaveText('已保存');
   await expect(page.locator('[data-layout-action]')).toHaveCount(0);
   await expect(page.locator('[data-align]')).toHaveCount(0);
 });
@@ -165,26 +181,46 @@ test('arrow keys nudge every selected item by exact design pixels with keyboard 
   await selectTwo(page);
 
   await page.keyboard.press('ArrowRight');
-  let layout = await page.evaluate(() => JSON.parse(localStorage.getItem('posterPreviewLayout:chronic-care-2026') || '{}'));
+  let layout = await page.evaluate(() => window.posterTextLayout.getLayout());
   expect(layout['section-chair'].x).toBe(269);
   expect(layout['section-speakers'].x).toBe(269);
 
   await page.keyboard.press('Shift+ArrowDown');
-  layout = await page.evaluate(() => JSON.parse(localStorage.getItem('posterPreviewLayout:chronic-care-2026') || '{}'));
+  layout = await page.evaluate(() => window.posterTextLayout.getLayout());
   expect(layout['section-chair'].y).toBe(430);
   expect(layout['section-speakers'].y).toBe(772);
 
   await page.keyboard.press('Control+z');
-  layout = await page.evaluate(() => JSON.parse(localStorage.getItem('posterPreviewLayout:chronic-care-2026') || '{}'));
+  layout = await page.evaluate(() => window.posterTextLayout.getLayout());
   expect(layout['section-chair'].x).toBe(269);
-  expect(layout['section-chair'].y ?? 420).toBe(420);
+  expect(layout['section-chair'].y).toBe(420);
 
   await page.keyboard.press('Control+Shift+z');
-  layout = await page.evaluate(() => JSON.parse(localStorage.getItem('posterPreviewLayout:chronic-care-2026') || '{}'));
+  layout = await page.evaluate(() => window.posterTextLayout.getLayout());
   expect(layout['section-chair'].y).toBe(430);
 
   await page.keyboard.press('Escape');
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds().length)).toBe(0);
+});
+
+test('moving text automatically persists the shared project layout and does not use localStorage', async ({ page }) => {
+  await enableLayout(page);
+  const chair = page.locator('[data-preview-text-id="section-chair"]');
+  await chair.click();
+
+  const persisted = page.waitForRequest(request => {
+    if (request.method() !== 'POST') return false;
+    const url = new URL(request.url());
+    if (url.pathname !== '/rest/v1/poster_project_text_layouts') return false;
+    const body = request.postDataJSON();
+    const row = Array.isArray(body) ? body[0] : body;
+    return row?.layout?.['section-chair']?.x === 269;
+  });
+
+  await page.keyboard.press('ArrowRight');
+  await persisted;
+  await expect.poll(() => page.evaluate(() => window.posterTextLayout.getPersistenceState().state)).toBe('saved');
+  expect(await page.evaluate(() => localStorage.getItem('posterPreviewLayout:chronic-care-2026'))).toBeNull();
 });
 
 test('dragging one member of a multi-selection moves the whole group', async ({ page }) => {
