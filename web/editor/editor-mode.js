@@ -143,32 +143,30 @@
     const target = event.target instanceof Element ? event.target : null;
     if (!target || !poster.contains(target)) return;
 
-    if (poster.classList.contains('is-asset-layout-mode')) {
-      const slot = target.closest('.canvas-asset-slot');
-      if (!slot) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const key = slot.dataset.key;
-      if (key === 'qr') {
-        openSection('qr');
-        if (window.posterQrCrop?.open) window.posterQrCrop.open();
-        else if (!qrInput?.files?.length) qrInput?.click();
-        return;
-      }
-      const file = document.getElementById(`${key}-file`);
-      openSection('people');
-      if (window.posterAvatarCrop?.open) window.posterAvatarCrop.open(key);
-      else if (!file?.files?.length) file?.click();
-      return;
-    }
-
-    if (poster.classList.contains('is-text-layout-mode')) {
-      const preview = target.closest('.poster-preview-text');
-      if (!preview) return;
+    const preview = target.closest('.poster-preview-text');
+    if (preview) {
       event.preventDefault();
       event.stopPropagation();
       window.posterTextLayout?.beginInlineEdit?.(preview.dataset.previewTextId);
+      return;
     }
+
+    if (!poster.classList.contains('is-asset-layout-mode')) return;
+    const slot = target.closest('.canvas-asset-slot');
+    if (!slot) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const key = slot.dataset.key;
+    if (key === 'qr') {
+      openSection('qr');
+      if (window.posterQrCrop?.open) window.posterQrCrop.open();
+      else if (!qrInput?.files?.length) qrInput?.click();
+      return;
+    }
+    const file = document.getElementById(`${key}-file`);
+    openSection('people');
+    if (window.posterAvatarCrop?.open) window.posterAvatarCrop.open(key);
+    else if (!file?.files?.length) file?.click();
   }, true);
 
   document.getElementById('collapseInspector')?.addEventListener('click', collapseInspector);

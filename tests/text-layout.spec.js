@@ -96,12 +96,11 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.isReady())).toBe(true);
 });
 
-test('V is explained as cloud-saved Web text layout and has no reset or arrow action buttons', async ({ page }) => {
+test('layout tool is the single text and asset geometry entry', async ({ page }) => {
   const mode = page.locator('.text-layout-mode-btn');
-  await expect(mode).toHaveAttribute('aria-label', 'V 文字工具');
-  await expect(mode).toHaveAttribute('data-tool-tip', /V · 文字布局/);
-  await expect(mode).toHaveAttribute('data-tool-tip', /自动保存到云端/);
-  await expect(mode).toHaveAttribute('data-tool-tip', /不改变 PSD 文字排版/);
+  await expect(mode).toHaveAttribute('aria-label', '布局工具');
+  await expect(mode).toHaveAttribute('data-tool-tip', /文字和头像\/二维码均可移动或缩放/);
+  await expect(page.locator('.asset-layout-dock')).toBeHidden();
 
   await enableLayout(page);
   await selectTwo(page);
@@ -111,9 +110,9 @@ test('V is explained as cloud-saved Web text layout and has no reset or arrow ac
   await expect(page.locator('[data-align]')).toHaveCount(0);
 });
 
-test('double-clicking editable text in V mode edits in place and syncs the form field', async ({ page }) => {
+test('double-clicking editable text works by default and syncs the form field', async ({ page }) => {
   await page.locator('#chair-name').fill('张三');
-  await enableLayout(page);
+  await expect.poll(() => page.evaluate(() => window.posterLayoutTool?.isEnabled?.())).toBe(false);
 
   const preview = page.locator('[data-preview-text-id="chair-name"]');
   await expect(preview).toHaveText('张三 教授');

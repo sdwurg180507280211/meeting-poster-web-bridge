@@ -186,14 +186,14 @@ test('system preflight reports render contract and service readiness', async ({ 
   await expect(page.locator('.preflight-list')).toContainText('Photoshop Worker');
 });
 
-test('task tab exposes safe cancel, retry, view and collapse actions', async ({ page }) => {
+test('task tab exposes safe cancel, download, view and collapse actions', async ({ page }) => {
   await page.locator('.inspector-tab[data-tab="task"]').click();
   await expect(page.locator('.task-control-item[data-job-status="pending"]')).toBeVisible();
   await expect(page.locator('.task-control-item[data-job-status="pending"] [data-job-action="cancel"]')).toHaveText('取消任务');
-  await expect(page.locator('.task-control-item[data-job-status="failed"] [data-job-action="retry"]')).toHaveText('重新生成');
+  await expect(page.locator('.task-control-item[data-job-status="failed"] [data-job-action="retry"]')).toHaveCount(0);
 
   const succeeded = page.locator('.task-control-item[data-job-status="succeeded"]');
-  await expect(succeeded.locator('[data-job-action="retry"]')).toHaveText('重新生成');
+  await expect(succeeded.locator('[data-job-action="download"]')).toHaveText('下载');
   const viewButton = succeeded.locator('[data-job-action="toggle-preview"]');
   await expect(viewButton).toHaveText('查看');
   await viewButton.click();

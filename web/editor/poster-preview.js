@@ -94,7 +94,7 @@
   const dock = document.createElement('div');
   dock.className = 'text-layout-dock';
   dock.innerHTML = `
-    <button type="button" class="text-layout-mode-btn" data-layout-mode aria-label="V 文字工具" data-tool-tip="V · 文字布局\n调整当前项目的网页文字预览位置；布局自动保存到云端，不改变 PSD 文字排版。双击可编辑文字可直接原位修改；方向键微调位置。"><span class="tool-key">V</span><span>文字工具</span></button>
+    <button type="button" class="text-layout-mode-btn" data-layout-mode aria-label="布局工具" data-tool-tip="布局工具\n文字和头像/二维码均可移动或缩放；双击可编辑文字直接修改内容。文字布局自动保存，素材位置和尺寸同步 Photoshop。"><span class="tool-key">L</span><span>布局工具</span></button>
     <div class="text-layout-tools" data-layout-tools hidden>
       <span class="text-layout-count" data-layout-count>未选择</span>
       <span class="text-layout-save-state" data-layout-save-state>加载布局…</span>
@@ -387,7 +387,6 @@
   }
 
   function beginInlineEdit(id) {
-    if (!layoutMode) return false;
     const item = itemsById.get(id);
     const el = elements.get(id);
     if (!item || !el) return false;
@@ -403,7 +402,8 @@
     if (inlineEdit) finishInlineEdit(true);
 
     inlineEdit = { el, item, input };
-    setSelection([el]);
+    if (layoutMode) setSelection([el]);
+    else clearSelection();
     destroyMoveable();
     el.classList.add('is-inline-editing');
     el.setAttribute('contenteditable', 'true');

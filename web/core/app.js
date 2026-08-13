@@ -17,6 +17,7 @@
   const validation = window.PosterValidation;
 
   const ACTIVE_JOB_KEY = 'meetingPosterActiveJobV1';
+  const AUTO_DOWNLOAD_JOB_KEY = 'meetingPosterAutoDownloadJobV1';
   const AVATAR_OUTPUT_SIZE = validation?.AVATAR_OUTPUT_SIZE || 1024;
   const peopleDef = [['chair','会议主席'], ['speaker1','讲者一'], ['speaker2','讲者二']];
   const peopleState = {};
@@ -356,6 +357,7 @@
       const { error } = await client.from('poster_jobs').insert({ id: jobId, owner_id: user.id, payload });
       if (error) throw error;
       jobCreated = true;
+      writeLocalStorage(AUTO_DOWNLOAD_JOB_KEY, jobId);
 
       saveActiveJob(jobId);
       setStatus('任务已提交，等待你的 Mac Photoshop 接单…', 'pending');
@@ -503,6 +505,11 @@
     pngBtn.textContent = '下载 PNG';
     pngBtn.addEventListener('click', () => downloadAs(png.data.signedUrl, `${baseName}.png`));
     downloads.append(pngBtn);
+
+    if (readLocalStorage(AUTO_DOWNLOAD_JOB_KEY) === job.id) {
+      removeLocalStorage(AUTO_DOWNLOAD_JOB_KEY);
+      await downloadAs(png.data.signedUrl, `${baseName}.png`);
+    }
   }
 
   async function loadHistory() {

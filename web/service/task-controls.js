@@ -10,7 +10,7 @@
   card.innerHTML = `
     <div class="task-control-head"><h2>任务控制</h2><button type="button" class="task-control-refresh">刷新</button></div>
     <div class="task-control-list"><div class="task-control-empty">正在读取任务…</div></div>
-    <div class="task-control-note">排队中的任务可安全取消；Photoshop 已开始处理后不做强制中断。已完成任务可直接查看海报；已完成、失败或取消的任务可使用原素材重新生成。</div>`;
+    <div class="task-control-note">排队中的任务可安全取消；Photoshop 已开始处理后不做强制中断。已完成任务可直接查看或下载 PNG 海报。</div>`;
 
   const history = taskTab.querySelector('.history-card');
   taskTab.insertBefore(card, history || taskTab.querySelector('.debug-details') || null);
@@ -39,6 +39,10 @@
     }[c]));
   }
 
+  function safeDownloadName(name) {
+    return (String(name || '系列会议海报').trim() || '系列会议海报').replace(/[\\/:*?"<>|]/g, '_');
+  }
+
   function client() { return window.POSTER_APP_CLIENT || null; }
 
   function render(jobs) {
@@ -56,19 +60,16 @@
       const name = job.payload?.meeting?.outputName || '系列会议海报';
       const time = job.created_at ? new Date(job.created_at).toLocaleString() : '';
       const canCancel = status === 'pending';
-      const canRetry = ['failed', 'succeeded', 'cancelled'].includes(status);
       const isExpanded = status === 'succeeded' && expandedJobId === job.id;
       const previewUrl = previewUrls.get(job.id) || '';
 
       let actions = '';
       if (status === 'succeeded') {
         actions += `<button type="button" class="view" data-job-action="toggle-preview">${isExpanded ? '收起' : '查看'}</button>`;
-      }
-      if (canCancel) {
+        actions += '<button type="button" class="primary" data-job-action="download">下载</button>';
+      } else if (canCancel) {
         actions += '<button type="button" class="danger" data-job-action="cancel">取消任务</button>';
-      } else if (canRetry) {
-        actions += '<button type="button" class="primary" data-job-action="retry">重新生成</button>';
-      } else {
+      } else if (['claimed', 'rendering', 'uploading'].includes(status)) {
         actions += '<button type="button" disabled>处理中不可强制取消</button>';
       }
 
@@ -152,37 +153,43 @@
     }
   }
 
-  async function runAction(item, action) {
+  async function downloadJob(item, button) {
+    const sb = client();
+    if (!sb || typeof window.downloadAs !== 'function') return;
+    const job = currentJobs.find(entry => entry.id === item.dataset.jobId);
+    if (!job || job.status !== 'succeeded' || !job.result_png_path) return;
+    button.disabled = true;
+    try {
+      const bucket = sb.storage.from(cfg.BUCKET || 'poster-assets');
+      const { data, error } = await bucket.createSignedUrl(job.result_png_path, 1800);
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('未返回海报下载地址');
+      const name = safeDownloadName(job.payload?.meeting?.outputName || '系列会议海报');
+      await window.downloadAs(data.signedUrl, `${name}.png`);
+    } catch (error) {
+      alert(`海报下载失败：${error.message || error}`);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function cancelJob(item) {
     if (actionBusy) return;
     const sb = client();
     if (!sb) return;
     const jobId = item.dataset.jobId;
-    const status = item.dataset.jobStatus;
-    if (!jobId) return;
-
-    if (action === 'cancel') {
-      if (status !== 'pending') return;
-      if (!window.confirm('确定取消这个排队中的任务吗？已上传的素材会保留，可之后重新生成。')) return;
-    } else if (action === 'retry') {
-      if (!['failed', 'succeeded', 'cancelled'].includes(status)) return;
-      if (!window.confirm('使用原会议资料和素材重新生成这个任务吗？')) return;
-    } else return;
+    if (!jobId || item.dataset.jobStatus !== 'pending') return;
+    if (!window.confirm('确定取消这个排队中的任务吗？')) return;
 
     actionBusy = true;
     card.querySelectorAll('button').forEach(button => { button.disabled = true; });
     try {
-      const rpcName = action === 'cancel' ? 'cancel_poster_job' : 'retry_poster_job';
-      const { error } = await sb.rpc(rpcName, { p_job_id: jobId });
+      const { error } = await sb.rpc('cancel_poster_job', { p_job_id: jobId });
       if (error) throw error;
-
-      if (action === 'cancel') {
-        try { localStorage.removeItem('meetingPosterActiveJobV1'); } catch (_) {}
-      } else {
-        try { localStorage.setItem('meetingPosterActiveJobV1', jobId); } catch (_) {}
-      }
+      try { localStorage.removeItem('meetingPosterActiveJobV1'); } catch (_) {}
       window.location.reload();
     } catch (error) {
-      alert(`${action === 'cancel' ? '取消' : '重新生成'}失败：${error.message || error}`);
+      alert(`取消失败：${error.message || error}`);
       actionBusy = false;
       card.querySelectorAll('button').forEach(button => { button.disabled = false; });
       await load();
@@ -198,7 +205,11 @@
       void togglePreview(item);
       return;
     }
-    void runAction(item, button.dataset.jobAction);
+    if (button.dataset.jobAction === 'download') {
+      void downloadJob(item, button);
+      return;
+    }
+    if (button.dataset.jobAction === 'cancel') void cancelJob(item);
   });
   refreshButton.addEventListener('click', () => { void load(); });
 

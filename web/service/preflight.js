@@ -95,7 +95,7 @@
         const db = preflightResult.data || {};
         rows.push(statusRow('数据库 Schema', Number(db.schemaVersion) >= 5, `schema v${db.schemaVersion ?? '未知'}`));
         rows.push(statusRow('Render Contract', db.renderContractEnforced === true && Number(db.renderProtocolVersion) === 2, db.renderContractEnforced ? `数据库强制 protocol v${db.renderProtocolVersion}` : '数据库未启用 render contract v2 trigger'));
-        rows.push(statusRow('任务控制', db.jobControlsAvailable === true, db.jobControlsAvailable ? '取消 / 重新生成 RPC 已安装' : '任务控制 RPC 缺失'));
+        rows.push(statusRow('任务控制', db.jobControlsAvailable === true, db.jobControlsAvailable ? '任务控制 RPC 已安装' : '任务控制 RPC 缺失'));
         rows.push(statusRow('Storage', db.bucketReady === true, db.bucketReady ? `${cfg.BUCKET || 'poster-assets'} 可用` : `${cfg.BUCKET || 'poster-assets'} bucket 不存在`));
       }
 
