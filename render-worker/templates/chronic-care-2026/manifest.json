@@ -51,42 +51,42 @@
     "chairName": {
       "x": 419, "y": 701, "fontSize": 21, "minFontSize": 12,
       "weight": "semibold", "align": "center", "tracking": 90, "color": "#191919",
-      "maxWidth": 121, "source": "chair.name", "suffix": " 教授"
+      "maxWidth": 172, "source": "chair.name", "suffix": " 教授"
     },
     "chairHospital": {
       "x": 419, "y": 731, "fontSize": 16, "minFontSize": 12,
       "weight": "regular", "align": "center", "tracking": 0, "color": "#191919",
-      "maxWidth": 64, "source": "chair.hospital"
+      "maxWidth": 194, "source": "chair.hospital"
     },
     "speaker1Name": {
       "x": 301.5, "y": 1039, "fontSize": 22, "minFontSize": 12,
       "weight": "semibold", "align": "center", "tracking": 80, "color": "#191919",
-      "maxWidth": 101, "source": "speakers.0.name", "suffix": " 教授"
+      "maxWidth": 174, "source": "speakers.0.name", "suffix": " 教授"
     },
     "speaker1Hospital": {
       "x": 301, "y": 1062, "fontSize": 15, "minFontSize": 12,
       "weight": "regular", "align": "center", "tracking": 0, "color": "#191919",
-      "maxWidth": 60, "source": "speakers.0.hospital"
+      "maxWidth": 192, "source": "speakers.0.hospital"
     },
     "speaker2Name": {
       "x": 548.5, "y": 1039, "fontSize": 22, "minFontSize": 12,
       "weight": "semibold", "align": "center", "tracking": 80, "color": "#191919",
-      "maxWidth": 101, "source": "speakers.1.name", "suffix": " 教授"
+      "maxWidth": 174, "source": "speakers.1.name", "suffix": " 教授"
     },
     "speaker2Hospital": {
       "x": 548, "y": 1062, "fontSize": 15, "minFontSize": 12,
       "weight": "regular", "align": "center", "tracking": 0, "color": "#191919",
-      "maxWidth": 90, "source": "speakers.1.hospital"
+      "maxWidth": 192, "source": "speakers.1.hospital"
     },
     "meetingTime": {
       "x": 82, "y": 1178, "fontSize": 16, "minFontSize": 12,
       "weight": "semibold", "align": "left", "tracking": 0, "color": "#191919",
-      "maxWidth": 290, "source": "meetingTime", "prefix": "会议时间："
+      "maxWidth": 470, "source": "meetingTime", "prefix": "会议时间："
     },
     "meetingLocation": {
       "x": 82, "y": 1217, "fontSize": 24, "minFontSize": 12,
       "weight": "semibold", "align": "left", "tracking": 0, "color": "#191919",
-      "maxWidth": 167, "source": "meetingLocation", "prefix": "会议地点："
+      "maxWidth": 290, "source": "meetingLocation", "prefix": "会议地点："
     },
     "qrNote": {
       "x": 419, "y": 1760, "fontSize": 17, "minFontSize": 12,
@@ -104,19 +104,19 @@
       {
         "time": {
           "x": 145.5, "y": 1324, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 106
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 122
         },
         "content": {
           "x": 263, "y": 1325, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "left", "tracking": 0, "color": "#191919", "maxWidth": 32
+          "weight": "regular", "align": "left", "tracking": 0, "color": "#191919", "maxWidth": 190
         },
         "speaker": {
           "x": 521.5, "y": 1324, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 70
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 132
         },
         "chair": {
           "x": 680.5, "y": 1323, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 70
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 128
         },
         "dot": {
           "x": 236.5, "y": 1320, "fontSize": 15, "minFontSize": 12,
@@ -126,19 +126,19 @@
       {
         "time": {
           "x": 145.5, "y": 1389, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 118
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 122
         },
         "content": {
           "x": 263, "y": 1386, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "left", "tracking": 0, "color": "#191919", "maxWidth": 51
+          "weight": "regular", "align": "left", "tracking": 0, "color": "#191919", "maxWidth": 190
         },
         "speaker": {
           "x": 521.5, "y": 1390, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 77
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 132
         },
         "chair": {
           "x": 680.5, "y": 1400, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 77
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 128
         },
         "dot": {
           "x": 236.5, "y": 1386, "fontSize": 15, "minFontSize": 12,
@@ -148,19 +148,19 @@
       {
         "time": {
           "x": 145.5, "y": 1454, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 118
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 122
         },
         "content": {
           "x": 263, "y": 1453, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "left", "tracking": 0, "color": "#191919", "maxWidth": 51
+          "weight": "regular", "align": "left", "tracking": 0, "color": "#191919", "maxWidth": 190
         },
         "speaker": {
           "x": 521.5, "y": 1454, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 77
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 132
         },
         "chair": {
           "x": 680.5, "y": 1465, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 77
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 128
         },
         "dot": {
           "x": 236.5, "y": 1450, "fontSize": 15, "minFontSize": 12,
@@ -170,19 +170,19 @@
       {
         "time": {
           "x": 145.5, "y": 1519, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 118
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 122
         },
         "content": {
           "x": 263, "y": 1518, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "left", "tracking": 0, "color": "#191919", "maxWidth": 80
+          "weight": "regular", "align": "left", "tracking": 0, "color": "#191919", "maxWidth": 190
         },
         "speaker": {
           "x": 521.5, "y": 1530, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 77
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 132
         },
         "chair": {
           "x": 680.5, "y": 1519, "fontSize": 20, "minFontSize": 12,
-          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 77
+          "weight": "regular", "align": "center", "tracking": 0, "color": "#191919", "maxWidth": 128
         },
         "dot": {
           "x": 236.5, "y": 1518, "fontSize": 15, "minFontSize": 12,
