@@ -22,9 +22,9 @@
     return Object.freeze({ id, items: freezeItems(items) });
   }
 
-  // 三个项目字段语义相同，但文字几何属于各自底板。
-  // 当前以“医路长安”现有布局作为初始化基线；后续每个项目可在这里独立固化校准值。
-  // Web 编辑器中的拖拽微调仍按 project.id 独立保存在浏览器本机，不会跨项目污染。
+  // 三个项目字段语义相同；这里定义可渲染的文字项及初始几何。
+  // 每个项目经 V 工具校准后的 x / y / scale 由 Supabase 按 project.id + profile id 持久化。
+  // 这些 Web 预览坐标不会进入 Render Contract，也不会改变 PSD 母版文字排版。
   const profiles = Object.freeze({
     'yilu-changan-text-v1': createProfile('yilu-changan-text-v1'),
     'tonghu-jiankang-text-v1': createProfile('tonghu-jiankang-text-v1'),
