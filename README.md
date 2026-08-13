@@ -1,16 +1,16 @@
 # Meeting Poster Web Bridge
 
-浏览器填写会议资料、上传头像和二维码，经 Supabase 将任务交给 Mac Agent，再由真实 Photoshop UXP Worker 基于本地 PSD 母版生成 PNG 海报并回传网页。
+浏览器直接在海报画布内编辑会议文字、时间、头像和二维码，经 Supabase 将任务交给 Mac Agent，再由真实 Photoshop UXP Worker 基于本地 PSD 母版生成 PNG 海报并自动下载。
 
 ```text
-Browser
+Browser Canvas
   → Supabase Auth / Database / Storage
   → Mac Agent
   → Local Workspace
   → Photoshop UXP Worker
   → PNG
   → Mac Agent 上传结果
-  → Browser 自动下载 / 任务下载
+  → Browser 自动下载
 ```
 
 当前渲染协议：**Render Protocol v2**。
@@ -29,8 +29,8 @@ Browser
 
 ## 目录
 
-- `web/`：浏览器编辑器。
-- `supabase/schema.sql`：当前数据库唯一 schema，包含 RLS、任务租约、Render Protocol v2、任务控制和文字布局存储。
+- `web/`：画布式浏览器编辑器。
+- `supabase/schema.sql`：当前数据库唯一 schema，包含 RLS、任务租约、Render Protocol v2、任务取消和文字布局存储。
 - `mac-agent/`：Supabase ↔ 本机文件搬运、任务认领、租约、恢复和结果上传。
 - `photoshop-worker/`：Photoshop UXP Worker，负责严格校验本地 PSD 母版并生成 PNG 海报。
 - `tests/`：Playwright 浏览器 E2E。
@@ -83,9 +83,17 @@ python3 -m http.server 5173
 
 浏览器打开 `http://localhost:5173`。
 
-### 直接编辑文字
+### Canvas-first 编辑
 
-可编辑的动态文字无需进入布局模式，直接在海报上双击即可原位编辑并同步右侧表单。会议时间、日程时间、姓名、医院等继续复用现有字段和校验逻辑。
+页面不再保留右侧编辑面板和任务面板。所有正常操作都从海报本体进入：
+
+- 双击动态文字：原位编辑姓名、医院、会议时间和日程文字。
+- 点击头像：上传 / 重新裁剪头像。
+- 点击二维码：上传 / 重新裁剪二维码。
+- `L 布局工具`：移动和缩放文字、头像、二维码。
+- `生成正式海报`：提交当前画布数据，成功后自动下载 PNG。
+
+表单字段仍作为无界面的内部数据模型存在，用于草稿保存、校验和生成协议，不作为第二套用户操作入口。
 
 ### 布局工具
 
@@ -94,16 +102,32 @@ python3 -m http.server 5173
 - 文字：单选 / Ctrl(Cmd) 多选、框选、拖动、单项等比缩放、方向键 1px、Shift + 方向键 10px、撤销 / 重做。
 - 头像 / 二维码：单选 / Ctrl(Cmd) 多选、拖动、单项等比缩放、方向键 1px、Shift + 方向键 10px、撤销 / 重做。
 
-布局工具只处理位置和尺寸。关闭布局工具后点击头像或二维码进入素材裁剪；开启布局工具时双击素材也不会切换到裁剪操作。
+布局工具只处理位置和尺寸。关闭布局工具后点击头像或二维码进入素材裁剪。
 
 文字布局自动保存到当前项目的云端文字布局记录，但不会覆盖 PSD 中的文字位置。素材布局写入当前项目 `assetPreview`，提交时进入 Render Contract，因此会同步到 Photoshop。
+
+### 时间与输出文件名
+
+会议时间和日程时间直接在海报内双击输入，提交时由现有校验器检查格式：
+
+```text
+会议时间：2026年8月13日 19:00-21:00
+日程时间：19:00-19:30
+```
+
+不再加载右侧 Vue / Element Plus 时间面板。输出文件名不再手工填写，按当前项目名和会议日期自动生成，例如：
+
+```text
+医路长安_20260813.png
+```
 
 ## 4. 头像规则
 
 头像只有一条有效路径：
 
 ```text
-选择原图
+点击海报头像
+→ 选择原图
 → 裁剪弹窗调整
 → 点击“应用裁剪”
 → 浏览器生成 1024×1024 PNG
@@ -173,9 +197,9 @@ PSD 自检包括 837×1880 画布、必要根级文件夹、当前规范图层�
 
 ## 7. 系统自检
 
-系统自检检查 Web 版本、Render Protocol v2、当前项目、Supabase capability、Render Contract trigger、任务控制、Storage、Mac Agent、Photoshop Worker 和 PSD 母版状态。出现阻断项时不应提交任务。
+系统自检检查 Web 版本、Render Protocol v2、当前项目、海报内时间编辑、Supabase capability、Render Contract trigger、pending 任务取消、Storage、Mac Agent、Photoshop Worker 和 PSD 母版状态。出现阻断项时不应提交任务。
 
-## 8. 任务状态与下载
+## 8. 当前任务与下载
 
 ```text
 pending → claimed → rendering → uploading → succeeded
@@ -183,12 +207,14 @@ pending → claimed → rendering → uploading → succeeded
 
 终态：`failed`、`cancelled`。
 
-- `pending`：可取消。
-- `claimed / rendering / uploading`：不暴力中断。
-- `succeeded`：可查看并下载已有 PNG，不重新创建任务。
-- `failed / cancelled`：不提供重新生成入口。
+页面不保留任务历史面板，只显示当前生成状态：
 
-用户点击“生成正式海报”创建的任务成功后，页面会自动触发一次 PNG 下载；自动下载只绑定本次提交的任务，不会因为查看旧历史任务而重复触发。
+- `pending`：状态条提供“取消任务”。
+- `claimed / rendering / uploading`：不暴力中断。
+- `succeeded`：自动下载 PNG，并保留“再次下载”。
+- `failed / cancelled`：状态条直接显示结果，不提供旧式重新生成入口。
+
+页面刷新时会恢复本浏览器尚未结束的活动任务并继续跟踪。旧成功任务不在页面内维护历史列表。
 
 ## 9. 测试
 
@@ -206,7 +232,7 @@ GitHub Actions 只保留 `.github/workflows/verify.yml`，分为：
 - `contracts`：所有 JavaScript 语法和当前架构静态契约。
 - `browser-e2e`：完整 Chromium Playwright E2E。
 
-静态契约重点防止旧 DB fallback、旧任务重试、PSD 结果输出、旧头像协议和重复工具重新进入主分支；E2E 覆盖多项目、布局、选择、文字编辑、画布交互、系统自检和任务控制。E2E 拦截 Supabase API，不写生产任务或生产 Storage。
+静态契约重点防止旧 DB fallback、旧任务重试、PSD 结果输出、旧头像协议、Inspector / Task Panel 和重复工具重新进入主分支；E2E 覆盖多项目、布局、选择、文字编辑、画布交互和系统自检。E2E 拦截 Supabase API，不写生产任务或生产 Storage。
 
 ## 10. 生产运行
 
