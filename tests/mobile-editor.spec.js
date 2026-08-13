@@ -93,23 +93,44 @@ test.beforeEach(async ({ page }) => {
   await ready(page);
 });
 
-test('mobile shell uses fit-width canvas and a fixed bottom command bar', async ({ page }) => {
-  const metrics = await page.evaluate(() => ({
-    topbarHeight: document.querySelector('.topbar').getBoundingClientRect().height,
-    posterWidth: document.getElementById('posterCanvas').getBoundingClientRect().width,
-    commandPosition: getComputedStyle(document.querySelector('.canvas-command-bar')).position,
-    dockPosition: getComputedStyle(document.querySelector('.text-layout-dock')).position,
-  }));
+test('mobile shell uses fit-width canvas and one visual bottom command surface', async ({ page }) => {
+  const metrics = await page.evaluate(() => {
+    const command = document.querySelector('.canvas-command-bar').getBoundingClientRect();
+    const layoutButton = document.querySelector('[data-layout-mode]').getBoundingClientRect();
+    return {
+      topbarHeight: document.querySelector('.topbar').getBoundingClientRect().height,
+      posterWidth: document.getElementById('posterCanvas').getBoundingClientRect().width,
+      commandPosition: getComputedStyle(document.querySelector('.canvas-command-bar')).position,
+      dockPosition: getComputedStyle(document.querySelector('.text-layout-dock')).position,
+      layoutInsideCommandY: layoutButton.top >= command.top && layoutButton.bottom <= command.bottom + 1,
+      viewportBackground: getComputedStyle(document.querySelector('.poster-viewport')).backgroundColor,
+    };
+  });
 
   expect(metrics.topbarHeight).toBeLessThanOrEqual(54);
   expect(metrics.posterWidth).toBeGreaterThan(350);
   expect(metrics.posterWidth).toBeLessThanOrEqual(370);
   expect(metrics.commandPosition).toBe('fixed');
   expect(metrics.dockPosition).toBe('fixed');
+  expect(metrics.layoutInsideCommandY).toBe(true);
+  expect(metrics.viewportBackground).toBe('rgb(223, 227, 232)');
   await expect(page.locator('#projectSelect')).toBeVisible();
   await expect(page.locator('#renderServiceState')).toBeVisible();
   await expect(page.locator('#clearLocalData')).toBeHidden();
   await expect(page.locator('#submitBtn')).toBeVisible();
+});
+
+test('idle job status stays out of the way until work starts', async ({ page }) => {
+  const state = page.locator('.canvas-job-state');
+  await expect(state).toHaveClass(/is-idle/);
+  await expect(state).toBeHidden();
+
+  await page.evaluate(() => {
+    const status = document.getElementById('jobStatus');
+    status.textContent = 'Photoshop 正在生成正式海报…';
+  });
+  await expect(state).not.toHaveClass(/is-idle/);
+  await expect(state).toBeVisible();
 });
 
 test('single tap edits text through the mobile bottom sheet and writes the shared data model', async ({ page }) => {
@@ -140,7 +161,7 @@ test('layout mode keeps tap for selection instead of opening the mobile text she
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds())).toEqual(['chair-name']);
 });
 
-test('crop dialogs become full-screen workspaces on mobile', async ({ page }) => {
+test('crop dialogs are full-screen and use touch-first helper copy on mobile', async ({ page }) => {
   await page.evaluate(() => {
     document.getElementById('avatarCropModal').hidden = false;
   });
@@ -149,4 +170,7 @@ test('crop dialogs become full-screen workspaces on mobile', async ({ page }) =>
   expect(Math.abs(box.width - 390)).toBeLessThanOrEqual(1);
   expect(Math.abs(box.height - 844)).toBeLessThanOrEqual(2);
   await expect(page.locator('#avatarCropModal .crop-stage')).toBeVisible();
+  const helper = await page.locator('#avatarCropModal .crop-dialog-head p').evaluate(el => getComputedStyle(el, '::after').content);
+  expect(helper).toContain('拖动调整位置');
+  await expect(page.locator('#avatarCropModal .crop-dialog-actions')).toBeVisible();
 });

@@ -1,25 +1,28 @@
 /* Canvas interaction affordances only. */
 .stage-zoom-controls{position:absolute;top:82px;right:28px;z-index:44;pointer-events:auto}
 .zoom-controls{display:flex;align-items:center;height:30px;border:1px solid #dfe5ee;border-radius:8px;background:rgba(255,255,255,.95);overflow:hidden;box-shadow:0 5px 18px rgba(31,42,68,.12);backdrop-filter:blur(10px)}
-.zoom-controls button{height:100%;min-width:30px;border:0;border-right:1px solid #edf0f5;background:transparent;color:#596579;font-size:11px;font-weight:800;padding:0 8px}
+.zoom-controls button{height:100%;min-width:30px;border:0;border-right:1px solid #edf0f5;background:transparent;color:#596579;font-size:11px;font-weight:800;padding:0 8px;transition:background-color .14s ease,color .14s ease,transform .14s ease}
 .zoom-controls button:last-of-type{border-right:0;border-left:1px solid #edf0f5}
 .zoom-controls button:hover{background:#f6f7ff;color:#4e5ac1}
-.zoom-value{display:grid;place-items:center;min-width:46px;padding:0 5px;color:#6f7b8d;font-size:9px;font-variant-numeric:tabular-nums}
+.zoom-controls button:active{transform:scale(.96)}
+.zoom-controls button:focus-visible{outline:2px solid rgba(89,102,220,.28);outline-offset:-2px}
+.zoom-value{display:grid;place-items:center;min-width:46px;padding:0 5px;color:#6f7b8d;font-size:10px;font-variant-numeric:tabular-nums}
 .poster-viewport.is-zoomed{align-items:flex-start;padding-top:28px;padding-bottom:28px}
 .canvas-avatar-slot,.canvas-qr-slot{transition:outline-color .16s ease,box-shadow .16s ease,filter .16s ease}
-.canvas-avatar-slot::after,.canvas-qr-slot::after{position:absolute;inset:0;display:grid;place-items:center;background:rgba(31,42,68,.58);color:#fff;font-size:clamp(5px,.88vw,9px);font-weight:800;letter-spacing:.04em;opacity:0;transition:opacity .16s ease;pointer-events:none;z-index:4}
+.canvas-avatar-slot::after,.canvas-qr-slot::after{position:absolute;inset:0;display:grid;place-items:center;background:rgba(31,42,68,.58);color:#fff;font-size:clamp(6px,.9vw,10px);font-weight:800;letter-spacing:.04em;opacity:0;transition:opacity .16s ease;pointer-events:none;z-index:4}
 .canvas-avatar-slot::after{content:"调整头像"}
 .canvas-qr-slot::after{content:"调整二维码"}
 .canvas-avatar-slot:hover,.canvas-qr-slot:hover,.canvas-avatar-slot.is-active,.canvas-qr-slot.is-active{outline:2px solid rgba(89,102,220,.78);outline-offset:2px;box-shadow:0 7px 18px rgba(64,76,149,.18)}
 .canvas-avatar-slot:hover::after,.canvas-qr-slot:hover::after{opacity:1}
 .poster-preview-text{transition:outline-color .15s ease,background-color .15s ease,box-shadow .15s ease}
 .poster-preview-text:hover:not(.is-selected){outline:1px solid rgba(89,102,220,.55);outline-offset:2px;background:rgba(238,240,255,.52);box-shadow:0 0 0 3px rgba(89,102,220,.05)}
+.poster-preview-text:focus-visible,.canvas-avatar-slot:focus-visible,.canvas-qr-slot:focus-visible{outline:2px solid rgba(89,102,220,.9);outline-offset:3px}
 @media(max-width:900px){.stage-zoom-controls{top:136px;right:20px}}
 @media(max-width:760px){
   .stage-zoom-controls{top:10px;right:10px;position:absolute}
-  .zoom-controls{height:34px}
+  .zoom-controls{height:36px;border-radius:10px;box-shadow:0 4px 14px rgba(31,42,68,.10)}
   .zoom-controls [data-zoom="out"],.zoom-controls [data-zoom="in"],.zoom-value{display:none}
-  .zoom-controls button{min-width:44px;padding:0 10px;border:0!important}
+  .zoom-controls button{min-width:46px;padding:0 11px;border:0!important;font-size:12px}
   .pan-center-btn{border-left:1px solid #edf0f5!important}
   .canvas-avatar-slot:hover,.canvas-qr-slot:hover{outline:none;box-shadow:0 4px 12px rgba(40,55,89,.08)}
   .canvas-avatar-slot:hover::after,.canvas-qr-slot:hover::after{opacity:0}
