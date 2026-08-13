@@ -98,7 +98,7 @@ test('clicking inspector clears asset selection while its toolbar actions preser
   await speaker.click({ modifiers: ['Control'] });
   await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys().sort())).toEqual(['chair', 'speaker1']);
 
-  await page.locator('[data-asset-align="top"]').click();
+  await page.locator('[data-asset-action="reset"]').click();
   await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys().sort())).toEqual(['chair', 'speaker1']);
 
   await page.locator('#outputName').click();
