@@ -67,8 +67,14 @@ jobs:
           ]) {
             if (!editor.includes(token)) throw new Error(`asset-layout.js missing ${token}`);
           }
+          for (const removed of ['data-asset-align=', 'function alignSelection']) {
+            if (editor.includes(removed)) throw new Error(`obsolete asset alignment control remains: ${removed}`);
+          }
           if (!editorMode.includes("slot.className = 'canvas-avatar-slot canvas-asset-slot'")) throw new Error('avatar slots must be layout-editable');
           if (!editorMode.includes("qrSlot.dataset.key = 'qr'")) throw new Error('QR slot must expose its layout key');
+          if (!editorMode.includes("document.addEventListener('dblclick'") || !editorMode.includes(".canvas-asset-slot")) {
+            throw new Error('asset layout mode must support direct double-click crop editing');
+          }
 
           for (const token of [
             'chair: toBox(project.assetPreview.chair)',

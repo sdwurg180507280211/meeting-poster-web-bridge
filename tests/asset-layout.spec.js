@@ -69,10 +69,11 @@ test('each project owns an independent asset layout profile', async ({ page }) =
   expect(snapshot.activeProfile).toBe('yilu-changan-assets-v1');
 });
 
-test('asset mode nudges selected avatar and QR in exact design pixels and updates render source geometry', async ({ page }) => {
+test('asset mode keeps only mouse-first tools and updates render source geometry', async ({ page }) => {
   await page.goto('/?project=chronic-care-2026');
   await page.waitForFunction(() => Boolean(window.posterAssetLayout && window.Moveable));
   await enableAssets(page);
+  await expect(page.locator('[data-asset-align]')).toHaveCount(0);
 
   const chair = page.locator('.canvas-asset-slot[data-key="chair"]');
   await chair.click();
@@ -102,6 +103,21 @@ test('asset mode nudges selected avatar and QR in exact design pixels and update
   expect(state.selected).toEqual(['chair', 'qr']);
   expect(state.chair.top).toBe(506);
   expect(state.qr.top).toBe(1586);
+});
+
+test('double-clicking an avatar in asset mode reopens crop editing', async ({ page }) => {
+  await page.goto('/?project=chronic-care-2026');
+  await page.waitForFunction(() => Boolean(window.posterAssetLayout && window.posterAvatarCrop));
+
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEAQH/2p8pAAAAAElFTkSuQmCC', 'base64');
+  await page.locator('#chair-file').setInputFiles({ name: 'chair.png', mimeType: 'image/png', buffer: png });
+  await expect(page.locator('#avatarCropModal')).toBeVisible();
+  await page.locator('#cancelAvatarCrop').click();
+  await expect(page.locator('#avatarCropModal')).toBeHidden();
+
+  await enableAssets(page);
+  await page.locator('.canvas-asset-slot[data-key="chair"]').dblclick();
+  await expect(page.locator('#avatarCropModal')).toBeVisible();
 });
 
 test('asset overrides stay project-local and text/asset modes are mutually exclusive', async ({ page }) => {

@@ -5,6 +5,7 @@ on:
     paths:
       - 'web/editor/poster-preview.js'
       - 'web/editor/poster-text.css'
+      - 'web/editor/editor-mode.js'
       - 'web/editor/canvas-pan.js'
       - 'tests/text-layout.spec.js'
       - '.github/workflows/verify-text-layout.yml'
@@ -21,6 +22,7 @@ jobs:
         with:
           node-version: '22'
       - run: node --check web/editor/poster-preview.js
+      - run: node --check web/editor/editor-mode.js
       - run: node --check web/editor/canvas-pan.js
       - run: node --check tests/text-layout.spec.js
       - name: Verify Photoshop-style interaction contract
@@ -28,6 +30,7 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const preview = fs.readFileSync('web/editor/poster-preview.js', 'utf8');
+          const editorMode = fs.readFileSync('web/editor/editor-mode.js', 'utf8');
           const pan = fs.readFileSync('web/editor/canvas-pan.js', 'utf8');
           const css = fs.readFileSync('web/editor/poster-text.css', 'utf8');
           for (const token of [
@@ -36,10 +39,15 @@ jobs:
             'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
             'event.shiftKey ? 10 : 1',
             'text-selection-marquee',
-            'hdistribute', 'vdistribute',
             'undoStack', 'redoStack',
           ]) {
             if (!preview.includes(token)) throw new Error(`poster-preview.js missing ${token}`);
+          }
+          for (const removed of ['data-align=', 'function alignSelection', 'hdistribute', 'vdistribute']) {
+            if (preview.includes(removed)) throw new Error(`obsolete text alignment control remains: ${removed}`);
+          }
+          if (!editorMode.includes("document.addEventListener('dblclick'") || !editorMode.includes(".poster-preview-text")) {
+            throw new Error('text layout mode must support direct double-click editing');
           }
           if (!pan.includes("poster.classList.contains('is-text-layout-mode')")) {
             throw new Error('canvas pan must yield the poster surface to marquee selection in layout mode');

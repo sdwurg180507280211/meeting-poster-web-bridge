@@ -297,17 +297,8 @@
     <div class="asset-layout-tools" data-asset-layout-tools hidden>
       <span class="asset-layout-count" data-asset-layout-count>未选择</span>
       <span class="asset-layout-readout" data-asset-layout-readout></span>
-      <span class="asset-layout-divider"></span>
       <button type="button" data-asset-action="undo" title="撤销 · Ctrl/Cmd+Z">↶</button>
       <button type="button" data-asset-action="redo" title="重做 · Ctrl/Cmd+Shift+Z">↷</button>
-      <span class="asset-layout-divider"></span>
-      <button type="button" data-asset-align="left" title="左对齐">左</button>
-      <button type="button" data-asset-align="hcenter" title="水平居中">中</button>
-      <button type="button" data-asset-align="right" title="右对齐">右</button>
-      <button type="button" data-asset-align="top" title="顶对齐">顶</button>
-      <button type="button" data-asset-align="vcenter" title="垂直居中">垂中</button>
-      <button type="button" data-asset-align="bottom" title="底对齐">底</button>
-      <span class="asset-layout-divider"></span>
       <button type="button" data-asset-action="reset" title="重置当前项目头像/二维码布局">重置</button>
     </div>`;
   document.querySelector('.stage-area')?.appendChild(dock);
@@ -329,15 +320,6 @@
     }
     dock.querySelector('[data-asset-action="undo"]').disabled = undoStack.length === 0;
     dock.querySelector('[data-asset-action="redo"]').disabled = redoStack.length === 0;
-    dock.querySelectorAll('[data-asset-align]').forEach(button => {
-      button.disabled = count < 2;
-    });
-  }
-
-  function setItemPosition(key, left, top) {
-    const spec = normalizeSpec(key, project.assetPreview[key]);
-    setProjectSpec(key, { ...spec, left, top });
-    applyGeometry(key);
   }
 
   function nudgeSelection(dx, dy) {
@@ -351,35 +333,6 @@
     saveLayout();
     commitHistory(before);
     moveable?.updateRect?.();
-    updateToolbar();
-  }
-
-  function alignSelection(action) {
-    const list = [...selected].map(key => ({ key, ...normalizeSpec(key, project.assetPreview[key]) }));
-    if (list.length < 2) return;
-    const before = snapshot();
-    const left = Math.min(...list.map(item => item.left));
-    const right = Math.max(...list.map(item => item.left + item.size));
-    const top = Math.min(...list.map(item => item.top));
-    const bottom = Math.max(...list.map(item => item.top + item.size));
-    const cx = (left + right) / 2;
-    const cy = (top + bottom) / 2;
-
-    list.forEach(item => {
-      let nextLeft = item.left;
-      let nextTop = item.top;
-      if (action === 'left') nextLeft = left;
-      else if (action === 'hcenter') nextLeft = cx - item.size / 2;
-      else if (action === 'right') nextLeft = right - item.size;
-      else if (action === 'top') nextTop = top;
-      else if (action === 'vcenter') nextTop = cy - item.size / 2;
-      else if (action === 'bottom') nextTop = bottom - item.size;
-      setItemPosition(item.key, nextLeft, nextTop);
-    });
-
-    saveLayout();
-    commitHistory(before);
-    scheduleMoveableRebuild();
     updateToolbar();
   }
 
@@ -433,11 +386,9 @@
     const button = event.target.closest('button');
     if (!button) return;
     const action = button.dataset.assetAction;
-    const align = button.dataset.assetAlign;
     if (action === 'undo') undo();
     else if (action === 'redo') redo();
     else if (action === 'reset') resetLayout();
-    else if (align) alignSelection(align);
   });
 
   function isEditingTarget(target) {

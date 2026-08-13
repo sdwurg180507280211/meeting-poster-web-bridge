@@ -104,19 +104,8 @@
     <button type="button" class="text-layout-mode-btn" data-layout-mode title="选择文字并调整网页预览位置"><span class="tool-key">V</span><span>选择文字</span></button>
     <div class="text-layout-tools" data-layout-tools hidden>
       <span class="text-layout-count" data-layout-count>未选择</span>
-      <span class="text-layout-divider"></span>
       <button type="button" data-layout-action="undo" title="撤销 · Ctrl/Cmd+Z">↶</button>
       <button type="button" data-layout-action="redo" title="重做 · Ctrl/Cmd+Shift+Z">↷</button>
-      <span class="text-layout-divider"></span>
-      <button type="button" data-align="left" title="左对齐">左</button>
-      <button type="button" data-align="hcenter" title="水平居中">中</button>
-      <button type="button" data-align="right" title="右对齐">右</button>
-      <button type="button" data-align="top" title="顶对齐">顶</button>
-      <button type="button" data-align="vcenter" title="垂直居中">垂中</button>
-      <button type="button" data-align="bottom" title="底对齐">底</button>
-      <button type="button" data-align="hdistribute" title="水平分布">横分</button>
-      <button type="button" data-align="vdistribute" title="垂直分布">纵分</button>
-      <span class="text-layout-divider"></span>
       <button type="button" data-layout-action="reset" title="重置当前项目的网页文字布局">重置</button>
     </div>`;
   document.querySelector('.stage-area')?.appendChild(dock);
@@ -282,10 +271,6 @@
     countLabel.textContent = count ? `已选 ${count} 项` : '未选择';
     dock.querySelector('[data-layout-action="undo"]').disabled = undoStack.length === 0;
     dock.querySelector('[data-layout-action="redo"]').disabled = redoStack.length === 0;
-    dock.querySelectorAll('[data-align]').forEach(button => {
-      const needsThree = /distribute/.test(button.dataset.align || '');
-      button.disabled = needsThree ? count < 3 : count < 2;
-    });
   }
 
   function setSelection(next) {
@@ -455,66 +440,6 @@
     moveable?.updateRect?.();
   }
 
-  function designGeometry(el) {
-    const id = el.dataset.previewTextId;
-    const item = itemsById.get(id);
-    const layout = layoutFor(item);
-    const scale = Number(layout.scale || 1);
-    const pxScale = canvasScale() || 1;
-    const rect = el.getBoundingClientRect();
-    return {
-      el,
-      id,
-      x: Number(layout.x || 0),
-      y: Number(layout.y || 0),
-      width: Number(layout.width || item.width || 0) * scale,
-      height: rect.height / pxScale,
-    };
-  }
-
-  function alignSelection(action) {
-    const list = [...selected].map(designGeometry);
-    const minCount = /distribute/.test(action) ? 3 : 2;
-    if (list.length < minCount) return;
-    const before = snapshotBeforeChange();
-    const left = Math.min(...list.map(g => g.x));
-    const right = Math.max(...list.map(g => g.x + g.width));
-    const top = Math.min(...list.map(g => g.y));
-    const bottom = Math.max(...list.map(g => g.y + g.height));
-    const cx = (left + right) / 2;
-    const cy = (top + bottom) / 2;
-
-    if (action === 'left') list.forEach(g => setItemPosition(g.id, left, g.y));
-    else if (action === 'hcenter') list.forEach(g => setItemPosition(g.id, cx - g.width / 2, g.y));
-    else if (action === 'right') list.forEach(g => setItemPosition(g.id, right - g.width, g.y));
-    else if (action === 'top') list.forEach(g => setItemPosition(g.id, g.x, top));
-    else if (action === 'vcenter') list.forEach(g => setItemPosition(g.id, g.x, cy - g.height / 2));
-    else if (action === 'bottom') list.forEach(g => setItemPosition(g.id, g.x, bottom - g.height));
-    else if (action === 'hdistribute') {
-      const sorted = [...list].sort((a, b) => a.x - b.x);
-      const totalWidth = sorted.reduce((sum, g) => sum + g.width, 0);
-      const gap = (right - left - totalWidth) / (sorted.length - 1);
-      let cursor = left;
-      sorted.forEach(g => {
-        setItemPosition(g.id, cursor, g.y);
-        cursor += g.width + gap;
-      });
-    } else if (action === 'vdistribute') {
-      const sorted = [...list].sort((a, b) => a.y - b.y);
-      const totalHeight = sorted.reduce((sum, g) => sum + g.height, 0);
-      const gap = (bottom - top - totalHeight) / (sorted.length - 1);
-      let cursor = top;
-      sorted.forEach(g => {
-        setItemPosition(g.id, g.x, cursor);
-        cursor += g.height + gap;
-      });
-    }
-
-    saveOverrides();
-    commitHistory(before);
-    scheduleMoveableRebuild();
-  }
-
   function resetLayout() {
     if (!Object.keys(overrides).length) return;
     const before = snapshotBeforeChange();
@@ -540,11 +465,9 @@
 
   dock.addEventListener('click', event => {
     const action = event.target.closest('button')?.dataset?.layoutAction;
-    const align = event.target.closest('button')?.dataset?.align;
     if (action === 'undo') undo();
     else if (action === 'redo') redo();
     else if (action === 'reset') resetLayout();
-    else if (align) alignSelection(align);
   });
 
   function isEditingTarget(target) {
