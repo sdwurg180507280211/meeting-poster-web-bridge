@@ -54,7 +54,7 @@
     }
   }
 
-  function protectedPosterTarget(context, element) {
+  function protectedTarget(context, element) {
     if (!context || !element || !poster.contains(element)) return false;
     if (element.closest(MOVEABLE_SELECTOR)) return true;
     if (element.closest(context.selectableSelector)) return true;
@@ -73,7 +73,7 @@
       clearSelection(context);
       return;
     }
-    if (protectedPosterTarget(context, element)) return;
+    if (protectedTarget(context, element)) return;
     if (context.kind === 'text' && (event.metaKey || event.ctrlKey)) return;
     clearSelection(context);
   }, true);
@@ -88,7 +88,7 @@
       clearSelection(context);
       return;
     }
-    if (protectedPosterTarget(context, element)) return;
+    if (protectedTarget(context, element)) return;
     if (!element.matches('input,textarea,select,button,a,[contenteditable="true"],summary,[tabindex]')) return;
     clearSelection(context);
   }, true);
