@@ -82,17 +82,25 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => Boolean(window.posterTextLayout && window.Moveable));
 });
 
-test('compact layout mode restores Photoshop-like text selection controls', async ({ page }) => {
+test('compact text mode keeps only mouse-first layout controls', async ({ page }) => {
   await expect(page.locator('.stage-toolbar')).toBeHidden();
   await expect(page.locator('.text-layout-mode-btn')).toContainText('选择文字');
   await enableLayout(page);
   await expect(page.locator('.text-layout-mode-btn')).toContainText('完成布局');
-  await expect(page.locator('[data-align="left"]')).toBeDisabled();
+  await expect(page.locator('[data-align]')).toHaveCount(0);
 
   await selectTwo(page);
   await expect(page.locator('[data-layout-count]')).toContainText('已选 2 项');
-  await expect(page.locator('[data-align="left"]')).toBeEnabled();
-  await expect(page.locator('[data-align="hdistribute"]')).toBeDisabled();
+  await expect(page.locator('[data-layout-action="undo"]')).toBeVisible();
+  await expect(page.locator('[data-layout-action="redo"]')).toBeVisible();
+  await expect(page.locator('[data-layout-action="reset"]')).toBeVisible();
+});
+
+test('double-clicking text in layout mode opens its direct editor', async ({ page }) => {
+  await enableLayout(page);
+  await page.locator('[data-preview-text-id="chair-name"]').dblclick();
+  await expect(page.locator('#chair-name')).toBeFocused();
+  await expect(page.locator('[data-section="people"]')).toHaveAttribute('open', '');
 });
 
 test('arrow keys nudge every selected item by exact design pixels with undo and redo', async ({ page }) => {
