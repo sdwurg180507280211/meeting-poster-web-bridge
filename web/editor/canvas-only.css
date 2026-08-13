@@ -40,7 +40,7 @@
   .topbar-actions{gap:5px}
   .topbar-actions>div{gap:5px!important;flex-wrap:nowrap!important}
   #cloudState,#clearLocalData{display:none!important}
-  #renderServiceState{max-width:126px;padding:6px 8px;font-size:10px;overflow:hidden;text-overflow:ellipsis}
+  #renderServiceState{display:inline-flex!important;align-items:center;max-width:126px;padding:6px 8px;font-size:10px;overflow:hidden;text-overflow:ellipsis}
 
   .canvas-only-workspace .stage-area{padding:8px 8px calc(72px + env(safe-area-inset-bottom));overflow:hidden}
   .canvas-only-workspace .poster-viewport{padding:8px;border-radius:12px;touch-action:none;overscroll-behavior:contain}
