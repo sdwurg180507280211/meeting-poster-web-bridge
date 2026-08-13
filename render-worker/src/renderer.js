@@ -3,7 +3,6 @@
 const fs = require('fs/promises');
 const { Resvg } = require('@resvg/resvg-js');
 const fontkit = require('fontkit');
-const sharp = require('sharp');
 
 const DEFAULT_COLOR = '#191919';
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -29,8 +28,8 @@ function textValue(slot, meeting) {
   return `${slot.prefix || ''}${raw}${slot.suffix || ''}`;
 }
 
-function dataUri(buffer, mime = 'image/png') {
-  return `data:${mime};base64,${buffer.toString('base64')}`;
+function dataUri(buffer) {
+  return `data:image/png;base64,${buffer.toString('base64')}`;
 }
 
 function isPng(buffer) {
@@ -39,14 +38,9 @@ function isPng(buffer) {
     && buffer.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE);
 }
 
-async function ensurePng(buffer, label) {
-  if (!Buffer.isBuffer(buffer) || !buffer.length) throw new Error(`${label} 素材缺失`);
-  if (isPng(buffer)) return buffer;
-  try {
-    return await sharp(buffer).png().toBuffer();
-  } catch (error) {
-    throw new Error(`${label} 图片无法解码：${error.message || error}`);
-  }
+function assertPng(buffer, label) {
+  if (!isPng(buffer)) throw new Error(`${label} 必须是 PNG`);
+  return buffer;
 }
 
 const parsedFonts = new Map();
@@ -86,7 +80,6 @@ function fittedFontSize(fontBuffer, text, slot) {
   const maxWidth = Number(slot.maxWidth || 0);
   if (!maxWidth || !text) return base;
 
-  // Match the former PSD behaviour: decrease one pixel at a time until the measured width fits.
   for (let size = base; size > minimum; size -= 1) {
     if (measureText(fontBuffer, text, size, slot.tracking) <= maxWidth + 0.5) return size;
   }
@@ -169,7 +162,7 @@ async function renderPoster({ template, payload, assets }) {
 
   const meeting = payload.meeting || {};
   const canvas = manifest.canvas;
-  const backgroundBuffer = await ensurePng(await fs.readFile(backgroundPath), 'background');
+  const backgroundBuffer = assertPng(await fs.readFile(backgroundPath), 'background.png');
   const runtimeLayout = project.assetLayout || {};
   const chairBox = assetBox(runtimeLayout.chair, manifest.images.chair, 'chair', canvas);
   const speaker1Box = assetBox(runtimeLayout.speaker1, manifest.images.speaker1, 'speaker1', canvas);
@@ -177,10 +170,10 @@ async function renderPoster({ template, payload, assets }) {
   const qrBox = assetBox(runtimeLayout.qrCode, manifest.images.qrCode, 'qrCode', canvas);
 
   const normalizedAssets = {
-    chairAvatar: await ensurePng(assets.chairAvatar, 'chairAvatar'),
-    speaker1Avatar: await ensurePng(assets.speaker1Avatar, 'speaker1Avatar'),
-    speaker2Avatar: await ensurePng(assets.speaker2Avatar, 'speaker2Avatar'),
-    qrCode: await ensurePng(assets.qrCode, 'qrCode'),
+    chairAvatar: assertPng(assets.chairAvatar, 'chairAvatar'),
+    speaker1Avatar: assertPng(assets.speaker1Avatar, 'speaker1Avatar'),
+    speaker2Avatar: assertPng(assets.speaker2Avatar, 'speaker2Avatar'),
+    qrCode: assertPng(assets.qrCode, 'qrCode'),
   };
 
   const defs = [
@@ -239,5 +232,5 @@ module.exports = {
   cleanSchedule,
   measureText,
   fittedFontSize,
-  ensurePng,
+  assertPng,
 };
