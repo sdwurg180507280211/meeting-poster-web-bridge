@@ -10,7 +10,7 @@
   card.innerHTML = `
     <div class="task-control-head"><h2>任务控制</h2><button type="button" class="task-control-refresh">刷新</button></div>
     <div class="task-control-list"><div class="task-control-empty">正在读取任务…</div></div>
-    <div class="task-control-note">排队中的任务可安全取消；Photoshop 已开始处理后不做强制中断。已完成任务可直接查看海报；已完成、失败或取消的任务可使用原素材重新生成。</div>`;
+    <div class="task-control-note">排队中的任务可安全取消；Render Worker 已开始处理后不做强制中断。已完成任务可直接查看海报；已完成、失败或取消的任务可使用原素材重新生成。</div>`;
 
   const history = taskTab.querySelector('.history-card');
   taskTab.insertBefore(card, history || taskTab.querySelector('.debug-details') || null);
@@ -25,8 +25,8 @@
 
   const statusLabels = {
     pending: '排队中',
-    claimed: 'Agent 已接单',
-    rendering: 'Photoshop 处理中',
+    claimed: 'Renderer 已接单',
+    rendering: '正在生成 PNG',
     uploading: '上传结果中',
     succeeded: '已完成',
     failed: '失败',
@@ -204,7 +204,6 @@
 
   const tabButton = document.querySelector('.inspector-tab[data-tab="task"]');
   tabButton?.addEventListener('click', () => { setTimeout(() => void load(), 0); });
-  document.addEventListener('poster-service-state', () => { if (taskTab.classList.contains('active')) void load(); });
 
   setInterval(() => { if (taskTab.classList.contains('active')) void load(); }, 5000);
   setTimeout(() => void load(), 250);
