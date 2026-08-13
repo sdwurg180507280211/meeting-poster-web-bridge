@@ -3,9 +3,9 @@ name: Verify selection polish
 on:
   pull_request:
     paths:
-      - 'web/selection-polish.js'
-      - 'web/poster-preview.js'
-      - 'web/asset-layout.js'
+      - 'web/editor/selection-polish.js'
+      - 'web/editor/poster-preview.js'
+      - 'web/editor/asset-layout.js'
       - 'web/index.html'
       - 'tests/selection-polish.spec.js'
       - '.github/workflows/verify-selection-polish.yml'
@@ -21,18 +21,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --check web/selection-polish.js
-      - run: node --check web/poster-preview.js
-      - run: node --check web/asset-layout.js
+      - run: node --check web/editor/selection-polish.js
+      - run: node --check web/editor/poster-preview.js
+      - run: node --check web/editor/asset-layout.js
       - run: node --check tests/selection-polish.spec.js
       - name: Verify unified selection lifecycle
         run: |
           node - <<'NODE'
           const fs = require('fs');
           const html = fs.readFileSync('web/index.html', 'utf8');
-          const polish = fs.readFileSync('web/selection-polish.js', 'utf8');
-          const text = fs.readFileSync('web/poster-preview.js', 'utf8');
-          const asset = fs.readFileSync('web/asset-layout.js', 'utf8');
+          const polish = fs.readFileSync('web/editor/selection-polish.js', 'utf8');
+          const text = fs.readFileSync('web/editor/poster-preview.js', 'utf8');
+          const asset = fs.readFileSync('web/editor/asset-layout.js', 'utf8');
           const textIndex = html.indexOf('poster-preview.js');
           const assetIndex = html.indexOf('asset-layout.js');
           const polishIndex = html.indexOf('selection-polish.js');

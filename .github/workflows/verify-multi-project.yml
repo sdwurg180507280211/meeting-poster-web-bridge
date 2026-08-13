@@ -3,10 +3,10 @@ name: Verify multi-project routing
 on:
   pull_request:
     paths:
-      - 'web/project-registry.js'
-      - 'web/project-switcher.css'
-      - 'web/asset-layout-profiles.js'
-      - 'web/asset-layout.js'
+      - 'web/project/project-registry.js'
+      - 'web/project/project-switcher.css'
+      - 'web/project/asset-layout-profiles.js'
+      - 'web/editor/asset-layout.js'
       - 'web/index.html'
       - 'photoshop-worker/index.html'
       - 'photoshop-worker/src/projects.js'
@@ -26,18 +26,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --check web/project-registry.js
-      - run: node --check web/asset-layout-profiles.js
-      - run: node --check web/asset-layout.js
+      - run: node --check web/project/project-registry.js
+      - run: node --check web/project/asset-layout-profiles.js
+      - run: node --check web/editor/asset-layout.js
       - run: node --check photoshop-worker/src/projects.js
       - run: node --check photoshop-worker/src/worker.js
       - name: Verify project routing and local PSD dispatch
         run: |
           node - <<'NODE'
           const fs = require('fs');
-          const registry = fs.readFileSync('web/project-registry.js', 'utf8');
-          const switcherCss = fs.readFileSync('web/project-switcher.css', 'utf8');
-          const assetProfiles = fs.readFileSync('web/asset-layout-profiles.js', 'utf8');
+          const registry = fs.readFileSync('web/project/project-registry.js', 'utf8');
+          const switcherCss = fs.readFileSync('web/project/project-switcher.css', 'utf8');
+          const assetProfiles = fs.readFileSync('web/project/asset-layout-profiles.js', 'utf8');
           const projects = fs.readFileSync('photoshop-worker/src/projects.js', 'utf8');
           const worker = fs.readFileSync('photoshop-worker/src/worker.js', 'utf8');
           const html = fs.readFileSync('photoshop-worker/index.html', 'utf8');
@@ -80,7 +80,7 @@ jobs:
             throw new Error('Worker must not keep obsolete single-template preference compatibility');
           }
           if (!html.includes('id="templateProjects"')) throw new Error('Worker panel must expose project PSD bindings');
-          if (!webHtml.includes('project-registry.js') || !webHtml.includes('project-switcher.css')) {
+          if (!webHtml.includes('project/project-registry.js') || !webHtml.includes('project/project-switcher.css')) {
             throw new Error('Web editor must load the project switcher assets');
           }
           NODE

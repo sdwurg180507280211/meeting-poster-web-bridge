@@ -3,12 +3,12 @@ name: Verify asset layout editor
 on:
   pull_request:
     paths:
-      - 'web/asset-layout-profiles.js'
-      - 'web/asset-layout.js'
-      - 'web/asset-layout.css'
-      - 'web/project-registry.js'
-      - 'web/editor-mode.js'
-      - 'web/poster-project.js'
+      - 'web/project/asset-layout-profiles.js'
+      - 'web/editor/asset-layout.js'
+      - 'web/editor/asset-layout.css'
+      - 'web/project/project-registry.js'
+      - 'web/editor/editor-mode.js'
+      - 'web/project/poster-project.js'
       - 'web/index.html'
       - 'tests/asset-layout.spec.js'
       - '.github/workflows/verify-asset-layout.yml'
@@ -24,21 +24,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --check web/asset-layout-profiles.js
-      - run: node --check web/asset-layout.js
-      - run: node --check web/project-registry.js
-      - run: node --check web/editor-mode.js
+      - run: node --check web/project/asset-layout-profiles.js
+      - run: node --check web/editor/asset-layout.js
+      - run: node --check web/project/project-registry.js
+      - run: node --check web/editor/editor-mode.js
       - run: node --check tests/asset-layout.spec.js
       - name: Verify PSD-synced asset layout contract
         run: |
           node - <<'NODE'
           const fs = require('fs');
           const html = fs.readFileSync('web/index.html', 'utf8');
-          const profiles = fs.readFileSync('web/asset-layout-profiles.js', 'utf8');
-          const registry = fs.readFileSync('web/project-registry.js', 'utf8');
-          const editor = fs.readFileSync('web/asset-layout.js', 'utf8');
-          const posterProject = fs.readFileSync('web/poster-project.js', 'utf8');
-          const editorMode = fs.readFileSync('web/editor-mode.js', 'utf8');
+          const profiles = fs.readFileSync('web/project/asset-layout-profiles.js', 'utf8');
+          const registry = fs.readFileSync('web/project/project-registry.js', 'utf8');
+          const editor = fs.readFileSync('web/editor/asset-layout.js', 'utf8');
+          const posterProject = fs.readFileSync('web/project/poster-project.js', 'utf8');
+          const editorMode = fs.readFileSync('web/editor/editor-mode.js', 'utf8');
 
           const posterProjectIndex = html.indexOf('poster-project.js');
           const assetProfilesIndex = html.indexOf('asset-layout-profiles.js');
@@ -70,7 +70,6 @@ jobs:
           if (!editorMode.includes("slot.className = 'canvas-avatar-slot canvas-asset-slot'")) throw new Error('avatar slots must be layout-editable');
           if (!editorMode.includes("qrSlot.dataset.key = 'qr'")) throw new Error('QR slot must expose its layout key');
 
-          // Critical boundary: the render contract must continue reading the live project.assetPreview object.
           for (const token of [
             'chair: toBox(project.assetPreview.chair)',
             'speaker1: toBox(project.assetPreview.speaker1)',

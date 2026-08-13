@@ -38,19 +38,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --check web/validation.js
-      - run: node --check web/poster-project.js
-      - run: node --check web/app.js
-      - run: node --check web/draft-persistence.js
-      - run: node --check web/avatar-crop-modal.js
-      - run: node --check web/poster-preview.js
-      - run: node --check web/asset-layout.js
-      - run: node --check web/selection-polish.js
-      - run: node --check web/interaction-polish.js
-      - run: node --check web/canvas-pan.js
-      - run: node --check web/workspace-layout.js
-      - run: node --check web/preflight.js
-      - run: node --check web/task-controls.js
+      - run: node --check web/core/validation.js
+      - run: node --check web/project/poster-project.js
+      - run: node --check web/core/app.js
+      - run: node --check web/core/draft-persistence.js
+      - run: node --check web/media/avatar-crop-modal.js
+      - run: node --check web/editor/poster-preview.js
+      - run: node --check web/editor/asset-layout.js
+      - run: node --check web/editor/selection-polish.js
+      - run: node --check web/editor/interaction-polish.js
+      - run: node --check web/editor/canvas-pan.js
+      - run: node --check web/editor/workspace-layout.js
+      - run: node --check web/service/preflight.js
+      - run: node --check web/service/task-controls.js
       - run: node --check mac-agent/src/job-validation.js
       - run: node --check mac-agent/src/start.js
       - run: node --check mac-agent/src/agent.js
@@ -65,13 +65,13 @@ jobs:
           const agent = fs.readFileSync('mac-agent/src/agent.js', 'utf8');
           const worker = fs.readFileSync('photoshop-worker/src/worker.js', 'utf8');
           const engine = fs.readFileSync('photoshop-worker/src/ps-engine.js', 'utf8');
-          const validation = fs.readFileSync('web/validation.js', 'utf8');
-          const app = fs.readFileSync('web/app.js', 'utf8');
-          const project = fs.readFileSync('web/poster-project.js', 'utf8');
-          const draft = fs.readFileSync('web/draft-persistence.js', 'utf8');
-          const selection = fs.readFileSync('web/selection-polish.js', 'utf8');
-          const textLayout = fs.readFileSync('web/poster-preview.js', 'utf8');
-          const assetLayout = fs.readFileSync('web/asset-layout.js', 'utf8');
+          const validation = fs.readFileSync('web/core/validation.js', 'utf8');
+          const app = fs.readFileSync('web/core/app.js', 'utf8');
+          const project = fs.readFileSync('web/project/poster-project.js', 'utf8');
+          const draft = fs.readFileSync('web/core/draft-persistence.js', 'utf8');
+          const selection = fs.readFileSync('web/editor/selection-polish.js', 'utf8');
+          const textLayout = fs.readFileSync('web/editor/poster-preview.js', 'utf8');
+          const assetLayout = fs.readFileSync('web/editor/asset-layout.js', 'utf8');
 
           for (const token of [
             'legacyClaimOne', 'legacyRecoverClaimedJobs', 'warnMigrationRequired',
@@ -129,8 +129,8 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const html = fs.readFileSync('web/index.html', 'utf8');
-          const polish = fs.readFileSync('web/interaction-polish.js', 'utf8');
-          if (!html.includes('interaction-polish.css') || !html.includes('interaction-polish.js')) {
+          const polish = fs.readFileSync('web/editor/interaction-polish.js', 'utf8');
+          if (!html.includes('editor/interaction-polish.css') || !html.includes('editor/interaction-polish.js')) {
             throw new Error('index.html must load interaction-polish assets');
           }
           if (html.indexOf('interaction-polish.js') < html.indexOf('agenda-professor.js')) {
@@ -146,8 +146,8 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const html = fs.readFileSync('web/index.html', 'utf8');
-          const pan = fs.readFileSync('web/canvas-pan.js', 'utf8');
-          if (!html.includes('canvas-pan.css') || !html.includes('canvas-pan.js')) {
+          const pan = fs.readFileSync('web/editor/canvas-pan.js', 'utf8');
+          if (!html.includes('editor/canvas-pan.css') || !html.includes('editor/canvas-pan.js')) {
             throw new Error('index.html must load the draggable canvas workspace assets');
           }
           if (html.indexOf('canvas-pan.js') < html.indexOf('interaction-polish.js')) {
@@ -168,9 +168,9 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const html = fs.readFileSync('web/index.html', 'utf8');
-          const css = fs.readFileSync('web/workspace-layout.css', 'utf8');
-          const js = fs.readFileSync('web/workspace-layout.js', 'utf8');
-          if (!html.includes('workspace-layout.css') || !html.includes('workspace-layout.js')) {
+          const css = fs.readFileSync('web/editor/workspace-layout.css', 'utf8');
+          const js = fs.readFileSync('web/editor/workspace-layout.js', 'utf8');
+          if (!html.includes('editor/workspace-layout.css') || !html.includes('editor/workspace-layout.js')) {
             throw new Error('index.html must load workspace-layout assets');
           }
           for (const token of ['stage-toolbar', 'toggleTextLayout', 'resetTextLayout']) {
@@ -191,12 +191,12 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const html = fs.readFileSync('web/index.html', 'utf8');
-          const preflight = fs.readFileSync('web/preflight.js', 'utf8');
-          const controls = fs.readFileSync('web/task-controls.js', 'utf8');
+          const preflight = fs.readFileSync('web/service/preflight.js', 'utf8');
+          const controls = fs.readFileSync('web/service/task-controls.js', 'utf8');
           const migration = fs.readFileSync('supabase/005_preflight_and_job_controls.sql', 'utf8');
           const restriction = fs.readFileSync('supabase/006_restrict_preflight_rpc.sql', 'utf8');
-          if (!html.includes('preflight.css') || !html.includes('preflight.js')) throw new Error('preflight assets are not wired');
-          if (!html.includes('task-controls.css') || !html.includes('task-controls.js')) throw new Error('task control assets are not wired');
+          if (!html.includes('service/preflight.css') || !html.includes('service/preflight.js')) throw new Error('preflight assets are not wired');
+          if (!html.includes('service/task-controls.css') || !html.includes('service/task-controls.js')) throw new Error('task control assets are not wired');
           if (!preflight.includes("rpc('poster_preflight'")) throw new Error('preflight must use the database capability RPC');
           if (!preflight.includes('window.POSTER_APP_CLIENT')) throw new Error('preflight must reuse the authenticated application client');
           if (!controls.includes("rpc(rpcName")) throw new Error('task controls must call RPCs through the authenticated app client');
