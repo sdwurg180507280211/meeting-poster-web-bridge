@@ -62,10 +62,6 @@
 }
 .asset-layout-tools button:hover:not(:disabled){background:#eaf7f1;color:#27815c}
 .asset-layout-tools button:disabled{opacity:.28;cursor:default}
-.asset-layout-tools [data-asset-align],
-.asset-layout-tools .asset-layout-divider{
-  display:none!important;
-}
 .asset-layout-count,.asset-layout-readout{
   flex:none;
   color:#596579;
