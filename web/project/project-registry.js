@@ -11,7 +11,7 @@
       version: 1,
       textLayoutProfile: 'yilu-changan-text-v1',
       assetLayoutProfile: 'yilu-changan-assets-v1',
-      previewSrc: './assets/poster-base.jpg',
+      previewSrc: '../assets/poster-base.jpg',
     }),
     Object.freeze({
       id: 'tonghu-jiankang',
@@ -19,7 +19,7 @@
       version: 1,
       textLayoutProfile: 'tonghu-jiankang-text-v1',
       assetLayoutProfile: 'tonghu-jiankang-assets-v1',
-      previewSrc: './assets/tonghu-jiankang-base.jpg',
+      previewSrc: '../assets/tonghu-jiankang-base.jpg',
     }),
     Object.freeze({
       id: 'tongxin-hujian',
@@ -27,7 +27,7 @@
       version: 1,
       textLayoutProfile: 'tongxin-hujian-text-v1',
       assetLayoutProfile: 'tongxin-hujian-assets-v1',
-      previewSrc: './assets/tongxin-hujian-base.jpg',
+      previewSrc: '../assets/tongxin-hujian-base.jpg',
     }),
   ]);
 

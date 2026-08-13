@@ -1,6 +1,6 @@
 .poster-canvas{
   background-color:#fff;
-  background-image:var(--poster-base-image,url("./assets/poster-base.jpg"));
+  background-image:var(--poster-base-image,url("../assets/poster-base.jpg"));
   background-position:center center;
   background-size:100% 100%;
   background-repeat:no-repeat;
