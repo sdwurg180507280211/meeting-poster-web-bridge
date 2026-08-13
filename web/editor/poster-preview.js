@@ -3,40 +3,33 @@
 
   const poster = document.getElementById('posterCanvas');
   const project = window.POSTER_PROJECT;
-  if (!poster || !project?.textItems?.length) return;
+  const layoutStore = window.posterTextLayoutStore;
+  if (!poster || !project?.textItems?.length || !layoutStore) return;
 
   const W = project.canvas.width;
   const H = project.canvas.height;
-  const STORAGE_KEY = `posterPreviewLayout:${project.id}`;
   const HISTORY_LIMIT = 60;
   const elements = new Map();
   const itemsById = new Map(project.textItems.map(item => [item.id, item]));
-  let overrides = readOverrides();
+  let overrides = layoutStore.baseLayout(project);
   let layoutMode = false;
+  let layoutReady = false;
   let moveable = null;
   let moveableTimer = null;
   let selected = new Set();
   let marquee = null;
   let suppressPosterClick = false;
   let inlineEdit = null;
+  let persistenceState = 'loading';
+  let persistenceError = '';
+  let saveTimer = null;
+  let pendingSave = null;
+  let saveLoop = null;
   const undoStack = [];
   const redoStack = [];
 
-  function readOverrides() {
-    try {
-      const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      return value && typeof value === 'object' ? value : {};
-    } catch (_) {
-      return {};
-    }
-  }
-
   function cloneOverrides(value = overrides) {
     return JSON.parse(JSON.stringify(value || {}));
-  }
-
-  function saveOverrides() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
   }
 
   function layoutFor(item) {
@@ -101,15 +94,64 @@
   const dock = document.createElement('div');
   dock.className = 'text-layout-dock';
   dock.innerHTML = `
-    <button type="button" class="text-layout-mode-btn" data-layout-mode aria-label="V 文字工具" data-tool-tip="V · 文字工具\n选择和移动海报文字。双击可编辑文字可直接原位修改；方向键微调位置。"><span class="tool-key">V</span><span>文字工具</span></button>
+    <button type="button" class="text-layout-mode-btn" data-layout-mode aria-label="V 文字工具" data-tool-tip="V · 文字布局\n调整当前项目的网页文字预览位置；布局自动保存到云端，不改变 PSD 文字排版。双击可编辑文字可直接原位修改；方向键微调位置。"><span class="tool-key">V</span><span>文字工具</span></button>
     <div class="text-layout-tools" data-layout-tools hidden>
       <span class="text-layout-count" data-layout-count>未选择</span>
+      <span class="text-layout-save-state" data-layout-save-state>加载布局…</span>
     </div>`;
   document.querySelector('.stage-area')?.appendChild(dock);
 
   const modeButton = dock.querySelector('[data-layout-mode]');
   const tools = dock.querySelector('[data-layout-tools]');
   const countLabel = dock.querySelector('[data-layout-count]');
+  const saveStateLabel = dock.querySelector('[data-layout-save-state]');
+  modeButton.disabled = true;
+
+  function setPersistenceState(state, error = '') {
+    persistenceState = state;
+    persistenceError = String(error || '');
+    if (!saveStateLabel) return;
+    saveStateLabel.dataset.state = state;
+    saveStateLabel.textContent = {
+      loading: '加载布局…',
+      saving: '保存中…',
+      saved: '已保存',
+      error: '保存失败',
+    }[state] || state;
+    saveStateLabel.title = persistenceError;
+  }
+
+  async function flushPendingSave() {
+    if (saveLoop) return saveLoop;
+    saveLoop = (async () => {
+      while (pendingSave) {
+        const snapshot = pendingSave;
+        pendingSave = null;
+        try {
+          await layoutStore.save(project, snapshot);
+        } catch (error) {
+          pendingSave = snapshot;
+          setPersistenceState('error', error?.message || error);
+          return;
+        }
+      }
+      setPersistenceState('saved');
+    })().finally(() => {
+      saveLoop = null;
+    });
+    return saveLoop;
+  }
+
+  function queuePersist() {
+    if (!layoutReady) return;
+    pendingSave = cloneOverrides();
+    setPersistenceState('saving');
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      void flushPendingSave();
+    }, 220);
+  }
 
   function snapshotBeforeChange() {
     return cloneOverrides();
@@ -131,7 +173,7 @@
 
   function restoreSnapshot(snapshot) {
     overrides = cloneOverrides(snapshot);
-    saveOverrides();
+    queuePersist();
     applyAllGeometry();
     scheduleMoveableRebuild();
     updateToolbarState();
@@ -170,7 +212,7 @@
 
   function saveSelectedFromDom(before) {
     selected.forEach(el => captureTargetLayout(el));
-    saveOverrides();
+    queuePersist();
     selected.forEach(el => applyGeometry(el, itemsById.get(el.dataset.previewTextId)));
     commitHistory(before);
     moveable?.updateRect?.();
@@ -540,13 +582,14 @@
       const layout = layoutFor(item);
       setItemPosition(id, Math.round(Number(layout.x || 0) + dx), Math.round(Number(layout.y || 0) + dy));
     }
-    saveOverrides();
+    queuePersist();
     commitHistory(before);
     moveable?.updateRect?.();
   }
 
   function setLayoutMode(enabled) {
     const next = Boolean(enabled);
+    if (next && !layoutReady) return;
     if (!next && inlineEdit) finishInlineEdit(true);
     layoutMode = next;
     poster.classList.toggle('is-text-layout-mode', layoutMode);
@@ -596,11 +639,33 @@
     scheduleMoveableRebuild();
   });
 
+  async function initializeLayout() {
+    setPersistenceState('loading');
+    try {
+      overrides = cloneOverrides(await layoutStore.load(project));
+      applyAllGeometry();
+      layoutReady = true;
+      modeButton.disabled = false;
+      setPersistenceState('saved');
+      document.dispatchEvent(new CustomEvent('poster-text-layout-loaded', {
+        detail: { projectId: project.id, profileId: project.textLayoutProfile },
+      }));
+    } catch (error) {
+      layoutReady = false;
+      modeButton.disabled = true;
+      setPersistenceState('error', error?.message || error);
+      console.error('加载项目文字布局失败', error);
+    }
+  }
+
   updateToolbarState();
   window.posterTextLayout = Object.freeze({
     setEnabled: setLayoutMode,
     isEnabled: () => layoutMode,
+    isReady: () => layoutReady,
     getSelectedIds: () => [...selected].map(el => el.dataset.previewTextId),
+    getLayout: () => cloneOverrides(),
+    getPersistenceState: () => ({ state: persistenceState, error: persistenceError }),
     clearSelection,
     nudge: nudgeSelection,
     undo,
@@ -608,4 +673,5 @@
     beginInlineEdit,
     isInlineEditing: () => Boolean(inlineEdit),
   });
+  void initializeLayout();
 })();
