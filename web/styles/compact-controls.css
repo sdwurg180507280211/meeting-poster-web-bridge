@@ -21,6 +21,7 @@
 .schedule-vue-time-host .el-range__icon{display:none!important}
 .schedule-vue-time-host .el-range__close-icon{margin-left:1px!important;font-size:10px!important}
 .schedule-head,.schedule-row{grid-template-columns:31% 31% 19% 19%!important}
+.schedule-cell-hidden{visibility:hidden!important;pointer-events:none!important}
 .time-component-error{padding:9px 10px;border-radius:8px;background:#fff3f3;color:#b84b55;font-size:10px;line-height:1.5}
 
 /* Element Plus 浮层保持在 Photoshop 编辑器上方，并适合右侧紧凑面板。 */
@@ -38,5 +39,6 @@
 @media(max-width:700px){
   .element-meeting-picker{grid-template-columns:1fr;gap:7px}
   .schedule-head,.schedule-row{grid-template-columns:1fr!important}
+  .schedule-cell-hidden{display:none!important}
   .schedule-vue-time-host .el-range-editor.el-input__wrapper{height:34px}
 }
