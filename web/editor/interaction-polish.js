@@ -139,7 +139,7 @@
     dock.className = 'submit-dock';
     const meta = document.createElement('div');
     meta.className = 'submit-dock-meta';
-    meta.innerHTML = '<strong>正式输出</strong><span>由 Mac Photoshop 生成 PSD / PNG</span>';
+    meta.innerHTML = '<strong>正式输出</strong><span>由 Node Renderer 生成 PNG</span>';
 
     submitBtn.setAttribute('form', form.id);
     submitBtn.classList.add('submit-dock-button');
