@@ -72,19 +72,14 @@ async function installMock(page) {
 async function ready(page) {
   await page.goto('/');
   await page.waitForFunction(() => Boolean(
-    window.posterTextLayout && window.posterAssetLayout && window.posterSelectionPolish && window.Moveable
+    window.posterTextLayout && window.posterAssetLayout && window.posterLayoutTool && window.posterSelectionPolish && window.Moveable
   ));
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.isReady())).toBe(true);
 }
 
-async function enableText(page) {
-  await page.locator('.text-layout-mode-btn').click();
-  await expect.poll(() => page.evaluate(() => window.posterTextLayout.isEnabled())).toBe(true);
-}
-
-async function enableAsset(page) {
-  await page.locator('.asset-layout-mode-btn').click();
-  await expect.poll(() => page.evaluate(() => window.posterAssetLayout.isEnabled())).toBe(true);
+async function enableLayout(page) {
+  await page.locator('[data-layout-mode]').click();
+  await expect.poll(() => page.evaluate(() => window.posterLayoutTool.isEnabled())).toBe(true);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -92,8 +87,8 @@ test.beforeEach(async ({ page }) => {
   await ready(page);
 });
 
-test('clicking anywhere outside the poster clears text selection but keeps V mode active', async ({ page }) => {
-  await enableText(page);
+test('clicking anywhere outside the poster clears text selection but keeps layout tool active', async ({ page }) => {
+  await enableLayout(page);
   await page.locator('[data-preview-text-id="section-chair"]').click();
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds().length)).toBe(1);
 
@@ -103,8 +98,8 @@ test('clicking anywhere outside the poster clears text selection but keeps V mod
   await expect(page.locator('.moveable-control-box')).toHaveCount(0);
 });
 
-test('clicking the inspector outside the poster clears asset selection but keeps A mode active', async ({ page }) => {
-  await enableAsset(page);
+test('clicking the inspector outside the poster clears asset selection but keeps layout tool active', async ({ page }) => {
+  await enableLayout(page);
   const chair = page.locator('.canvas-asset-slot[data-key="chair"]');
   const speaker = page.locator('.canvas-asset-slot[data-key="speaker1"]');
   await chair.click();
@@ -116,18 +111,21 @@ test('clicking the inspector outside the poster clears asset selection but keeps
   expect(await page.evaluate(() => window.posterAssetLayout.isEnabled())).toBe(true);
 });
 
-test('even clicking the floating tool status outside poster clears the active selection', async ({ page }) => {
-  await enableAsset(page);
+test('turning off the unified layout tool clears the active asset selection', async ({ page }) => {
+  await enableLayout(page);
   await page.locator('.canvas-asset-slot[data-key="qr"]').click();
   await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys())).toEqual(['qr']);
 
-  await page.locator('[data-asset-layout-count]').click();
-  await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys())).toEqual([]);
-  expect(await page.evaluate(() => window.posterAssetLayout.isEnabled())).toBe(true);
+  await page.locator('[data-layout-mode]').click();
+  await expect.poll(() => page.evaluate(() => ({
+    layout: window.posterLayoutTool.isEnabled(),
+    asset: window.posterAssetLayout.isEnabled(),
+    selected: window.posterAssetLayout.getSelectedKeys(),
+  }))).toEqual({ layout: false, asset: false, selected: [] });
 });
 
 test('clearing a group removes the transform box and the next object click starts a clean selection', async ({ page }) => {
-  await enableText(page);
+  await enableLayout(page);
   const chair = page.locator('[data-preview-text-id="section-chair"]');
   const speakers = page.locator('[data-preview-text-id="section-speakers"]');
   await chair.click();
@@ -142,25 +140,30 @@ test('clearing a group removes the transform box and the next object click start
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds())).toEqual(['section-chair']);
 });
 
-test('switching V and A modes clears stale selection and keeps only one mode active', async ({ page }) => {
-  await enableText(page);
+test('one layout tool switches context by the selected object and clears stale selection', async ({ page }) => {
+  await enableLayout(page);
   await page.locator('[data-preview-text-id="section-chair"]').click();
-  await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds().length)).toBe(1);
-
-  await page.locator('.asset-layout-mode-btn').click();
   await expect.poll(() => page.evaluate(() => ({
     text: window.posterTextLayout.isEnabled(),
     asset: window.posterAssetLayout.isEnabled(),
     textCount: window.posterTextLayout.getSelectedIds().length,
-  }))).toEqual({ text: false, asset: true, textCount: 0 });
+  }))).toEqual({ text: true, asset: false, textCount: 1 });
 
   await page.locator('.canvas-asset-slot[data-key="qr"]').click();
-  await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys())).toEqual(['qr']);
-
-  await page.locator('.text-layout-mode-btn').click();
   await expect.poll(() => page.evaluate(() => ({
+    context: window.posterLayoutTool.getContext(),
+    text: window.posterTextLayout.isEnabled(),
+    asset: window.posterAssetLayout.isEnabled(),
+    textCount: window.posterTextLayout.getSelectedIds().length,
+    assetKeys: window.posterAssetLayout.getSelectedKeys(),
+  }))).toEqual({ context: 'asset', text: false, asset: true, textCount: 0, assetKeys: ['qr'] });
+
+  await page.locator('[data-preview-text-id="section-chair"]').click();
+  await expect.poll(() => page.evaluate(() => ({
+    context: window.posterLayoutTool.getContext(),
     text: window.posterTextLayout.isEnabled(),
     asset: window.posterAssetLayout.isEnabled(),
     assetCount: window.posterAssetLayout.getSelectedKeys().length,
-  }))).toEqual({ text: true, asset: false, assetCount: 0 });
+    textIds: window.posterTextLayout.getSelectedIds(),
+  }))).toEqual({ context: 'text', text: true, asset: false, assetCount: 0, textIds: ['section-chair'] });
 });
