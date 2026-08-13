@@ -69,11 +69,24 @@ test('each project owns an independent asset layout profile', async ({ page }) =
   expect(snapshot.activeProfile).toBe('yilu-changan-assets-v1');
 });
 
-test('asset mode keeps only mouse-first tools and updates render source geometry', async ({ page }) => {
+test('A is explained as the project asset tool and has no reset or arrow action buttons', async ({ page }) => {
+  await page.goto('/?project=chronic-care-2026');
+  await page.waitForFunction(() => Boolean(window.posterAssetLayout && window.Moveable));
+
+  const mode = page.locator('.asset-layout-mode-btn');
+  await expect(mode).toHaveAttribute('aria-label', 'A 素材工具');
+  await expect(mode).toHaveAttribute('data-tool-tip', /A · 素材工具/);
+  await expect(mode).toHaveAttribute('data-tool-tip', /位置和尺寸会同步 Photoshop/);
+
+  await enableAssets(page);
+  await expect(page.locator('[data-asset-action]')).toHaveCount(0);
+  await expect(page.locator('[data-asset-align]')).toHaveCount(0);
+});
+
+test('asset mode updates render source geometry with keyboard nudging', async ({ page }) => {
   await page.goto('/?project=chronic-care-2026');
   await page.waitForFunction(() => Boolean(window.posterAssetLayout && window.Moveable));
   await enableAssets(page);
-  await expect(page.locator('[data-asset-align]')).toHaveCount(0);
 
   const chair = page.locator('.canvas-asset-slot[data-key="chair"]');
   await chair.click();
