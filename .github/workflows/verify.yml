@@ -125,7 +125,13 @@ jobs:
             must(registry.includes(`textLayoutProfile: '${textProfile}'`) && textProfiles.includes(`'${textProfile}': createProfile('${textProfile}')`), `text profile missing ${id}`);
           }
           must(registry.includes("DEFAULT_PROJECT_ID = 'chronic-care-2026'"), 'default project changed unexpectedly');
-          must(posterProject.includes('project.buildRenderContract') && posterProject.includes('posterProject.assetPreview'), 'render contract must read active project geometry');
+          must(posterProject.includes('project.buildRenderContract'), 'project must expose the render contract builder');
+          for (const token of [
+            'chair: toBox(project.assetPreview.chair)',
+            'speaker1: toBox(project.assetPreview.speaker1)',
+            'speaker2: toBox(project.assetPreview.speaker2)',
+            'qrCode: toBox(project.assetPreview.qr)',
+          ]) must(posterProject.includes(token), `render contract missing live geometry: ${token}`);
           must(layoutTool.includes('window.posterLayoutTool') && layoutTool.includes("activate('asset')") && layoutTool.includes("activate('text')"), 'unified layout tool wiring is incomplete');
           must(textLayout.includes('clearSelection,') && assetLayout.includes('clearSelection,'), 'layout modules must expose clearSelection');
           must(selection.includes('context.api.clearSelection()'), 'selection coordinator must use clearSelection directly');
