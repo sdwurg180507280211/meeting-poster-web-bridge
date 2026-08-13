@@ -32,11 +32,7 @@
   }
 
   function statusRow(name, ok, detail, level = null) {
-    return {
-      name,
-      level: level || (ok ? 'ok' : 'bad'),
-      detail,
-    };
+    return { name, level: level || (ok ? 'ok' : 'bad'), detail };
   }
 
   function render(rows) {
@@ -63,7 +59,7 @@
     rows.push(statusRow('Web 编辑器', Boolean(runtime.webVersion), runtime.webVersion ? `v${runtime.webVersion}` : '未读取到 Web 运行版本'));
     rows.push(statusRow('Render Protocol', runtime.renderProtocolVersion === 2, `浏览器协议 v${runtime.renderProtocolVersion ?? '未知'}`));
     rows.push(statusRow('项目画布', Number(runtime.canvas?.width) === 837 && Number(runtime.canvas?.height) === 1880, `${runtime.projectId || '未知项目'} · ${runtime.canvas?.width || '?'} × ${runtime.canvas?.height || '?'}`));
-    rows.push(statusRow('时间组件', window.posterTimeControlsState?.ready === true, window.posterTimeControlsState?.reason || '时间选择组件尚未就绪'));
+    rows.push(statusRow('海报内时间编辑', window.posterTimeControlsState?.ready === true, window.posterTimeControlsState?.reason || '时间编辑能力未就绪'));
 
     if (!cfg.SUPABASE_URL || !cfg.SUPABASE_PUBLISHABLE_KEY) {
       rows.push(statusRow('Supabase', false, 'config.js 未配置'));
@@ -90,12 +86,12 @@
       ]);
 
       if (preflightResult.error) {
-        rows.push(statusRow('数据库能力', false, `poster_preflight 不可用：${preflightResult.error.message || '未知错误'}。请确认已执行 005/006 migration。`));
+        rows.push(statusRow('数据库能力', false, `poster_preflight 不可用：${preflightResult.error.message || '未知错误'}。请确认数据库已同步 supabase/schema.sql。`));
       } else {
         const db = preflightResult.data || {};
         rows.push(statusRow('数据库 Schema', Number(db.schemaVersion) >= 5, `schema v${db.schemaVersion ?? '未知'}`));
         rows.push(statusRow('Render Contract', db.renderContractEnforced === true && Number(db.renderProtocolVersion) === 2, db.renderContractEnforced ? `数据库强制 protocol v${db.renderProtocolVersion}` : '数据库未启用 render contract v2 trigger'));
-        rows.push(statusRow('任务控制', db.jobControlsAvailable === true, db.jobControlsAvailable ? '任务控制 RPC 已安装' : '任务控制 RPC 缺失'));
+        rows.push(statusRow('任务取消', db.jobControlsAvailable === true, db.jobControlsAvailable ? 'pending 任务取消 RPC 已安装' : '任务取消 RPC 缺失'));
         rows.push(statusRow('Storage', db.bucketReady === true, db.bucketReady ? `${cfg.BUCKET || 'poster-assets'} 可用` : `${cfg.BUCKET || 'poster-assets'} bucket 不存在`));
       }
 

@@ -98,7 +98,7 @@ test('clicking anywhere outside the poster clears text selection but keeps layou
   await expect(page.locator('.moveable-control-box')).toHaveCount(0);
 });
 
-test('clicking the inspector outside the poster clears asset selection but keeps layout tool active', async ({ page }) => {
+test('clicking the canvas command bar clears asset selection but keeps layout tool active', async ({ page }) => {
   await enableLayout(page);
   const chair = page.locator('.canvas-asset-slot[data-key="chair"]');
   const speaker = page.locator('.canvas-asset-slot[data-key="speaker1"]');
@@ -106,7 +106,7 @@ test('clicking the inspector outside the poster clears asset selection but keeps
   await speaker.click({ modifiers: ['Control'] });
   await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys().sort())).toEqual(['chair', 'speaker1']);
 
-  await page.locator('#outputName').click();
+  await page.locator('#jobStatus').click();
   await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys().length)).toBe(0);
   expect(await page.evaluate(() => window.posterAssetLayout.isEnabled())).toBe(true);
 });

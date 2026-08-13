@@ -7,15 +7,13 @@
   <title>系列会议海报编辑器</title>
   <link rel="stylesheet" href="styles/styles.css" />
   <link rel="stylesheet" href="media/crop-modal.css" />
-  <link rel="stylesheet" href="styles/compact-controls.css" />
   <link rel="stylesheet" href="styles/poster-base.css" />
   <link rel="stylesheet" href="editor/poster-text.css" />
   <link rel="stylesheet" href="editor/asset-layout.css" />
   <link rel="stylesheet" href="editor/interaction-polish.css" />
   <link rel="stylesheet" href="editor/canvas-pan.css" />
-  <link rel="stylesheet" href="editor/workspace-layout.css" />
+  <link rel="stylesheet" href="editor/canvas-only.css" />
   <link rel="stylesheet" href="service/preflight.css" />
-  <link rel="stylesheet" href="service/task-controls.css" />
   <link rel="stylesheet" href="project/project-switcher.css" />
 </head>
 <body>
@@ -31,104 +29,43 @@
       <div class="topbar-actions">
         <span id="cloudState" class="badge">正在连接云端…</span>
         <button id="clearLocalData" class="privacy-reset-btn" type="button" title="清除本机草稿、素材和匿名历史身份">清除本机数据</button>
-        <button id="toggleInspector" class="icon-btn" type="button" title="收起/展开右侧面板">☰</button>
       </div>
     </header>
 
-    <main class="editor-workspace" id="editorWorkspace">
+    <main class="editor-workspace canvas-only-workspace" id="editorWorkspace">
       <section class="stage-area">
+        <div class="canvas-command-bar" aria-label="海报生成控制">
+          <div class="canvas-job-state">
+            <strong id="jobStatus">准备就绪</strong>
+            <span id="progressSteps">双击文字编辑 · 点击头像或二维码上传 · L 调整布局</span>
+          </div>
+          <div class="canvas-command-actions">
+            <button id="cancelActiveJob" type="button" class="canvas-secondary danger" hidden>取消任务</button>
+            <button id="downloadResult" type="button" class="canvas-secondary" hidden>再次下载</button>
+            <button id="submitBtn" type="submit" form="posterForm" class="canvas-generate">
+              <span>生成正式海报</span>
+              <small>完成后自动下载 PNG</small>
+            </button>
+          </div>
+        </div>
+
         <div class="poster-viewport">
           <div id="posterCanvas" class="poster-canvas" aria-label="海报编辑画布"></div>
         </div>
       </section>
-
-      <aside id="inspector" class="inspector">
-        <div class="inspector-tabs">
-          <button type="button" class="inspector-tab active" data-tab="edit">编辑</button>
-          <button type="button" class="inspector-tab" data-tab="task">任务</button>
-          <button id="collapseInspector" type="button" class="collapse-btn" title="收起右侧面板">›</button>
-        </div>
-
-        <div id="editTab" class="inspector-pane active">
-          <form id="posterForm">
-            <details class="editor-section" data-section="meeting" open>
-              <summary><span>01</span> 会议信息</summary>
-              <div class="editor-section-body">
-                <div id="meetingTimePicker" class="meeting-picker"></div>
-                <input id="meetingTime" type="hidden" value="" />
-                <div class="fixed-row"><span>会议地点</span><strong>线上</strong></div>
-                <input id="meetingLocation" type="hidden" value="线上" />
-              </div>
-            </details>
-
-            <details class="editor-section" data-section="people" open>
-              <summary><span>02</span> 主席与讲者</summary>
-              <div class="editor-section-body">
-                <p class="section-tip">直接点击海报上的头像上传或裁剪；右侧只填写姓名和医院。职称统一为教授。</p>
-                <div id="people"></div>
-              </div>
-            </details>
-
-            <details class="editor-section" data-section="schedule">
-              <summary><span>03</span> 会议日程</summary>
-              <div class="editor-section-body">
-                <div class="schedule-head"><span>时间</span><span>内容</span><span>讲者</span><span>主席</span></div>
-                <div id="schedule"></div>
-              </div>
-            </details>
-
-            <details class="editor-section" data-section="qr">
-              <summary><span>04</span> 二维码</summary>
-              <div class="editor-section-body">
-                <div class="asset-editor-hint">直接点击海报上的<strong>二维码区域</strong>上传或重新裁剪。</div>
-                <input id="qrFile" class="asset-input-hidden" type="file" accept="image/png,image/jpeg,image/webp" />
-                <img id="qrPreview" class="qr-preview asset-preview-hidden" alt="二维码预览" />
-                <span id="qrCropReadout" class="asset-preview-hidden">尚未应用裁剪</span>
-              </div>
-            </details>
-
-            <details class="editor-section" data-section="output" open>
-              <summary><span>05</span> 输出</summary>
-              <div class="editor-section-body">
-                <label>输出文件名
-                  <input id="outputName" maxlength="100" value="系列会议海报" />
-                </label>
-                <button id="submitBtn" type="submit" class="primary">
-                  <span>生成正式海报</span>
-                  <small>交给 Mac Photoshop 渲染 PNG</small>
-                </button>
-              </div>
-            </details>
-          </form>
-        </div>
-
-        <div id="taskTab" class="inspector-pane">
-          <div class="task-block">
-            <div class="aside-title-row"><h2>当前任务</h2><span class="live-dot"></span></div>
-            <div id="jobStatus" class="status-box">尚未提交任务</div>
-            <div id="progressSteps" class="steps"></div>
-            <img id="resultPreview" class="result-preview" alt="生成结果" />
-            <div id="downloads" class="downloads"></div>
-          </div>
-
-          <div class="task-block history-card">
-            <div class="history-head">
-              <h2>最近任务</h2>
-              <button id="refreshHistory" type="button" class="mini-btn">刷新</button>
-            </div>
-            <div id="historyList" class="history-list"><div class="history-empty">正在加载…</div></div>
-          </div>
-
-          <details class="debug-details">
-            <summary>运行日志</summary>
-            <pre id="debug" class="debug"></pre>
-          </details>
-        </div>
-      </aside>
-
-      <button id="openInspector" type="button" class="open-inspector" title="展开编辑面板">‹</button>
     </main>
   </div>
+
+  <form id="posterForm" class="poster-data-form" aria-hidden="true">
+    <input id="meetingTime" type="hidden" value="" />
+    <input id="meetingLocation" type="hidden" value="线上" />
+    <input id="outputName" type="hidden" value="系列会议海报" />
+    <div id="people"></div>
+    <div id="schedule"></div>
+    <input id="qrFile" type="file" accept="image/png,image/jpeg,image/webp" />
+    <img id="qrPreview" alt="二维码预览" />
+    <span id="qrCropReadout">尚未应用裁剪</span>
+  </form>
 
   <div id="avatarCropModal" class="crop-modal" hidden>
     <div class="crop-dialog" role="dialog" aria-modal="true" aria-labelledby="avatarCropTitle">
@@ -214,7 +151,6 @@
   <script src="service/service-status.js"></script>
   <script src="service/text-layout-store.js"></script>
   <script src="core/draft-persistence.js"></script>
-  <script src="editor/time-controls.js"></script>
   <script src="editor/editor-mode.js"></script>
   <script src="editor/poster-preview.js"></script>
   <script src="editor/asset-layout.js"></script>
@@ -225,8 +161,6 @@
   <script src="editor/agenda-professor.js"></script>
   <script src="editor/interaction-polish.js"></script>
   <script src="editor/canvas-pan.js"></script>
-  <script src="editor/workspace-layout.js"></script>
   <script src="service/preflight.js"></script>
-  <script src="service/task-controls.js"></script>
 </body>
 </html>

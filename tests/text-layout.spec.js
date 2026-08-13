@@ -72,6 +72,14 @@ async function installSupabaseMock(page) {
   });
 }
 
+async function setModelValue(page, id, value) {
+  await page.evaluate(({ id, value }) => {
+    const input = document.getElementById(id);
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, { id, value });
+}
+
 async function enableLayout(page) {
   await expect(page.locator('.text-layout-mode-btn')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.posterTextLayout?.isReady?.())).toBe(true);
@@ -110,8 +118,8 @@ test('layout tool is the single text and asset geometry entry', async ({ page })
   await expect(page.locator('[data-align]')).toHaveCount(0);
 });
 
-test('double-clicking editable text works by default and syncs the form field', async ({ page }) => {
-  await page.locator('#chair-name').fill('张三');
+test('double-clicking editable text works by default and syncs the hidden data model', async ({ page }) => {
+  await setModelValue(page, 'chair-name', '张三');
   await expect.poll(() => page.evaluate(() => window.posterLayoutTool?.isEnabled?.())).toBe(false);
 
   const preview = page.locator('[data-preview-text-id="chair-name"]');
@@ -132,12 +140,8 @@ test('double-clicking editable text works by default and syncs the form field', 
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.isInlineEditing())).toBe(false);
 });
 
-test('meeting time displays the full date-time range and can be edited as text in V mode', async ({ page }) => {
-  await page.evaluate(() => {
-    const input = document.getElementById('meetingTime');
-    input.value = '2026年8月12日 19:00-21:30';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+test('meeting time displays the full date-time range and can be edited directly on canvas', async ({ page }) => {
+  await setModelValue(page, 'meetingTime', '2026年8月12日 19:00-21:30');
 
   const preview = page.locator('[data-preview-text-id="meeting-time"]');
   await expect(preview).toHaveText('会议时间：2026年8月12日 19:00-21:30');
@@ -154,12 +158,8 @@ test('meeting time displays the full date-time range and can be edited as text i
   await expect(preview).toHaveText('会议时间：2026年8月13日 20:00-22:00');
 });
 
-test('schedule time can be edited directly as text in V mode', async ({ page }) => {
-  await page.evaluate(() => {
-    const input = document.getElementById('s-time-0');
-    input.value = '19:00-19:30';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+test('schedule time can be edited directly on canvas', async ({ page }) => {
+  await setModelValue(page, 's-time-0', '19:00-19:30');
 
   const preview = page.locator('[data-preview-text-id="agenda-0-time"]');
   await expect(preview).toHaveText('19:00-19:30');

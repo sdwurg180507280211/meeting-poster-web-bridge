@@ -1,9 +1,7 @@
 (() => {
   const poster = document.getElementById('posterCanvas');
-  const workspace = document.getElementById('editorWorkspace');
-  const inspector = document.getElementById('inspector');
   const project = window.POSTER_PROJECT;
-  if (!poster || !workspace || !inspector || !project) return;
+  if (!poster || !project) return;
 
   const W = project.canvas.width;
   const H = project.canvas.height;
@@ -13,32 +11,6 @@
   function pct(value, total) {
     return `${(value / total) * 100}%`;
   }
-
-  function showTab(name) {
-    document.querySelectorAll('.inspector-tab').forEach(button => {
-      button.classList.toggle('active', button.dataset.tab === name);
-    });
-    document.getElementById('editTab')?.classList.toggle('active', name === 'edit');
-    document.getElementById('taskTab')?.classList.toggle('active', name === 'task');
-  }
-
-  function expandInspector() {
-    workspace.classList.remove('inspector-collapsed');
-  }
-
-  function collapseInspector() {
-    workspace.classList.add('inspector-collapsed');
-  }
-
-  function openSection(name) {
-    document.querySelectorAll('.editor-section').forEach(section => {
-      if (section.dataset.section === name) section.open = true;
-    });
-    showTab('edit');
-    expandInspector();
-  }
-
-  window.posterEditor = { openSection, showTab, expandInspector };
 
   function createAvatarSlot(key, spec) {
     const slot = document.createElement('div');
@@ -89,14 +61,12 @@
 
     [zoom, sx, sy].forEach(control => control?.addEventListener('input', syncPreview));
 
-    function openAvatarEditor() {
+    slot.addEventListener('click', () => {
       if (poster.classList.contains('is-asset-layout-mode')) return;
-      openSection('people');
       if (window.posterAvatarCrop?.open) window.posterAvatarCrop.open(key);
       else if (!file?.files?.length) file?.click();
-    }
+    });
 
-    slot.addEventListener('click', openAvatarEditor);
     document.addEventListener('avatar-crop-applied', event => {
       if (event.detail?.key === key) syncPreview();
     });
@@ -118,14 +88,12 @@
   const qrImg = qrSlot.querySelector('img');
   const qrInput = document.getElementById('qrFile');
 
-  function openQrEditor() {
+  qrSlot.addEventListener('click', () => {
     if (poster.classList.contains('is-asset-layout-mode')) return;
-    openSection('qr');
     if (window.posterQrCrop?.open) window.posterQrCrop.open();
     else if (!qrInput?.files?.length) qrInput?.click();
-  }
+  });
 
-  qrSlot.addEventListener('click', openQrEditor);
   document.addEventListener('qr-crop-applied', event => {
     const url = event.detail?.previewUrl;
     if (!url) return;
@@ -146,18 +114,4 @@
     event.stopPropagation();
     window.posterTextLayout?.beginInlineEdit?.(preview.dataset.previewTextId);
   }, true);
-
-  document.getElementById('collapseInspector')?.addEventListener('click', collapseInspector);
-  document.getElementById('toggleInspector')?.addEventListener('click', () => {
-    workspace.classList.toggle('inspector-collapsed');
-  });
-  document.getElementById('openInspector')?.addEventListener('click', expandInspector);
-  document.querySelectorAll('.inspector-tab').forEach(button => {
-    button.addEventListener('click', () => showTab(button.dataset.tab));
-  });
-  window.__posterShowTaskTab = () => {
-    showTab('task');
-    expandInspector();
-  };
-  document.getElementById('jobStatus')?.addEventListener('click', () => showTab('task'));
 })();
