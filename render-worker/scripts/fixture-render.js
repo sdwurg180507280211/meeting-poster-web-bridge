@@ -2,31 +2,19 @@
 
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp');
 const { loadTemplate } = require('../src/template');
 const { renderPoster } = require('../src/renderer');
 
 const OUT = process.argv[2] || '/tmp/meeting-poster-node-fixture.png';
+const PNGS = Object.freeze({
+  chair: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGN4Fhn5HwAGWQKY0tH2cwAAAABJRU5ErkJggg==',
+  speaker1: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGOIfJb2HwAF5gKl81zMnQAAAABJRU5ErkJggg==',
+  speaker2: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNIK372HwAFwQK/DYV5SAAAAABJRU5ErkJggg==',
+  qr: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg==',
+});
 
-async function avatar(color) {
-  return sharp({ create: { width: 1024, height: 1024, channels: 4, background: color } }).png().toBuffer();
-}
-
-async function qr() {
-  const size = 512;
-  const buffer = Buffer.alloc(size * size * 4);
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const dark = ((x >> 4) + (y >> 4)) % 2 === 0;
-      const offset = (y * size + x) * 4;
-      const value = dark ? 0 : 255;
-      buffer[offset] = value;
-      buffer[offset + 1] = value;
-      buffer[offset + 2] = value;
-      buffer[offset + 3] = 255;
-    }
-  }
-  return sharp(buffer, { raw: { width: size, height: size, channels: 4 } }).jpeg({ quality: 95 }).toBuffer();
+function fixturePng(key) {
+  return Buffer.from(PNGS[key], 'base64');
 }
 
 async function main() {
@@ -66,11 +54,10 @@ async function main() {
     template,
     payload,
     assets: {
-      chairAvatar: await avatar([230, 89, 89, 255]),
-      speaker1Avatar: await avatar([89, 230, 102, 255]),
-      speaker2Avatar: await avatar([102, 115, 230, 255]),
-      // JPEG on purpose: renderer must normalize runtime QR input before embedding it into SVG.
-      qrCode: await qr(),
+      chairAvatar: fixturePng('chair'),
+      speaker1Avatar: fixturePng('speaker1'),
+      speaker2Avatar: fixturePng('speaker2'),
+      qrCode: fixturePng('qr'),
     },
   });
 
