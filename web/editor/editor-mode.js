@@ -97,7 +97,6 @@
     }
 
     slot.addEventListener('click', openAvatarEditor);
-    slot.addEventListener('dblclick', openAvatarEditor);
     document.addEventListener('avatar-crop-applied', event => {
       if (event.detail?.key === key) syncPreview();
     });
@@ -127,7 +126,6 @@
   }
 
   qrSlot.addEventListener('click', openQrEditor);
-  qrSlot.addEventListener('dblclick', openQrEditor);
   document.addEventListener('qr-crop-applied', event => {
     const url = event.detail?.previewUrl;
     if (!url) return;
@@ -142,31 +140,11 @@
   document.addEventListener('dblclick', event => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target || !poster.contains(target)) return;
-
     const preview = target.closest('.poster-preview-text');
-    if (preview) {
-      event.preventDefault();
-      event.stopPropagation();
-      window.posterTextLayout?.beginInlineEdit?.(preview.dataset.previewTextId);
-      return;
-    }
-
-    if (!poster.classList.contains('is-asset-layout-mode')) return;
-    const slot = target.closest('.canvas-asset-slot');
-    if (!slot) return;
+    if (!preview) return;
     event.preventDefault();
     event.stopPropagation();
-    const key = slot.dataset.key;
-    if (key === 'qr') {
-      openSection('qr');
-      if (window.posterQrCrop?.open) window.posterQrCrop.open();
-      else if (!qrInput?.files?.length) qrInput?.click();
-      return;
-    }
-    const file = document.getElementById(`${key}-file`);
-    openSection('people');
-    if (window.posterAvatarCrop?.open) window.posterAvatarCrop.open(key);
-    else if (!file?.files?.length) file?.click();
+    window.posterTextLayout?.beginInlineEdit?.(preview.dataset.previewTextId);
   }, true);
 
   document.getElementById('collapseInspector')?.addEventListener('click', collapseInspector);
