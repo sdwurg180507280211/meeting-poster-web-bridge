@@ -124,35 +124,6 @@ function setLayerVisible(doc, names, visible) {
   return layer;
 }
 
-function findAllLayers(doc, names) {
-  const candidates = Array.isArray(names) ? names : [names];
-  const wanted = new Set(candidates);
-  return walkLayers(doc.layers, []).filter((layer) => wanted.has(layer.name));
-}
-
-// 日程格文字写入 + 可见性，显式处理「正常层 / *_默认隐藏 占位层」互斥：
-// - 有数据：正常层写入并显示，占位层隐藏（防止占位“xxx 教授”残留）
-// - 无数据：所有候选层隐藏并清空（完全不显示占位）
-function setScheduleCell(doc, names, text) {
-  const all = findAllLayers(doc, names);
-  if (!all.length) throw new Error(`未找到图层：${displayName(names)}`);
-  const hasData = Boolean(String(text == null ? '' : text).trim());
-  for (const layer of all) {
-    const isPlaceholder = layer.name.endsWith('_默认隐藏');
-    if (hasData) {
-      if (isPlaceholder) {
-        layer.visible = false;
-      } else {
-        if (layer.kind === LayerKind.TEXT) layer.textItem.contents = String(text);
-        layer.visible = true;
-      }
-    } else {
-      layer.visible = false;
-      if (layer.kind === LayerKind.TEXT) layer.textItem.contents = '';
-    }
-  }
-}
-
 function snapshotTextMetrics(doc, names) {
   const layer = findLayer(doc, names);
   if (!layer || layer.kind !== LayerKind.TEXT) return null;
@@ -354,11 +325,15 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
 
       for (let i = 0; i < spec.SCHEDULE_ROWS; i += 1) {
         const row = meeting.schedule[i] || {};
-        setScheduleCell(doc, spec.LAYERS.TEXT.scheduleTime(i), row.time || '');
-        setScheduleCell(doc, spec.LAYERS.TEXT.scheduleContent(i), row.content || '');
-        setScheduleCell(doc, spec.LAYERS.TEXT.scheduleSpeaker(i), row.speaker || '');
-        setScheduleCell(doc, spec.LAYERS.TEXT.scheduleChair(i), row.chair || '');
-        setScheduleCell(doc, spec.LAYERS.TEXT.scheduleDot(i), row.content || '');
+        setTextLayer(doc, spec.LAYERS.TEXT.scheduleTime(i), row.time || '');
+        setTextLayer(doc, spec.LAYERS.TEXT.scheduleContent(i), row.content || '');
+        setTextLayer(doc, spec.LAYERS.TEXT.scheduleSpeaker(i), row.speaker || '');
+        setTextLayer(doc, spec.LAYERS.TEXT.scheduleChair(i), row.chair || '');
+        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleTime(i), Boolean(row.time));
+        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleContent(i), Boolean(row.content));
+        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleSpeaker(i), Boolean(row.speaker));
+        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleChair(i), Boolean(row.chair));
+        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleDot(i), Boolean(row.content));
       }
 
       onProgress('替换头像：网页成品固定映射');
