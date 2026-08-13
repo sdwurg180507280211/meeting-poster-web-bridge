@@ -14,15 +14,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --check web/text-layout-profiles.js
-      - run: node --check web/project-registry.js
+      - run: node --check web/project/text-layout-profiles.js
+      - run: node --check web/project/project-registry.js
       - name: Verify project text layout wiring
         run: |
           node - <<'NODE'
           const fs = require('fs');
           const html = fs.readFileSync('web/index.html', 'utf8');
-          const registry = fs.readFileSync('web/project-registry.js', 'utf8');
-          const profiles = fs.readFileSync('web/text-layout-profiles.js', 'utf8');
+          const registry = fs.readFileSync('web/project/project-registry.js', 'utf8');
+          const profiles = fs.readFileSync('web/project/text-layout-profiles.js', 'utf8');
 
           const posterProjectIndex = html.indexOf('poster-project.js');
           const profilesIndex = html.indexOf('text-layout-profiles.js');

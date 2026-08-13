@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="description" content="系列会议海报在线编辑与 Photoshop PSD 生成工具。" />
   <title>系列会议海报编辑器</title>
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="crop-modal.css" />
-  <link rel="stylesheet" href="compact-controls.css" />
-  <link rel="stylesheet" href="poster-base.css" />
-  <link rel="stylesheet" href="poster-text.css" />
-  <link rel="stylesheet" href="asset-layout.css" />
-  <link rel="stylesheet" href="interaction-polish.css" />
-  <link rel="stylesheet" href="canvas-pan.css" />
-  <link rel="stylesheet" href="workspace-layout.css" />
-  <link rel="stylesheet" href="preflight.css" />
-  <link rel="stylesheet" href="task-controls.css" />
-  <link rel="stylesheet" href="project-switcher.css" />
+  <link rel="stylesheet" href="styles/styles.css" />
+  <link rel="stylesheet" href="media/crop-modal.css" />
+  <link rel="stylesheet" href="styles/compact-controls.css" />
+  <link rel="stylesheet" href="styles/poster-base.css" />
+  <link rel="stylesheet" href="editor/poster-text.css" />
+  <link rel="stylesheet" href="editor/asset-layout.css" />
+  <link rel="stylesheet" href="editor/interaction-polish.css" />
+  <link rel="stylesheet" href="editor/canvas-pan.css" />
+  <link rel="stylesheet" href="editor/workspace-layout.css" />
+  <link rel="stylesheet" href="service/preflight.css" />
+  <link rel="stylesheet" href="service/task-controls.css" />
+  <link rel="stylesheet" href="project/project-switcher.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -196,7 +196,7 @@
     </div>
   </div>
 
-  <script src="validation.js"></script>
+  <script src="core/validation.js"></script>
   <script
     src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.2/dist/umd/supabase.js"
     integrity="sha384-OUpie84zd1LdwNlK9uJJQRwab0BLqo3eKYKFh7hSVL58FSk7wPp2l0kfUMIIoaQd"
@@ -205,26 +205,26 @@
   ></script>
   <script src="https://cdn.jsdelivr.net/npm/moveable@0.53.0/dist/moveable.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="config.js"></script>
-  <script src="poster-project.js"></script>
-  <script src="asset-layout-profiles.js"></script>
-  <script src="text-layout-profiles.js"></script>
-  <script src="project-registry.js"></script>
-  <script src="app.js"></script>
-  <script src="fixed-defaults.js"></script>
-  <script src="service-status.js"></script>
-  <script src="draft-persistence.js"></script>
-  <script src="time-controls.js"></script>
-  <script src="editor-mode.js"></script>
-  <script src="poster-preview.js"></script>
-  <script src="asset-layout.js"></script>
-  <script src="selection-polish.js"></script>
-  <script src="avatar-crop-modal.js"></script>
-  <script src="qr-crop-modal.js"></script>
-  <script src="agenda-professor.js"></script>
-  <script src="interaction-polish.js"></script>
-  <script src="canvas-pan.js"></script>
-  <script src="workspace-layout.js"></script>
-  <script src="preflight.js"></script>
-  <script src="task-controls.js"></script>
+  <script src="project/poster-project.js"></script>
+  <script src="project/asset-layout-profiles.js"></script>
+  <script src="project/text-layout-profiles.js"></script>
+  <script src="project/project-registry.js"></script>
+  <script src="core/app.js"></script>
+  <script src="core/fixed-defaults.js"></script>
+  <script src="service/service-status.js"></script>
+  <script src="core/draft-persistence.js"></script>
+  <script src="editor/time-controls.js"></script>
+  <script src="editor/editor-mode.js"></script>
+  <script src="editor/poster-preview.js"></script>
+  <script src="editor/asset-layout.js"></script>
+  <script src="editor/selection-polish.js"></script>
+  <script src="media/avatar-crop-modal.js"></script>
+  <script src="media/qr-crop-modal.js"></script>
+  <script src="editor/agenda-professor.js"></script>
+  <script src="editor/interaction-polish.js"></script>
+  <script src="editor/canvas-pan.js"></script>
+  <script src="editor/workspace-layout.js"></script>
+  <script src="service/preflight.js"></script>
+  <script src="service/task-controls.js"></script>
 </body>
 </html>
