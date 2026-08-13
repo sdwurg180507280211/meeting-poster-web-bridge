@@ -112,10 +112,6 @@
 }
 .text-layout-tools button:hover:not(:disabled){background:#eef0ff;color:#4f5bc4}
 .text-layout-tools button:disabled{opacity:.28;cursor:default}
-.text-layout-tools [data-align],
-.text-layout-tools .text-layout-divider{
-  display:none!important;
-}
 .text-layout-count{
   flex:none;
   min-width:48px;
