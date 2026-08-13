@@ -17,10 +17,11 @@
     "@resvg/resvg-js": "2.6.2",
     "@supabase/supabase-js": "2.112.2",
     "dotenv": "16.6.1",
-    "fontkit": "2.0.4",
-    "sharp": "0.35.3"
+    "fontkit": "2.0.4"
   },
   "optionalDependencies": {
+    "@resvg/resvg-js-darwin-arm64": "2.6.2",
+    "@resvg/resvg-js-darwin-x64": "2.6.2",
     "@resvg/resvg-js-linux-x64-gnu": "2.6.2"
   }
 }
