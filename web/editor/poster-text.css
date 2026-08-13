@@ -10,6 +10,9 @@
   user-select:none;
   box-sizing:border-box;
 }
+.stage-area:has(.text-layout-mode-btn:disabled) .poster-preview-text{
+  visibility:hidden;
+}
 .poster-preview-text:hover{
   outline:1px solid rgba(89,102,220,.28);
   outline-offset:1px;
