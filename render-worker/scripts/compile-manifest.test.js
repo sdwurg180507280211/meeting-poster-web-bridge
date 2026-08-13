@@ -4,7 +4,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
-const { compileManifest, slotFrom, widthFromBounds } = require('./compile-manifest');
+const {
+  compileManifest,
+  slotFrom,
+  TEXT_MAX_WIDTH,
+  SCHEDULE_MAX_WIDTH,
+} = require('./compile-manifest');
 
 function textLayer(name, position, bounds, extras = {}) {
   return {
@@ -26,24 +31,26 @@ function textLayer(name, position, bounds, extras = {}) {
   };
 }
 
-test('slotFrom keeps PSD baseline and derives maxWidth from outer layer bounds', () => {
+test('slotFrom keeps PSD baseline typography but does not infer maxWidth from current ink bounds', () => {
   const layer = textLayer('主席姓名', [419, 701], [358, 683, 479, 704], {
     font: 'PingFangSC-Semibold',
     sizePx: 21,
     tracking: 90,
     justification: 'Justification.CENTER',
   });
-  const slot = slotFrom(layer, { source: 'chair.name', suffix: ' 教授' });
+  const slot = slotFrom(layer, { source: 'chair.name', suffix: ' 教授', maxWidth: TEXT_MAX_WIDTH.chairName });
   assert.equal(slot.x, 419);
   assert.equal(slot.y, 701);
-  assert.equal(slot.maxWidth, 121);
+  assert.equal(slot.maxWidth, 172);
   assert.equal(slot.weight, 'semibold');
   assert.equal(slot.align, 'center');
   assert.equal(slot.suffix, ' 教授');
 });
 
-test('widthFromBounds reads the layer bounds instead of the text payload', () => {
-  assert.equal(widthFromBounds({ bounds: [82, 1164, 372, 1180] }), 290);
+test('formal width limits are independent from placeholder text length', () => {
+  assert.deepEqual(SCHEDULE_MAX_WIDTH, { time: 122, content: 190, speaker: 132, chair: 128 });
+  assert.equal(TEXT_MAX_WIDTH.meetingTime, 470);
+  assert.equal(TEXT_MAX_WIDTH.chairHospital, 194);
 });
 
 test('compileManifest preserves optional schedule cells instead of turning initial visibility into a permanent rule', () => {
@@ -57,10 +64,11 @@ test('compileManifest preserves optional schedule cells instead of turning initi
     '第三行_时间', '第三行_内容', '第三行_讲者', '第三行_主席_默认隐藏', '第三行_圆点',
     '第四行_时间', '第四行_内容', '第四行_讲者_默认隐藏', '第四行_主席', '第四行_圆点_默认隐藏',
   ];
-  const texts = names.map((name, index) => textLayer(name, [100 + index, 200 + index], [0, 0, 80, 20], {
+  const texts = names.map((name, index) => textLayer(name, [100 + index, 200 + index], [0, 0, index + 10, 20], {
     visible: !name.includes('默认隐藏'),
     font: name.includes('标题') || name.includes('表头') || name.includes('圆点') ? 'PingFangSC-Semibold' : 'PingFangSC-Regular',
     justification: name.includes('内容') ? 'Justification.LEFT' : 'Justification.CENTER',
+    contents: index % 2 ? 'x' : '这是完全不同长度的示例文字',
   }));
   const layers = [
     ...texts,
@@ -75,6 +83,9 @@ test('compileManifest preserves optional schedule cells instead of turning initi
   assert.ok(manifest.schedule.rows[1].chair);
   assert.ok(manifest.schedule.rows[3].speaker);
   assert.ok(manifest.schedule.rows[3].dot);
+  assert.equal(manifest.schedule.rows[0].content.maxWidth, 190);
+  assert.equal(manifest.schedule.rows[3].speaker.maxWidth, 132);
+  assert.equal(manifest.texts.meetingTime.maxWidth, 470);
   assert.equal(manifest.texts.meetingTime.prefix, '会议时间：');
   assert.equal(manifest.texts.chairName.suffix, ' 教授');
 });
