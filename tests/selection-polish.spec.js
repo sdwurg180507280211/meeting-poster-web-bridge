@@ -14,6 +14,7 @@ function fakeJwt() {
 
 async function installMock(page) {
   const token = fakeJwt();
+  let textLayoutRow = null;
   await page.addInitScript(({ projectRef, userId, accessToken }) => {
     localStorage.setItem(`sb-${projectRef}-auth-token`, JSON.stringify({
       access_token: accessToken,
@@ -47,6 +48,17 @@ async function installMock(page) {
         worker_status: 'ready',
       }) });
     }
+    if (url.pathname === '/rest/v1/poster_project_text_layouts') {
+      if (request.method() === 'GET') {
+        const rows = textLayoutRow ? [{ layout: textLayoutRow.layout }] : [];
+        return route.fulfill({ status: 200, headers: { ...headers, 'content-range': `0-${Math.max(0, rows.length - 1)}/${rows.length}` }, body: JSON.stringify(rows) });
+      }
+      if (request.method() === 'POST' || request.method() === 'PATCH') {
+        const body = request.postDataJSON();
+        textLayoutRow = Array.isArray(body) ? body[0] : body;
+        return route.fulfill({ status: 201, headers, body: '{}' });
+      }
+    }
     if (url.pathname === '/rest/v1/poster_jobs') {
       return route.fulfill({ status: 200, headers: { ...headers, 'content-range': '0-0/0' }, body: '[]' });
     }
@@ -62,6 +74,7 @@ async function ready(page) {
   await page.waitForFunction(() => Boolean(
     window.posterTextLayout && window.posterAssetLayout && window.posterSelectionPolish && window.Moveable
   ));
+  await expect.poll(() => page.evaluate(() => window.posterTextLayout.isReady())).toBe(true);
 }
 
 async function enableText(page) {
