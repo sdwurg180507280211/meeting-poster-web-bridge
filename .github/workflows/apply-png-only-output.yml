@@ -181,30 +181,6 @@ jobs:
               text = text.replace(old, new, 1)
           readme.write_text(text)
 
-          workflow = Path('.github/workflows/verify-render-contract.yml')
-          text = workflow.read_text()
-          marker = "          if (!agent.includes(\"sb.rpc('recover_stale_poster_jobs'\")) throw new Error('Agent must use the current recovery RPC');\n"
-          addition = marker + """
-
-                    const schema = fs.readdirSync('supabase')
-                      .filter(name => name.endsWith('.sql'))
-                      .map(name => fs.readFileSync(`supabase/${name}`, 'utf8'))
-                      .join('\\n');
-                    for (const [label, source] of [
-                      ['Agent', agent], ['Worker', worker], ['Engine', engine], ['Web app', app], ['Schema', schema],
-                    ]) {
-                      for (const token of ['result_psd_path', 'psdFileName', 'saveAs.psd', 'poster.psd', '下载 PSD', '保存 PSD 与 PNG']) {
-                        if (source.includes(token)) throw new Error(`${label} still contains obsolete PSD result output: ${token}`);
-                      }
-                    }
-                    if (!engine.includes('await doc.saveAs.png(output.pngEntry')) throw new Error('Engine must save the final poster as PNG');
-                    if (!agent.includes("contentType: 'image/png'")) throw new Error('Agent must upload the PNG result');
-                    if (!app.includes('bucket.createSignedUrl(job.result_png_path, 1800)')) throw new Error('Web app must load the PNG result');
-          """
-          if text.count(marker) != 1:
-              raise SystemExit('verify-render-contract.yml: insertion marker not found exactly once')
-          workflow.write_text(text.replace(marker, addition, 1))
-
           forbidden = ['result_psd_path', 'psdFileName', 'saveAs.psd', 'poster.psd', '下载 PSD', '保存 PSD 与 PNG']
           for path in [
               Path('photoshop-worker/src/ps-engine.js'),
@@ -227,9 +203,8 @@ jobs:
           git diff --check
       - name: Commit refactor
         run: |
-          rm .github/workflows/apply-png-only-output.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
+          git add README.md photoshop-worker/src/ps-engine.js photoshop-worker/src/worker.js mac-agent/src/agent.js web/core/app.js supabase
           git commit -m 'refactor: generate PNG poster only'
           git push origin HEAD:refactor/png-only-poster-output
