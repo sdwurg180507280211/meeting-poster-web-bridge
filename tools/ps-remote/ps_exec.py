@@ -8,7 +8,7 @@ password = os.environ.get('PS_PASSWORD') or '123456'
 host, port = '127.0.0.1', 49494
 
 s = socket.create_connection((host, port), timeout=10)
-s.settimeout(60)
+s.settimeout(180)
 proto = Protocol(password)
 
 script = open(script_path, encoding='utf-8').read()
