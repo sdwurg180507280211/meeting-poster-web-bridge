@@ -43,10 +43,6 @@
     return validation.createUuid(window.crypto);
   }
   function val(id) { return document.getElementById(id).value.trim(); }
-  // 姓名未填时职称/医院不随行显示，避免“教授”残留（fixed-defaults 将职称固定为“教授”）。
-  function person(name, title, hospital) {
-    return { name, title: name ? title : '', hospital: name ? hospital : '' };
-  }
   function safeDownloadName(name) {
     return (String(name || '系列会议海报').trim() || '系列会议海报').replace(/[\\/:*?"<>|]/g, '_');
   }
@@ -258,10 +254,10 @@
     return {
       meetingTime: document.getElementById('meetingTime').value.trim(),
       meetingLocation: document.getElementById('meetingLocation').value.trim(),
-      chair: person(val('chair-name'), val('chair-title'), val('chair-hospital')),
+      chair: { name: val('chair-name'), title: val('chair-title'), hospital: val('chair-hospital') },
       speakers: [
-        person(val('speaker1-name'), val('speaker1-title'), val('speaker1-hospital')),
-        person(val('speaker2-name'), val('speaker2-title'), val('speaker2-hospital'))
+        { name: val('speaker1-name'), title: val('speaker1-title'), hospital: val('speaker1-hospital') },
+        { name: val('speaker2-name'), title: val('speaker2-title'), hospital: val('speaker2-hospital') }
       ],
       schedule,
       outputName: document.getElementById('outputName').value.trim() || '系列会议海报'
