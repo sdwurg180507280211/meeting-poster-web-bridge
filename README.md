@@ -23,22 +23,18 @@ Browser
 - 同护健康
 - 同心护健
 
-三个项目共用同一套会议字段和 Photoshop 图层结构，但分别拥有：
-
-- 自己的 Web 底板
-- 自己的 Web 文字布局
-- 自己的头像 / 二维码布局
-- 自己绑定的本地 PSD 文件
+三个项目共用同一套会议字段和 Photoshop 图层结构，但分别拥有自己的 Web 底板、Web 文字布局、头像 / 二维码布局和本地 PSD 绑定。
 
 网页文字位置和缩放只用于预览；文字内容同步 PSD。头像和二维码的位置 / 尺寸由当前项目的 `assetPreview` 生成 Render Contract，并同步 Photoshop。
 
 ## 目录
 
 - `web/`：浏览器编辑器。
-- `supabase/`：数据库、RLS、任务租约、Render Protocol v2 和任务控制 schema。
+- `supabase/schema.sql`：当前数据库唯一 schema，包含 RLS、任务租约、Render Protocol v2、任务控制和文字布局存储。
 - `mac-agent/`：Supabase ↔ 本机文件搬运、任务认领、租约、恢复和结果上传。
-- `photoshop-worker/`：Photoshop UXP Worker，负责严格校验 PSD 母版并生成 PNG 海报。
+- `photoshop-worker/`：Photoshop UXP Worker，负责严格校验本地 PSD 母版并生成 PNG 海报。
 - `tests/`：Playwright 浏览器 E2E。
+- `tools/ps-remote/`：按需从 Photoshop 提取母版信息的维护工具，不参与生产运行。
 
 ## 1. 环境要求
 
@@ -49,16 +45,13 @@ Browser
 
 ## 2. Supabase
 
-从空项目部署时按仓库现有 schema 文件顺序执行：
+空项目只执行一份当前 schema：
 
-1. `supabase/001_poster_jobs.sql`
-2. `supabase/002_poster_service_status.sql`
-3. `supabase/003_poster_security_hardening.sql`
-4. `supabase/004_baked_avatar_render_contract.sql`
-5. `supabase/005_preflight_and_job_controls.sql`
-6. `supabase/006_restrict_preflight_rpc.sql`
+```text
+supabase/schema.sql
+```
 
-Authentication 启用 **Anonymous Sign-Ins**。
+仓库不保留历史升级 SQL 或兼容层；Git 历史负责保存演进记录。Authentication 启用 **Anonymous Sign-Ins**。
 
 网页只使用 Publishable Key；Mac Agent 只使用 `SUPABASE_SECRET_KEY`。Secret Key 严禁进入 `web/`。
 
@@ -101,6 +94,8 @@ python3 -m http.server 5173
 - 文字：单选 / Ctrl(Cmd) 多选、框选、拖动、单项等比缩放、方向键 1px、Shift + 方向键 10px、撤销 / 重做。
 - 头像 / 二维码：单选 / Ctrl(Cmd) 多选、拖动、单项等比缩放、方向键 1px、Shift + 方向键 10px、撤销 / 重做。
 
+布局工具只处理位置和尺寸。关闭布局工具后点击头像或二维码进入素材裁剪；开启布局工具时双击素材也不会切换到裁剪操作。
+
 文字布局自动保存到当前项目的云端文字布局记录，但不会覆盖 PSD 中的文字位置。素材布局写入当前项目 `assetPreview`，提交时进入 Render Contract，因此会同步到 Photoshop。
 
 ## 4. 头像规则
@@ -123,7 +118,7 @@ python3 -m http.server 5173
 - PNG
 - `crop = { zoom: 1, offsetX: 0, offsetY: 0 }`
 
-裁剪状态只存在于裁剪弹窗；提交协议、Agent 和 Worker 都不支持 raw avatar。
+裁剪状态只存在于裁剪弹窗；提交协议、Agent 和 Worker 都只接受当前 baked avatar 契约。
 
 ## 5. Mac Agent
 
@@ -153,17 +148,9 @@ Agent 使用当前数据库契约：
 - 任务 lease 字段
 - Render Protocol v2
 
-启动时数据库能力不可用即启动失败，不会退回旧式 `select → update claimed` 接单模式。
+启动时数据库能力不可用即启动失败，不会退回旧式接单模式。
 
-Agent 当前包含：
-
-- 单实例锁
-- 原子任务认领
-- claimed / rendering / uploading 租约
-- 过期任务恢复与最大尝试次数
-- 输入 MIME / 文件签名 / 大小校验
-- 输出路径 / 文件名 / 大小校验
-- 成功后本地清理
+Agent 当前包含：单实例锁、原子任务认领、租约、过期任务恢复、输入/输出校验和成功后的本地清理。
 
 ## 6. Photoshop Worker
 
@@ -182,51 +169,19 @@ photoshop-worker/install-external.command
 3. Worker 严格检查三份 PSD。
 4. 三份全部通过后才能自动接单。
 
-PSD 自检包括：
-
-- 837×1880 画布
-- 必要根级文件夹
-- 当前规范要求的文字、头像、二维码和固定图层名
-- 头像和二维码目标必须为智能对象
-
-Worker 不修复旧图层名，也不接受旧单模板设置。PSD 不符合当前结构时直接报错。
+PSD 自检包括 837×1880 画布、必要根级文件夹、当前规范图层名，以及头像和二维码目标智能对象。Worker 不修复旧图层名，也不回退到旧单模板设置；PSD 不符合当前结构时直接报错。
 
 ## 7. 系统自检
 
-点击顶部生成服务状态打开系统自检，检查：
-
-- Web 运行版本
-- Render Protocol v2
-- 当前项目画布
-- 时间组件
-- Supabase capability RPC
-- Render Contract trigger
-- 任务控制 RPC
-- Storage bucket
-- Mac Agent 心跳
-- Photoshop Worker 状态
-- PSD 母版状态
-
-出现阻断项时不应提交任务。
+系统自检检查 Web 版本、Render Protocol v2、当前项目、Supabase capability、Render Contract trigger、任务控制、Storage、Mac Agent、Photoshop Worker 和 PSD 母版状态。出现阻断项时不应提交任务。
 
 ## 8. 任务状态与下载
 
 ```text
-pending
-→ claimed
-→ rendering
-→ uploading
-→ succeeded
+pending → claimed → rendering → uploading → succeeded
 ```
 
-终态：
-
-```text
-failed
-cancelled
-```
-
-任务控制：
+终态：`failed`、`cancelled`。
 
 - `pending`：可取消。
 - `claimed / rendering / uploading`：不暴力中断。
@@ -245,21 +200,13 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-GitHub Actions 验证：
+GitHub Actions 只保留 `.github/workflows/verify.yml`，分为：
 
-- Mac Agent 单元测试
-- Web / Agent / Worker JavaScript 语法
-- 当前-only 协议：无旧 DB fallback、无 raw avatar、无 PSD 旧层名修复、无任务重试入口
-- Render Contract v2
-- 多项目 PSD 路由
-- 项目文字 / 素材布局
-- 统一布局工具与选择状态
-- 默认双击文字编辑
-- 画布平移和缩放
-- 系统自检与任务控制
-- Chromium Playwright E2E
+- `agent-tests`：Mac Agent 单元测试。
+- `contracts`：所有 JavaScript 语法和当前架构静态契约。
+- `browser-e2e`：完整 Chromium Playwright E2E。
 
-E2E 拦截 Supabase API，不写生产任务或生产 Storage。
+静态契约重点防止旧 DB fallback、旧任务重试、PSD 结果输出、旧头像协议和重复工具重新进入主分支；E2E 覆盖多项目、布局、选择、文字编辑、画布交互、系统自检和任务控制。E2E 拦截 Supabase API，不写生产任务或生产 Storage。
 
 ## 10. 生产运行
 

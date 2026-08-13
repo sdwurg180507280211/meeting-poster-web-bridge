@@ -1,0 +1,152 @@
+name: Verify
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  agent-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mac-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mac-agent/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          find web mac-agent/src photoshop-worker tests -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --check playwright.config.js
+      - name: Verify current architecture contract
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const read = path => fs.readFileSync(path, 'utf8');
+          const must = (ok, message) => { if (!ok) throw new Error(message); };
+
+          const workflowFiles = fs.readdirSync('.github/workflows').filter(name => name.endsWith('.yml')).sort();
+          must(JSON.stringify(workflowFiles) === JSON.stringify(['verify.yml']), `expected one workflow, got ${workflowFiles.join(', ')}`);
+
+          const sqlFiles = fs.readdirSync('supabase').filter(name => name.endsWith('.sql')).sort();
+          must(JSON.stringify(sqlFiles) === JSON.stringify(['schema.sql']), `expected one current schema, got ${sqlFiles.join(', ')}`);
+          must(!fs.existsSync('tools/psd-template/generate.psjs'), 'obsolete PSD generator must not stay in main');
+          must(!fs.existsSync('tools/ps-remote/template-dump-20260813.json'), 'one-off template dump must not stay in main');
+          must(!fs.existsSync('photoshop-worker/icons/icon@1x.png'), 'duplicate UXP icon must not stay in main');
+
+          const schema = read('supabase/schema.sql');
+          for (const token of [
+            'create table public.poster_jobs',
+            'create table public.poster_service_status',
+            'create table public.poster_project_text_layouts',
+            'private.enforce_poster_render_contract_v2',
+            'public.claim_next_poster_job',
+            'public.recover_stale_poster_jobs',
+            'public.cancel_poster_job',
+            'public.poster_preflight',
+            "'cancelled'",
+            "'schemaVersion', 5",
+            "'renderProtocolVersion', 2",
+          ]) must(schema.includes(token), `schema missing ${token}`);
+          for (const obsolete of ['retry_poster_job', 'result_psd_path', "'raw'", 'image/vnd.adobe.photoshop']) {
+            must(!schema.includes(obsolete), `obsolete schema artifact remains: ${obsolete}`);
+          }
+          must(/grant execute on function public\.poster_preflight\(text\) to authenticated;/i.test(schema), 'preflight must be authenticated-only');
+          must(!/grant execute on function public\.poster_preflight\(text\) to anon/i.test(schema), 'preflight must not be executable by anon');
+
+          const agent = read('mac-agent/src/agent.js');
+          const worker = read('photoshop-worker/src/worker.js');
+          const engine = read('photoshop-worker/src/ps-engine.js');
+          const validation = read('web/core/validation.js');
+          const app = read('web/core/app.js');
+          const draft = read('web/core/draft-persistence.js');
+          for (const token of ['legacyClaimOne', 'legacyRecoverClaimedJobs', 'warnMigrationRequired', 'isMissingRpcError', 'findLegacyAgentProcesses']) {
+            must(!agent.includes(token), `agent compatibility path remains: ${token}`);
+          }
+          must(agent.includes("sb.rpc('claim_next_poster_job'"), 'agent must atomically claim jobs');
+          must(agent.includes("sb.rpc('recover_stale_poster_jobs'"), 'agent must recover stale jobs');
+          must(!/result_psd_path|pngFileName.*psdFileName|psdFileName.*pngFileName/s.test(agent + worker + engine), 'PSD result output must not return');
+          must(worker.includes("asset.cropMode!=='baked'"), 'worker must accept baked avatars only');
+          must(validation.includes("value.cropMode !== 'baked'"), 'browser validation must require baked avatars');
+          must(app.includes("cropMode: 'baked'"), 'browser submission must emit baked avatars');
+          must(!/cropMode\s*===?\s*['"]raw|cropMode\s*==\s*null\s*\?\s*['"]raw/i.test(worker + engine + validation + app + draft), 'raw avatar compatibility must not return');
+
+          const html = read('web/index.html');
+          const registry = read('web/project/project-registry.js');
+          const assetProfiles = read('web/project/asset-layout-profiles.js');
+          const textProfiles = read('web/project/text-layout-profiles.js');
+          const posterProject = read('web/project/poster-project.js');
+          const workerProjects = read('photoshop-worker/src/projects.js');
+          const layoutTool = read('web/editor/layout-tool.js');
+          const textLayout = read('web/editor/poster-preview.js');
+          const assetLayout = read('web/editor/asset-layout.js');
+          const selection = read('web/editor/selection-polish.js');
+          const editorMode = read('web/editor/editor-mode.js');
+          const preflight = read('web/service/preflight.js');
+          const controls = read('web/service/task-controls.js');
+
+          const orderedScripts = ['poster-project.js', 'asset-layout-profiles.js', 'text-layout-profiles.js', 'project-registry.js', 'editor-mode.js', 'poster-preview.js', 'asset-layout.js', 'layout-tool.js', 'selection-polish.js'];
+          let previous = -1;
+          for (const script of orderedScripts) {
+            const current = html.indexOf(script);
+            must(current > previous, `script order is invalid around ${script}`);
+            previous = current;
+          }
+
+          const projects = [
+            ['chronic-care-2026', '医路长安', 'yilu-changan-assets-v1', 'yilu-changan-text-v1'],
+            ['tonghu-jiankang', '同护健康', 'tonghu-jiankang-assets-v1', 'tonghu-jiankang-text-v1'],
+            ['tongxin-hujian', '同心护健', 'tongxin-hujian-assets-v1', 'tongxin-hujian-text-v1'],
+          ];
+          for (const [id, name, assetProfile, textProfile] of projects) {
+            must(registry.includes(id) && registry.includes(name), `web registry missing ${id}`);
+            must(workerProjects.includes(id) && workerProjects.includes(name), `worker registry missing ${id}`);
+            must(registry.includes(`assetLayoutProfile: '${assetProfile}'`) && assetProfiles.includes(`'${assetProfile}': createProfile('${assetProfile}')`), `asset profile missing ${id}`);
+            must(registry.includes(`textLayoutProfile: '${textProfile}'`) && textProfiles.includes(`'${textProfile}': createProfile('${textProfile}')`), `text profile missing ${id}`);
+          }
+          must(registry.includes("DEFAULT_PROJECT_ID = 'chronic-care-2026'"), 'default project changed unexpectedly');
+          must(posterProject.includes('project.buildRenderContract') && posterProject.includes('posterProject.assetPreview'), 'render contract must read active project geometry');
+          must(layoutTool.includes('window.posterLayoutTool') && layoutTool.includes("activate('asset')") && layoutTool.includes("activate('text')"), 'unified layout tool wiring is incomplete');
+          must(textLayout.includes('clearSelection,') && assetLayout.includes('clearSelection,'), 'layout modules must expose clearSelection');
+          must(selection.includes('context.api.clearSelection()'), 'selection coordinator must use clearSelection directly');
+          must(editorMode.includes("document.addEventListener('dblclick'") && editorMode.includes('.poster-preview-text'), 'text must remain directly editable by double click');
+          must(!editorMode.includes("slot.addEventListener('dblclick'") && !editorMode.includes("qrSlot.addEventListener('dblclick'"), 'asset crop editing must stay separate from geometry mode');
+          must(preflight.includes("rpc('poster_preflight'") && preflight.includes('window.POSTER_APP_CLIENT'), 'preflight must use the authenticated app client');
+          must(controls.includes("rpc('cancel_poster_job'") && !/retry_poster_job|重新生成/.test(controls), 'task controls must be cancel/download only');
+
+          const readme = read('README.md');
+          must(readme.includes('supabase/schema.sql'), 'README must point to the single current schema');
+          must(!/supabase\/00[1-7]_/.test(readme), 'README must not document historical SQL layers');
+          NODE
+
+  browser-e2e:
+    runs-on: ubuntu-latest
+    needs: contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

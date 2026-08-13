@@ -117,7 +117,7 @@ test('asset mode updates render source geometry with keyboard nudging', async ({
   expect(state.qr.top).toBe(1586);
 });
 
-test('double-clicking an avatar in asset mode reopens crop editing', async ({ page }) => {
+test('asset geometry mode stays separate from crop editing', async ({ page }) => {
   await page.goto('/?project=chronic-care-2026');
   await page.waitForFunction(() => Boolean(window.posterAssetLayout && window.posterAvatarCrop));
 
@@ -128,7 +128,13 @@ test('double-clicking an avatar in asset mode reopens crop editing', async ({ pa
   await expect(page.locator('#avatarCropModal')).toBeHidden();
 
   await enableAssets(page);
-  await page.locator('.canvas-asset-slot[data-key="chair"]').dblclick();
+  const chair = page.locator('.canvas-asset-slot[data-key="chair"]');
+  await chair.dblclick();
+  await expect(page.locator('#avatarCropModal')).toBeHidden();
+
+  await page.locator('[data-layout-mode]').click();
+  await expect.poll(() => page.evaluate(() => window.posterLayoutTool?.isEnabled?.())).toBe(false);
+  await chair.click();
   await expect(page.locator('#avatarCropModal')).toBeVisible();
 });
 
