@@ -79,8 +79,7 @@
       return name ? `${name} 教授` : item.placeholder || '';
     }
     if (source?.type === 'meetingDate') {
-      const date = value.split(/\s+/)[0] || '';
-      return date ? `会议时间：${date}` : item.placeholder || '';
+      return value ? `会议时间：${value}` : item.placeholder || '';
     }
     return value || item.placeholder || '';
   }
@@ -295,13 +294,13 @@
 
   function inlineInputFor(item) {
     if (!item?.source?.inputId) return null;
-    if (item.edit?.action === 'meetingTime' || item.edit?.action === 'scheduleTime') return null;
     return document.getElementById(item.source.inputId);
   }
 
   function normalizeInlineValue(item, text) {
     let value = String(text || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
     if (item.source?.type === 'personName') value = value.replace(/\s*教授\s*$/u, '').trim();
+    if (item.source?.type === 'meetingDate') value = value.replace(/^会议时间\s*[:：]\s*/u, '').trim();
     return value;
   }
 
@@ -324,6 +323,9 @@
         input.dispatchEvent(new Event('change', { bubbles: true }));
       } else {
         el.textContent = resolveText(item);
+      }
+      if (item.edit?.action === 'meetingTime' || item.edit?.action === 'scheduleTime') {
+        window.posterTimeControls?.restoreFromHidden?.();
       }
     } else {
       el.textContent = resolveText(item);
@@ -363,7 +365,13 @@
     destroyMoveable();
     el.classList.add('is-inline-editing');
     el.setAttribute('contenteditable', 'true');
-    el.dataset.inlinePlaceholder = item.source?.type === 'personName' ? '请输入姓名' : (item.placeholder || '请输入文字');
+    el.dataset.inlinePlaceholder = item.source?.type === 'personName'
+      ? '请输入姓名'
+      : item.source?.type === 'meetingDate'
+        ? '例如：2026年8月12日 19:00-21:30'
+        : item.edit?.action === 'scheduleTime'
+          ? '例如：19:00-19:30'
+          : (item.placeholder || '请输入文字');
     el.textContent = item.source?.type === 'personName'
       ? String(input.value || '').replace(/\s*教授\s*$/u, '').trim()
       : String(input.value || '');
