@@ -6,10 +6,8 @@
   const dock = button?.closest('.text-layout-dock');
   const textLayout = window.posterTextLayout;
   const assetLayout = window.posterAssetLayout;
-  const assetDock = document.querySelector('.asset-layout-dock');
   if (!poster || !button || !dock || !textLayout || !assetLayout) return;
 
-  if (assetDock) assetDock.hidden = true;
   const MOVEABLE_SELECTOR = '.moveable-control-box,.moveable-control,.moveable-line,.moveable-area';
   let active = false;
   let context = 'text';
