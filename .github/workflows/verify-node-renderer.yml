@@ -23,12 +23,18 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: render-worker/package-lock.json
-      - run: npm ci
+      - name: Regenerate lock with target-platform optional dependencies
+        run: npm install --include=optional --package-lock-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: render-worker-linux-lockfile
+          path: render-worker/package-lock.json
+      - run: npm install --include=optional
       - run: npm run check
       - run: npm test
       - name: Verify runtime is independent from Photoshop migration tools
         run: |
-          if grep -R -n -E 'mac-agent|photoshop-worker|tools/template-migration|\.psd\b' src; then
-            echo 'render-worker/src must not depend on removed desktop/PSD runtime paths'
+          if grep -R -n -E 'mac-agent|photoshop-worker|tools/template-migration|\.psd\b|sharp' src; then
+            echo 'render-worker/src must not depend on removed desktop/PSD/Sharp runtime paths'
             exit 1
           fi
