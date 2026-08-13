@@ -4,7 +4,7 @@
   const AVATAR_OUTPUT_SIZE = 1024;
 
   const agendaPlaceholders = [
-    ['00:00-00:00', '开场致辞', 'xxx 教授', 'xxx 教授'],
+    ['00:00-00:00', '开场致辞', '', 'xxx 教授'],
     ['00:00-00:00', 'xxxxx', 'xxx 教授', ''],
     ['00:00-00:00', 'xxxxx', 'xxx 教授', ''],
     ['00:00-00:00', '会议总结', '', 'xxx 教授'],
@@ -30,7 +30,7 @@
     { id: 'speaker2-name', source: { type: 'personName', inputId: 'speaker2-name' }, placeholder: '姓名 教授', x: 454, y: 1017, width: 174, fontSize: 22, fontWeight: 800, align: 'center', edit: { section: 'people', inputId: 'speaker2-name' } },
     { id: 'speaker2-hospital', source: { type: 'input', inputId: 'speaker2-hospital' }, placeholder: 'XXXXXXXXXXXX医院', x: 445, y: 1055, width: 192, fontSize: 18, fontWeight: 500, align: 'center', edit: { section: 'people', inputId: 'speaker2-hospital' } },
 
-    { id: 'meeting-time', source: { type: 'meetingDate', inputId: 'meetingTime' }, placeholder: '会议时间：2025年03月00日', x: 80, y: 1147, width: 470, fontSize: 22, fontWeight: 800, edit: { section: 'meeting', action: 'meetingTime' } },
+    { id: 'meeting-time', source: { type: 'meetingDate', inputId: 'meetingTime' }, placeholder: '会议时间：2026年8月12日 19:00-21:30', x: 80, y: 1147, width: 470, fontSize: 22, fontWeight: 800, edit: { section: 'meeting', action: 'meetingTime' } },
     { id: 'meeting-location', text: '会议地点：线上', x: 80, y: 1184, width: 290, fontSize: 22, fontWeight: 800, edit: { section: 'meeting' } },
 
     { id: 'agenda-head-time', text: '时间', x: 94, y: 1245, width: 90, fontSize: 23, fontWeight: 900, color: '#fff', edit: { section: 'schedule' } },
@@ -44,6 +44,7 @@
 
   agendaRows.forEach((y, rowIndex) => {
     agendaColumns.forEach((column, columnIndex) => {
+      if (rowIndex === 0 && column.key === 'speaker') return;
       textItems.push({
         id: `agenda-${rowIndex}-${column.key}`,
         source: { type: 'input', inputId: `s-${column.key}-${rowIndex}` },
