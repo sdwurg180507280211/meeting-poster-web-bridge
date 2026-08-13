@@ -54,6 +54,15 @@ jobs:
           must(!fs.existsSync('tools/ps-remote/template-dump-20260813.json'), 'one-off template dump must not stay in main');
           must(!fs.existsSync('photoshop-worker/icons/icon@1x.png'), 'duplicate UXP icon must not stay in main');
 
+          for (const obsolete of [
+            'web/editor/time-controls.js',
+            'web/editor/workspace-layout.js',
+            'web/editor/workspace-layout.css',
+            'web/service/task-controls.js',
+            'web/service/task-controls.css',
+            'web/styles/compact-controls.css',
+          ]) must(!fs.existsSync(obsolete), `obsolete inspector artifact remains: ${obsolete}`);
+
           const schema = read('supabase/schema.sql');
           for (const token of [
             'create table public.poster_jobs',
@@ -103,7 +112,14 @@ jobs:
           const selection = read('web/editor/selection-polish.js');
           const editorMode = read('web/editor/editor-mode.js');
           const preflight = read('web/service/preflight.js');
-          const controls = read('web/service/task-controls.js');
+
+          must(html.includes('canvas-command-bar') && html.includes('poster-data-form'), 'canvas-only shell is missing');
+          for (const obsolete of ['id="inspector"', 'inspector-tab', 'taskTab', 'historyList', 'toggleInspector', 'workspace-layout.js', 'task-controls.js', 'time-controls.js']) {
+            must(!html.includes(obsolete), `inspector/task artifact remains in HTML: ${obsolete}`);
+          }
+          must(app.includes("rpc('cancel_poster_job'") && app.includes('downloadResultBtn'), 'current-job cancel/download controls must live in app.js');
+          must(app.includes('AUTO_DOWNLOAD_JOB_KEY') && app.includes('await downloadAs'), 'successful generation must auto-download PNG');
+          must(app.includes('deriveOutputName'), 'output filename must be generated automatically');
 
           const orderedScripts = ['poster-project.js', 'asset-layout-profiles.js', 'text-layout-profiles.js', 'project-registry.js', 'editor-mode.js', 'poster-preview.js', 'asset-layout.js', 'layout-tool.js', 'selection-polish.js'];
           let previous = -1;
@@ -136,9 +152,9 @@ jobs:
           must(textLayout.includes('clearSelection,') && assetLayout.includes('clearSelection,'), 'layout modules must expose clearSelection');
           must(selection.includes('context.api.clearSelection()'), 'selection coordinator must use clearSelection directly');
           must(editorMode.includes("document.addEventListener('dblclick'") && editorMode.includes('.poster-preview-text'), 'text must remain directly editable by double click');
-          must(!editorMode.includes("slot.addEventListener('dblclick'") && !editorMode.includes("qrSlot.addEventListener('dblclick'"), 'asset crop editing must stay separate from geometry mode');
+          must(editorMode.includes('posterAvatarCrop.open') && editorMode.includes('posterQrCrop.open'), 'assets must open crop editors directly from canvas');
+          must(!/openSection|showTab|expandInspector|collapseInspector/.test(editorMode), 'canvas interactions must not depend on inspector');
           must(preflight.includes("rpc('poster_preflight'") && preflight.includes('window.POSTER_APP_CLIENT'), 'preflight must use the authenticated app client');
-          must(controls.includes("rpc('cancel_poster_job'") && !/retry_poster_job|重新生成/.test(controls), 'task controls must be cancel/download only');
 
           const readme = read('README.md');
           must(readme.includes('supabase/schema.sql'), 'README must point to the single current schema');
