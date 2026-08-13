@@ -112,6 +112,28 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => Boolean(window.posterInspectorLayout && window.posterCanvasWorkspace));
 });
 
+test('app is positioned as a simplified Photoshop poster editor and first-row speaker is unavailable', async ({ page }) => {
+  await expect(page).toHaveTitle('简化版 Photoshop 海报编辑器');
+  await expect(page.locator('.brand h1')).toHaveText('简化版 Photoshop 海报编辑器');
+  await expect(page.locator('.brand p')).toContainText('直接编辑文字与素材');
+
+  const firstSpeaker = page.locator('#s-speaker-0');
+  await expect(firstSpeaker).toBeDisabled();
+  await expect(firstSpeaker).toHaveClass(/schedule-cell-hidden/);
+  await expect(firstSpeaker).toHaveValue('');
+  await expect(page.locator('[data-preview-text-id="agenda-0-speaker"]')).toHaveCount(0);
+  await expect(page.locator('#s-speaker-1')).toBeEnabled();
+
+  await page.evaluate(() => {
+    const el = document.getElementById('s-speaker-0');
+    el.disabled = false;
+    el.value = '不应保留 教授';
+    document.dispatchEvent(new CustomEvent('poster-draft-scalars-restored'));
+  });
+  await expect(firstSpeaker).toBeDisabled();
+  await expect(firstSpeaker).toHaveValue('');
+});
+
 test('left stage is clean and right inspector can be resized', async ({ page }) => {
   await expect(page.locator('.stage-toolbar')).toBeHidden();
   const before = await page.evaluate(() => window.posterInspectorLayout.getWidth());
