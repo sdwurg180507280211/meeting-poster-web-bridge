@@ -1,6 +1,6 @@
 # Node PNG Render Worker
 
-独立 PNG Renderer：运行时不依赖 Photoshop、UXP、Mac Agent 或 PSD。
+独立 PNG Renderer：运行时不依赖 Photoshop、UXP、Mac Agent、PSD 或 Sharp。
 
 ```text
 Browser → Supabase → Node Render Worker → SVG → Resvg → final.png
@@ -8,14 +8,14 @@ Browser → Supabase → Node Render Worker → SVG → Resvg → final.png
 
 ## 渲染内核
 
-- 背景、圆形头像、二维码、文字统一组成一张 SVG。
+- `background.png`、三个 baked avatar PNG、二维码成品 PNG、文字统一组成一张 SVG。
 - 最终 rasterize 只使用 `@resvg/resvg-js`。
 - 正式文字坐标使用迁移自 PSD `textItem.position` 的 baseline `x / y`。
 - 字体通过 Resvg `fontFiles` 显式加载，并设置 `loadSystemFonts: false`。
 - `fontkit` 只负责字体信息和文本宽度测量。
-- Sharp 只用于把 JPEG/WebP 等运行时图片统一解码成 PNG 后再嵌入 SVG。
 - Photoshop tracking 原值按 `tracking / 1000 * fontSize` 换算为 SVG `letter-spacing`。
 - 超过 `maxWidth` 的文字按 1px 逐级减小，最低到 `minFontSize`。
+- Renderer 不承担 JPEG/WebP 转换：Web 裁剪阶段必须把正式头像与二维码统一成 PNG。
 
 ## 运行时输入
 
@@ -31,7 +31,7 @@ payload.project.assetLayout
 
 正式文字位置**不**来自 Web V 布局。
 
-头像和二维码几何优先来自 `payload.project.assetLayout`；manifest 的 `images` 只是项目默认值。
+头像和二维码几何优先来自 `payload.project.assetLayout`；manifest 的 `images` 是项目默认值。
 
 ## 模板目录
 
@@ -61,9 +61,9 @@ RENDER_FONT_SEMIBOLD=/absolute/path/to/semibold.ttf
 
 ## Manifest v1
 
-### 普通文字
+### 正式文字坐标
 
-每一个正式文字对象直接保存设计坐标：
+每个文字对象直接保存 baseline 坐标与字体属性：
 
 ```json
 {
@@ -76,7 +76,7 @@ RENDER_FONT_SEMIBOLD=/absolute/path/to/semibold.ttf
     "align": "center",
     "tracking": 90,
     "color": "#191919",
-    "maxWidth": 121,
+    "maxWidth": 172,
     "source": "chair.name",
     "suffix": " 教授"
   }
@@ -85,11 +85,43 @@ RENDER_FONT_SEMIBOLD=/absolute/path/to/semibold.ttf
 
 `x / y` 是 SVG text anchor / baseline，不是矩形框左上角。
 
+### `maxWidth` 不是 PSD `bounds.width`
+
+`template-dump` 中的 `layer.bounds` 只是**当前示例文字实际占用的墨迹宽度**。例如内容为 `123` 或 `xxxxx` 时，bounds 只会有几十像素，它不能代表设计允许区域。
+
+因此迁移规则明确拆开：
+
+```text
+PSD dump
+→ x / y / fontSize / weight / tracking / color / align
+
+正式设计规则
+→ maxWidth / minFontSize
+```
+
+医路长安当前正式宽度：
+
+```text
+chairName       172
+chairHospital   194
+speakerName     174
+speakerHospital 192
+meetingTime     470
+meetingLocation 290
+
+schedule.time    122
+schedule.content 190
+schedule.speaker 132
+schedule.chair   128
+```
+
+这样修改模板中的占位文字内容不会改变正式缩字号规则。
+
 ### 日程
 
-日程不再使用“公共列 + 行 Y”推导模型。
+日程不再使用“公共列 + 行 Y”推导坐标。
 
-每一行、每一格都保留 PSD 实际文字图层自己的：
+每一行、每一格保留 PSD 实际文字图层自己的：
 
 ```text
 x / y
@@ -97,26 +129,9 @@ fontSize
 tracking
 align
 color
-maxWidth
 ```
 
-结构：
-
-```json
-{
-  "schedule": {
-    "rows": [
-      {
-        "time": { "x": 145.5, "y": 1324, "fontSize": 20 },
-        "content": { "x": 263, "y": 1325, "fontSize": 20 },
-        "speaker": { "x": 521.5, "y": 1324, "fontSize": 20 },
-        "chair": { "x": 680.5, "y": 1323, "fontSize": 20 },
-        "dot": { "x": 236.5, "y": 1320, "fontSize": 15, "text": "●" }
-      }
-    ]
-  }
-}
-```
+同时按列使用正式 `maxWidth`。
 
 PSD 的“默认隐藏”状态不转换成永久规则：
 
@@ -150,7 +165,7 @@ npm run compile:manifest
 → 从此生产运行时不再读取 PSD/dump
 ```
 
-`compile-manifest.test.js` 会验证提交的 `manifest.json` 与 migration dump 编译结果完全一致。
+`compile-manifest.test.js` 会验证提交的 `manifest.json` 与 compiler 输出一致，并验证 `maxWidth` 不受 dump 当前示例文字 bounds 影响。
 
 ## 本地运行
 
@@ -179,9 +194,9 @@ fixture 使用和真实 Web 一致的数据形态：姓名不自带“教授”�
 - 显式字体加载
 - baseline 定位
 - tracking
-- maxWidth + 1px 逐级缩字号
+- 独立设计 `maxWidth` + 1px 逐级缩字号
 - 头像圆形裁切
-- QR 图片格式归一化
+- canonical PNG runtime assets
 - 精确 per-cell 日程 manifest
 - Supabase Worker
 - PNG 上传
