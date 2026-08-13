@@ -40,7 +40,20 @@ function validateTextSlot(slot, label, options = {}) {
   if (Number(slot.minFontSize) > Number(slot.fontSize)) fail(`${label}.minFontSize 不能大于 fontSize`);
   if (!['regular', 'semibold'].includes(slot.weight)) fail(`${label}.weight 只允许 regular / semibold`);
   if (!['left', 'center', 'right'].includes(slot.align)) fail(`${label}.align 非法`);
+  finiteNumber(slot.tracking ?? 0, `${label}.tracking`);
   if (slot.maxWidth != null) positiveInteger(slot.maxWidth, `${label}.maxWidth`);
+  if (slot.prefix != null && typeof slot.prefix !== 'string') fail(`${label}.prefix 必须是字符串`);
+  if (slot.suffix != null && typeof slot.suffix !== 'string') fail(`${label}.suffix 必须是字符串`);
+}
+
+function validateImageSpec(value, label, canvas) {
+  if (!isObject(value)) fail(`${label} 缺失`);
+  const left = finiteNumber(value.left, `${label}.left`);
+  const top = finiteNumber(value.top, `${label}.top`);
+  const size = positiveInteger(value.size, `${label}.size`);
+  if (left < 0 || top < 0 || left + size > canvas.width || top + size > canvas.height) {
+    fail(`${label} 超出画布`);
+  }
 }
 
 function validateManifest(manifest, expectedProjectId = null) {
@@ -57,24 +70,22 @@ function validateManifest(manifest, expectedProjectId = null) {
 
   if (!isObject(manifest.images)) fail('images 缺失');
   for (const key of ['chair', 'speaker1', 'speaker2', 'qrCode']) {
-    const box = manifest.images[key];
-    if (!isObject(box)) fail(`images.${key} 缺失`);
-    finiteNumber(box.left, `images.${key}.left`);
-    finiteNumber(box.top, `images.${key}.top`);
-    positiveInteger(box.size, `images.${key}.size`);
+    validateImageSpec(manifest.images[key], `images.${key}`, canvas);
   }
 
-  if (!isObject(manifest.texts)) fail('texts 缺失');
+  if (!isObject(manifest.texts) || !Object.keys(manifest.texts).length) fail('texts 缺失');
   for (const [key, slot] of Object.entries(manifest.texts)) validateTextSlot(slot, `texts.${key}`);
 
   if (!isObject(manifest.schedule) || !Array.isArray(manifest.schedule.rows) || manifest.schedule.rows.length !== 4) {
     fail('schedule.rows 必须固定为 4 行');
   }
-  for (const row of manifest.schedule.rows) finiteNumber(row, 'schedule.rows[]');
-  if (!isObject(manifest.schedule.columns)) fail('schedule.columns 缺失');
-  for (const key of ['time', 'content', 'speaker', 'chair']) {
-    validateTextSlot(manifest.schedule.columns[key], `schedule.columns.${key}`, { allowDynamic: true });
-  }
+  manifest.schedule.rows.forEach((row, rowIndex) => {
+    if (!isObject(row)) fail(`schedule.rows[${rowIndex}] 缺失`);
+    for (const key of ['time', 'content', 'speaker', 'chair']) {
+      validateTextSlot(row[key], `schedule.rows[${rowIndex}].${key}`, { allowDynamic: true });
+    }
+    validateTextSlot(row.dot, `schedule.rows[${rowIndex}].dot`);
+  });
   return manifest;
 }
 
@@ -88,15 +99,16 @@ async function assertFile(filePath, label) {
   if (!stat.isFile() || stat.size <= 0) throw new Error(`${label}不是有效文件：${filePath}`);
 }
 
-// 字体不随模板入库：由环境变量提供（RENDER_FONT_REGULAR / RENDER_FONT_SEMIBOLD）。
-// 未来切换可分发字体（如思源黑体）只需改环境变量，不动模板目录结构。
 function resolveFontPaths(env) {
-  const regular = env.RENDER_FONT_REGULAR;
-  const semibold = env.RENDER_FONT_SEMIBOLD;
+  const regular = String(env.RENDER_FONT_REGULAR || '').trim();
+  const semibold = String(env.RENDER_FONT_SEMIBOLD || '').trim();
   if (!regular || !semibold) {
     throw new Error('缺少环境变量 RENDER_FONT_REGULAR / RENDER_FONT_SEMIBOLD（字体不随模板入库，由环境提供）');
   }
-  return { regular, semibold };
+  return {
+    regular: path.resolve(regular),
+    semibold: path.resolve(semibold),
+  };
 }
 
 async function loadTemplate(projectId, env = process.env) {
