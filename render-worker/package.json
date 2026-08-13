@@ -8,8 +8,10 @@
   },
   "scripts": {
     "start": "node src/worker.js",
-    "check": "node --check src/worker.js && node --check src/renderer.js && node --check src/template.js && node --check src/supabase.js",
-    "test": "node --test src/*.test.js"
+    "check": "node --check src/worker.js && node --check src/renderer.js && node --check src/template.js && node --check src/supabase.js && node --check scripts/compile-manifest.js && node --check scripts/fixture-render.js",
+    "test": "node --test src/*.test.js scripts/*.test.js",
+    "compile:manifest": "node scripts/compile-manifest.js",
+    "fixture": "node scripts/fixture-render.js"
   },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",
