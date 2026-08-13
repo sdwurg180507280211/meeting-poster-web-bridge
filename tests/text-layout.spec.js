@@ -117,12 +117,47 @@ test('double-clicking editable text in V mode edits in place and syncs the form 
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.isInlineEditing())).toBe(false);
 });
 
-test('special time text keeps its dedicated editor instead of becoming free text', async ({ page }) => {
-  await enableLayout(page);
+test('meeting time displays the full date-time range and can be edited as text in V mode', async ({ page }) => {
+  await page.evaluate(() => {
+    const input = document.getElementById('meetingTime');
+    input.value = '2026年8月12日 19:00-21:30';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
   const preview = page.locator('[data-preview-text-id="meeting-time"]');
+  await expect(preview).toHaveText('会议时间：2026年8月12日 19:00-21:30');
+  await enableLayout(page);
   await preview.dblclick();
-  await expect(preview).not.toHaveAttribute('contenteditable', 'true');
-  await expect(page.locator('[data-section="meeting"]')).toHaveAttribute('open', '');
+
+  await expect(preview).toHaveAttribute('contenteditable', 'true');
+  await expect(preview).toHaveText('2026年8月12日 19:00-21:30');
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('2026年8月13日 20:00-22:00');
+  await page.keyboard.press('Enter');
+
+  await expect(page.locator('#meetingTime')).toHaveValue('2026年8月13日 20:00-22:00');
+  await expect(preview).toHaveText('会议时间：2026年8月13日 20:00-22:00');
+});
+
+test('schedule time can be edited directly as text in V mode', async ({ page }) => {
+  await page.evaluate(() => {
+    const input = document.getElementById('s-time-0');
+    input.value = '19:00-19:30';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+  const preview = page.locator('[data-preview-text-id="agenda-0-time"]');
+  await expect(preview).toHaveText('19:00-19:30');
+  await enableLayout(page);
+  await preview.dblclick();
+  await expect(preview).toHaveAttribute('contenteditable', 'true');
+
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('19:10-19:40');
+  await page.keyboard.press('Enter');
+
+  await expect(page.locator('#s-time-0')).toHaveValue('19:10-19:40');
+  await expect(preview).toHaveText('19:10-19:40');
 });
 
 test('arrow keys nudge every selected item by exact design pixels with keyboard undo and redo', async ({ page }) => {
