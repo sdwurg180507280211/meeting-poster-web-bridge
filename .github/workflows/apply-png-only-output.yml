@@ -1,0 +1,235 @@
+name: Apply PNG-only output refactor
+
+on:
+  push:
+    branches:
+      - 'refactor/png-only-poster-output'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/png-only-poster-output
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refactor result contract to PNG only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one match, found {count}: {old[:80]!r}')
+              file.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'photoshop-worker/src/ps-engine.js',
+              ".replace(/\\.(psd|png)$/i, '')",
+              ".replace(/\\.png$/i, '')",
+          )
+          replace_once(
+              'photoshop-worker/src/ps-engine.js',
+              """async function createOutputFiles(folderEntry, baseName) {
+            const requested = safeFileName(baseName);
+            const entries = await folderEntry.getEntries();
+            const existing = new Set(entries.map((entry) => String(entry.name || '').toLowerCase()));
+            let safeName = requested;
+            let suffix = 2;
+            while (existing.has(`${safeName}.psd`.toLowerCase()) || existing.has(`${safeName}.png`.toLowerCase())) {
+              safeName = `${requested}_${suffix}`;
+              suffix += 1;
+              if (suffix > 10000) throw new Error('输出目录中同名文件过多，请修改输出文件名');
+            }
+            const psdEntry = await folderEntry.createFile(`${safeName}.psd`, { overwrite: false });
+            const pngEntry = await folderEntry.createFile(`${safeName}.png`, { overwrite: false });
+            return { safeName, psdEntry, pngEntry };
+          }
+          """,
+              """async function createOutputFile(folderEntry, baseName) {
+            const requested = safeFileName(baseName);
+            const entries = await folderEntry.getEntries();
+            const existing = new Set(entries.map((entry) => String(entry.name || '').toLowerCase()));
+            let safeName = requested;
+            let suffix = 2;
+            while (existing.has(`${safeName}.png`.toLowerCase())) {
+              safeName = `${requested}_${suffix}`;
+              suffix += 1;
+              if (suffix > 10000) throw new Error('输出目录中同名文件过多，请修改输出文件名');
+            }
+            const pngEntry = await folderEntry.createFile(`${safeName}.png`, { overwrite: false });
+            return { safeName, pngEntry };
+          }
+          """,
+          )
+          replace_once(
+              'photoshop-worker/src/ps-engine.js',
+              """      output = await createOutputFiles(outputFolderEntry, meeting.outputName || '系列会议海报');
+                onProgress('保存 PSD 与 PNG');
+                await doc.saveAs.psd(output.psdEntry, { embedColorProfile: true }, true);
+                await doc.saveAs.png(output.pngEntry, { interlaced: false }, true);
+
+                executionContext.reportProgress({ value: 1, commandName: '会议海报生成完成' });
+                return {
+                  psdPath: output.psdEntry.nativePath,
+                  pngPath: output.pngEntry.nativePath,
+                  baseName: output.safeName,
+                };
+          """,
+              """      output = await createOutputFile(outputFolderEntry, meeting.outputName || '系列会议海报');
+                onProgress('保存 PNG');
+                await doc.saveAs.png(output.pngEntry, { interlaced: false }, true);
+
+                executionContext.reportProgress({ value: 1, commandName: '会议海报生成完成' });
+                return {
+                  pngPath: output.pngEntry.nativePath,
+                  baseName: output.safeName,
+                };
+          """,
+          )
+
+          replace_once(
+              'photoshop-worker/src/worker.js',
+              "await writeJson(out,'result.json',{status:'succeeded',jobId:job.id,projectId:job.projectId,baseName:result.baseName,psdFileName:`${result.baseName}.psd`,pngFileName:`${result.baseName}.png`,finishedAt:new Date().toISOString()});",
+              "await writeJson(out,'result.json',{status:'succeeded',jobId:job.id,projectId:job.projectId,baseName:result.baseName,pngFileName:`${result.baseName}.png`,finishedAt:new Date().toISOString()});",
+          )
+
+          replace_once('mac-agent/src/agent.js', '  let psdLocal;\n  let pngLocal;\n', '  let pngLocal;\n')
+          replace_once('mac-agent/src/agent.js', "    psdLocal = await validateOutputFile(directory, result.psdFileName, '.psd');\n", '')
+          replace_once(
+              'mac-agent/src/agent.js',
+              """  const base = `${job.owner_id.toLowerCase()}/${jobId}/output`;
+            const psdPath = `${base}/poster.psd`;
+            const pngPath = `${base}/poster.png`;
+            const psdBuffer = await fs.readFile(psdLocal);
+            const psdUpload = await sb.storage.from(BUCKET).upload(psdPath, psdBuffer, {
+              contentType: 'image/vnd.adobe.photoshop',
+              upsert: true,
+            });
+            checkedResult(psdUpload, '上传 PSD 结果', { requireData: true });
+
+            const pngBuffer = await fs.readFile(pngLocal);
+          """,
+              """  const base = `${job.owner_id.toLowerCase()}/${jobId}/output`;
+            const pngPath = `${base}/poster.png`;
+            const pngBuffer = await fs.readFile(pngLocal);
+          """,
+          )
+          replace_once('mac-agent/src/agent.js', '    result_psd_path: psdPath,\n', '')
+
+          replace_once(
+              'web/core/app.js',
+              """    const [png, psd] = await Promise.all([
+                bucket.createSignedUrl(job.result_png_path, 1800),
+                bucket.createSignedUrl(job.result_psd_path, 1800)
+              ]);
+              if (png.error) throw png.error;
+              if (psd.error) throw psd.error;
+          """,
+              """    const png = await bucket.createSignedUrl(job.result_png_path, 1800);
+              if (png.error) throw png.error;
+          """,
+          )
+          replace_once(
+              'web/core/app.js',
+              """    const psdBtn = document.createElement('button');
+              psdBtn.type = 'button';
+              psdBtn.textContent = '下载 PSD';
+              psdBtn.addEventListener('click', () => downloadAs(psd.data.signedUrl, `${baseName}.psd`));
+              downloads.append(pngBtn, psdBtn);
+          """,
+              """    downloads.append(pngBtn);
+          """,
+          )
+          replace_once(
+              'web/core/app.js',
+              ".select('id,status,payload,created_at,finished_at,result_psd_path,result_png_path,error_message')",
+              ".select('id,status,payload,created_at,finished_at,result_png_path,error_message')",
+          )
+
+          for file in Path('supabase').glob('*.sql'):
+              lines = file.read_text().splitlines(keepends=True)
+              kept = []
+              for line in lines:
+                  if 'result_psd_path' in line:
+                      if 'result_png_path' in line:
+                          raise SystemExit(f'{file}: mixed PSD/PNG result columns on one line; refactor manually')
+                      continue
+                  kept.append(line)
+              file.write_text(''.join(kept))
+
+          readme = Path('README.md')
+          text = readme.read_text()
+          replacements = {
+              '再由真实 Photoshop UXP Worker 基于本地 PSD 母版生成 PSD / PNG 并回传网页。': '再由真实 Photoshop UXP Worker 基于本地 PSD 母版生成 PNG 海报并回传网页。',
+              '  → PSD / PNG\n': '  → PNG\n',
+              '- `photoshop-worker/`：Photoshop UXP Worker，负责严格校验 PSD 并生成 PSD / PNG。': '- `photoshop-worker/`：Photoshop UXP Worker，负责严格校验 PSD 母版并生成 PNG 海报。',
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f'README.md: expected one match for {old!r}')
+              text = text.replace(old, new, 1)
+          readme.write_text(text)
+
+          workflow = Path('.github/workflows/verify-render-contract.yml')
+          text = workflow.read_text()
+          marker = "          if (!agent.includes(\"sb.rpc('recover_stale_poster_jobs'\")) throw new Error('Agent must use the current recovery RPC');\n"
+          addition = marker + """
+
+                    const schema = fs.readdirSync('supabase')
+                      .filter(name => name.endsWith('.sql'))
+                      .map(name => fs.readFileSync(`supabase/${name}`, 'utf8'))
+                      .join('\\n');
+                    for (const [label, source] of [
+                      ['Agent', agent], ['Worker', worker], ['Engine', engine], ['Web app', app], ['Schema', schema],
+                    ]) {
+                      for (const token of ['result_psd_path', 'psdFileName', 'saveAs.psd', 'poster.psd', '下载 PSD', '保存 PSD 与 PNG']) {
+                        if (source.includes(token)) throw new Error(`${label} still contains obsolete PSD result output: ${token}`);
+                      }
+                    }
+                    if (!engine.includes('await doc.saveAs.png(output.pngEntry')) throw new Error('Engine must save the final poster as PNG');
+                    if (!agent.includes("contentType: 'image/png'")) throw new Error('Agent must upload the PNG result');
+                    if (!app.includes('bucket.createSignedUrl(job.result_png_path, 1800)')) throw new Error('Web app must load the PNG result');
+          """
+          if text.count(marker) != 1:
+              raise SystemExit('verify-render-contract.yml: insertion marker not found exactly once')
+          workflow.write_text(text.replace(marker, addition, 1))
+
+          forbidden = ['result_psd_path', 'psdFileName', 'saveAs.psd', 'poster.psd', '下载 PSD', '保存 PSD 与 PNG']
+          for path in [
+              Path('photoshop-worker/src/ps-engine.js'),
+              Path('photoshop-worker/src/worker.js'),
+              Path('mac-agent/src/agent.js'),
+              Path('web/core/app.js'),
+          ] + list(Path('supabase').glob('*.sql')):
+              source = path.read_text()
+              hits = [token for token in forbidden if token in source]
+              if hits:
+                  raise SystemExit(f'{path}: obsolete PSD output tokens remain: {hits}')
+          PY
+      - name: Validate changed JavaScript
+        run: |
+          node --check photoshop-worker/src/ps-engine.js
+          node --check photoshop-worker/src/worker.js
+          node --check mac-agent/src/agent.js
+          node --check web/core/app.js
+          node --test mac-agent/src/*.test.js
+          git diff --check
+      - name: Commit refactor
+        run: |
+          rm .github/workflows/apply-png-only-output.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'refactor: generate PNG poster only'
+          git push origin HEAD:refactor/png-only-poster-output
