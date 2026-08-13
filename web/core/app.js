@@ -490,12 +490,8 @@
 
   async function showResults(job) {
     const bucket = client.storage.from(cfg.BUCKET || 'poster-assets');
-    const [png, psd] = await Promise.all([
-      bucket.createSignedUrl(job.result_png_path, 1800),
-      bucket.createSignedUrl(job.result_psd_path, 1800)
-    ]);
+    const png = await bucket.createSignedUrl(job.result_png_path, 1800);
     if (png.error) throw png.error;
-    if (psd.error) throw psd.error;
 
     const baseName = safeDownloadName(job.payload?.meeting?.outputName || '系列会议海报');
     resultPreview.src = png.data.signedUrl;
@@ -506,18 +502,14 @@
     pngBtn.type = 'button';
     pngBtn.textContent = '下载 PNG';
     pngBtn.addEventListener('click', () => downloadAs(png.data.signedUrl, `${baseName}.png`));
-    const psdBtn = document.createElement('button');
-    psdBtn.type = 'button';
-    psdBtn.textContent = '下载 PSD';
-    psdBtn.addEventListener('click', () => downloadAs(psd.data.signedUrl, `${baseName}.psd`));
-    downloads.append(pngBtn, psdBtn);
+    downloads.append(pngBtn);
   }
 
   async function loadHistory() {
     if (!client || !user || !historyList) return;
     historyList.innerHTML = '<div class="history-empty">正在加载…</div>';
     const { data, error } = await client.from('poster_jobs')
-      .select('id,status,payload,created_at,finished_at,result_psd_path,result_png_path,error_message')
+      .select('id,status,payload,created_at,finished_at,result_png_path,error_message')
       .order('created_at', { ascending: false })
       .limit(20);
     if (error) {

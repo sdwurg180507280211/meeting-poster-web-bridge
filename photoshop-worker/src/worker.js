@@ -188,7 +188,7 @@ async function processFolder(jobFolder,outbox){
       if(!isTransientDocumentIdError(firstError))throw firstError;
       log(`⚠ 检测到 Photoshop 文档引用失效：${firstError.message}`);log('→ 等待 800ms 后自动重试一次');lastProgress='自动恢复：等待后重新打开 PSD 母版';await sleep(800);result=await runGenerate();
     }
-    await writeJson(out,'result.json',{status:'succeeded',jobId:job.id,projectId:job.projectId,baseName:result.baseName,psdFileName:`${result.baseName}.psd`,pngFileName:`${result.baseName}.png`,finishedAt:new Date().toISOString()});
+    await writeJson(out,'result.json',{status:'succeeded',jobId:job.id,projectId:job.projectId,baseName:result.baseName,pngFileName:`${result.baseName}.png`,finishedAt:new Date().toISOString()});
     log(`✓ 完成 ${job.id} · ${project.name}`);refreshOverallState();return true;
   }catch(e){
     const detail=`阶段：${lastProgress}；${e.message||String(e)}`;console.error(e);const jobId=job&&job.id?job.id:jobFolder.name;

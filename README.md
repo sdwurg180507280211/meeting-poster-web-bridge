@@ -1,6 +1,6 @@
 # Meeting Poster Web Bridge
 
-浏览器填写会议资料、上传头像和二维码，经 Supabase 将任务交给 Mac Agent，再由真实 Photoshop UXP Worker 基于本地 PSD 母版生成 PSD / PNG 并回传网页。
+浏览器填写会议资料、上传头像和二维码，经 Supabase 将任务交给 Mac Agent，再由真实 Photoshop UXP Worker 基于本地 PSD 母版生成 PNG 海报并回传网页。
 
 ```text
 Browser
@@ -8,7 +8,7 @@ Browser
   → Mac Agent
   → Local Workspace
   → Photoshop UXP Worker
-  → PSD / PNG
+  → PNG
   → Mac Agent 上传结果
   → Browser 下载
 ```
@@ -37,7 +37,7 @@ Browser
 - `web/`：浏览器编辑器。
 - `supabase/`：数据库、RLS、任务租约、Render Protocol v2 和任务控制 schema。
 - `mac-agent/`：Supabase ↔ 本机文件搬运、任务认领、租约、恢复和结果上传。
-- `photoshop-worker/`：Photoshop UXP Worker，负责严格校验 PSD 并生成 PSD / PNG。
+- `photoshop-worker/`：Photoshop UXP Worker，负责严格校验 PSD 母版并生成 PNG 海报。
 - `tests/`：Playwright 浏览器 E2E。
 
 ## 1. 环境要求

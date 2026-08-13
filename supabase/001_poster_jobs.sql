@@ -16,7 +16,6 @@ create table if not exists public.poster_jobs (
   payload jsonb not null default '{}'::jsonb,
   agent_id text,
   error_message text,
-  result_psd_path text,
   result_png_path text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -373,7 +372,6 @@ begin
          lease_expires_at = statement_timestamp() + make_interval(secs => p_lease_seconds),
          attempt_count = job.attempt_count + 1,
          error_message = null,
-         result_psd_path = null,
          result_png_path = null
    where job.id = (
      select candidate.id
@@ -426,7 +424,6 @@ begin
          finished_at = null,
          lease_expires_at = null,
          error_message = null,
-         result_psd_path = null,
          result_png_path = null
    where job.status in ('claimed', 'rendering', 'uploading')
      and coalesce(
