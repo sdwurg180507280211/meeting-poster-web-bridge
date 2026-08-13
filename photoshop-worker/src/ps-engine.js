@@ -117,6 +117,13 @@ function setTextLayer(doc, names, text) {
   return layer;
 }
 
+function setOptionalTextLayer(doc, names, value) {
+  const text = String(value == null ? '' : value).trim();
+  const layer = setTextLayer(doc, names, text || '\u200B');
+  layer.visible = Boolean(text);
+  return layer;
+}
+
 function setLayerVisible(doc, names, visible) {
   const layer = findLayer(doc, names);
   if (!layer) throw new Error(`未找到图层：${displayName(names)}`);
@@ -136,7 +143,7 @@ function snapshotTextMetrics(doc, names) {
 function fitText(doc, names, metrics, minSize = 12) {
   if (!metrics) return null;
   const layer = findLayer(doc, names);
-  if (!layer || layer.kind !== LayerKind.TEXT) return null;
+  if (!layer || layer.kind !== LayerKind.TEXT || !layer.visible) return null;
   setTextSize(layer, metrics.baseSize);
   let size = metrics.baseSize;
   let width = layerWidth(layer);
@@ -321,15 +328,11 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
 
       for (let i = 0; i < spec.SCHEDULE_ROWS; i += 1) {
         const row = meeting.schedule[i] || {};
-        setTextLayer(doc, spec.LAYERS.TEXT.scheduleTime(i), row.time || '');
-        setTextLayer(doc, spec.LAYERS.TEXT.scheduleContent(i), row.content || '');
-        setTextLayer(doc, spec.LAYERS.TEXT.scheduleSpeaker(i), row.speaker || '');
-        setTextLayer(doc, spec.LAYERS.TEXT.scheduleChair(i), row.chair || '');
-        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleTime(i), Boolean(row.time));
-        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleContent(i), Boolean(row.content));
-        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleSpeaker(i), Boolean(row.speaker));
-        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleChair(i), Boolean(row.chair));
-        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleDot(i), Boolean(row.content));
+        setOptionalTextLayer(doc, spec.LAYERS.TEXT.scheduleTime(i), row.time);
+        setOptionalTextLayer(doc, spec.LAYERS.TEXT.scheduleContent(i), row.content);
+        setOptionalTextLayer(doc, spec.LAYERS.TEXT.scheduleSpeaker(i), row.speaker);
+        setOptionalTextLayer(doc, spec.LAYERS.TEXT.scheduleChair(i), row.chair);
+        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleDot(i), Boolean(String(row.content || '').trim()));
       }
 
       onProgress('替换头像：网页成品固定映射');
