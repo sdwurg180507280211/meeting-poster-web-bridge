@@ -44,7 +44,10 @@
 
   agendaRows.forEach((y, rowIndex) => {
     agendaColumns.forEach((column, columnIndex) => {
-      if (rowIndex === 0 && column.key === 'speaker') return;
+      const mustStayEmpty = (rowIndex === 0 && column.key === 'speaker')
+        || ((rowIndex === 1 || rowIndex === 2) && column.key === 'chair')
+        || (rowIndex === 3 && column.key === 'speaker');
+      if (mustStayEmpty) return;
       textItems.push({
         id: `agenda-${rowIndex}-${column.key}`,
         source: { type: 'input', inputId: `s-${column.key}-${rowIndex}` },

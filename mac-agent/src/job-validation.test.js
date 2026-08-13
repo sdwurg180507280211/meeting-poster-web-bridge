@@ -84,6 +84,14 @@ test('validates and normalizes a legitimate v2 baked job', () => {
   );
 });
 
+test('allows an active schedule row to omit content when time is present', () => {
+  const job = makeJob();
+  job.payload.meeting.schedule[0].content = '';
+  const normalized = validateJob(job);
+  assert.equal(normalized.meeting.schedule[0].content, '');
+  assert.equal(normalized.meeting.schedule[0].time, '19:00-19:30');
+});
+
 test('rejects raw avatars and non-PNG baked avatars', () => {
   const raw = makeJob();
   raw.payload.assets.chair.cropMode = 'raw';

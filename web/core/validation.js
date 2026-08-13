@@ -157,7 +157,6 @@
       activeRows += 1;
       if (!time) errors.push(`${prefix}必须选择时间范围`);
       else if (!parseClockRange(time)) errors.push(`${prefix}时间范围无效，请重新选择`);
-      if (!content) errors.push(`${prefix}必须填写内容`);
     });
     if (!activeRows) errors.push('请至少填写一行日程');
     return errors;
