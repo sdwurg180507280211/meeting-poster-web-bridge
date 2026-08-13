@@ -73,8 +73,11 @@ function assertBakedAvatar(asset, label) {
 function currentSchedule(schedule) {
   if (!Array.isArray(schedule)) return schedule;
   return schedule.map((row, index) => {
-    if (index !== 0 || !isObject(row)) return row;
-    return { ...row, speaker: '' };
+    if (!isObject(row)) return row;
+    if (index === 0) return { ...row, speaker: '' };
+    if (index === 1 || index === 2) return { ...row, chair: '' };
+    if (index === 3) return { ...row, speaker: '' };
+    return row;
   });
 }
 

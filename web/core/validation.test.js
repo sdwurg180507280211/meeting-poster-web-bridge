@@ -39,6 +39,14 @@ const meeting = {
   outputName: '系列会议海报',
 };
 assert.deepEqual(validation.validateMeeting(meeting), []);
+
+const scheduleWithoutContent = structuredClone(meeting);
+scheduleWithoutContent.schedule[0].content = '';
+assert.deepEqual(
+  validation.validateMeeting(scheduleWithoutContent),
+  [],
+  '日程行有时间和人员时，内容允许留空',
+);
 assert.match(validation.validateMeeting({ ...meeting, meetingTime: '' })[0], /会议日期和时间/);
 assert.ok(validation.validateMeeting({ ...meeting, outputName: '海'.repeat(101) }).some(error => /输出文件名/.test(error)));
 

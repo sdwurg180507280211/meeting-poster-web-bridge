@@ -3,17 +3,28 @@
   if (!form) return;
 
   const SUFFIX = ' 教授';
-  const firstRowSpeaker = document.getElementById('s-speaker-0');
+  const EMPTY_CELLS = Object.freeze([
+    ['speaker', 0],
+    ['chair', 1],
+    ['chair', 2],
+    ['speaker', 3],
+  ]);
 
-  function clearFirstRowSpeaker() {
-    if (!firstRowSpeaker) return;
-    firstRowSpeaker.value = '';
-    firstRowSpeaker.disabled = true;
-    firstRowSpeaker.classList.add('schedule-cell-hidden');
-    firstRowSpeaker.setAttribute('aria-hidden', 'true');
-    firstRowSpeaker.tabIndex = -1;
+  function clearEmptyCells() {
+    for (const [kind, index] of EMPTY_CELLS) {
+      const el = document.getElementById(`s-${kind}-${index}`);
+      if (!el) continue;
+      el.value = '';
+      el.disabled = true;
+      el.classList.add('schedule-cell-hidden');
+      el.setAttribute('aria-hidden', 'true');
+      el.tabIndex = -1;
+    }
   }
 
+  function isEmptyCell(kind, index) {
+    return EMPTY_CELLS.some(([emptyKind, emptyIndex]) => emptyKind === kind && emptyIndex === index);
+  }
   function normalize(value) {
     const text = String(value || '').trim();
     if (!text) return '';
@@ -29,11 +40,9 @@
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  clearFirstRowSpeaker();
-
   for (let i = 0; i < 4; i++) {
     for (const kind of ['speaker', 'chair']) {
-      if (i === 0 && kind === 'speaker') continue;
+      if (isEmptyCell(kind, i)) continue;
       const el = document.getElementById(`s-${kind}-${i}`);
       if (!el) continue;
       el.placeholder = kind === 'speaker' ? '讲者（自动加 教授）' : '主席（自动加 教授）';
@@ -43,14 +52,15 @@
     }
   }
 
-  document.addEventListener('poster-draft-scalars-restored', clearFirstRowSpeaker);
+  clearEmptyCells();
+  document.addEventListener('poster-draft-scalars-restored', clearEmptyCells);
 
   // 在 app.js 收集 payload 之前统一补齐，确保即使用户未离开输入框也会带“ 教授”。
   form.addEventListener('submit', () => {
-    clearFirstRowSpeaker();
+    clearEmptyCells();
     for (let i = 0; i < 4; i++) {
-      if (i > 0) apply(document.getElementById(`s-speaker-${i}`));
-      apply(document.getElementById(`s-chair-${i}`));
+      if (!isEmptyCell('speaker', i)) apply(document.getElementById(`s-speaker-${i}`));
+      if (!isEmptyCell('chair', i)) apply(document.getElementById(`s-chair-${i}`));
     }
   }, true);
 })();

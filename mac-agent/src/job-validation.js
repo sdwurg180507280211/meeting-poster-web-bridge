@@ -102,8 +102,8 @@ function normalizeSchedule(value) {
     const active = Object.values(normalized).some(Boolean);
     if (active) {
       activeRows += 1;
-      if (!normalized.time || !normalized.content) {
-        throw validationError(`第 ${index + 1} 行日程必须同时包含时间和内容`);
+      if (!normalized.time) {
+        throw validationError(`第 ${index + 1} 行日程必须包含时间`);
       }
     }
     return normalized;

@@ -112,26 +112,33 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => Boolean(window.posterInspectorLayout && window.posterCanvasWorkspace));
 });
 
-test('app is positioned as a simplified Photoshop poster editor and first-row speaker is unavailable', async ({ page }) => {
+test('app is positioned as a simplified Photoshop poster editor and designated schedule cells stay empty', async ({ page }) => {
   await expect(page).toHaveTitle('简化版 Photoshop 海报编辑器');
   await expect(page.locator('.brand h1')).toHaveText('简化版 Photoshop 海报编辑器');
   await expect(page.locator('.brand p')).toContainText('直接编辑文字与素材');
-
-  const firstSpeaker = page.locator('#s-speaker-0');
-  await expect(firstSpeaker).toBeDisabled();
-  await expect(firstSpeaker).toHaveClass(/schedule-cell-hidden/);
-  await expect(firstSpeaker).toHaveValue('');
-  await expect(page.locator('[data-preview-text-id="agenda-0-speaker"]')).toHaveCount(0);
-  await expect(page.locator('#s-speaker-1')).toBeEnabled();
+  const emptyCells = ['#s-speaker-0', '#s-chair-1', '#s-chair-2', '#s-speaker-3'];
+  for (const selector of emptyCells) {
+    const cell = page.locator(selector);
+    await expect(cell).toBeDisabled();
+    await expect(cell).toHaveClass(/schedule-cell-hidden/);
+    await expect(cell).toHaveValue('');
+  }
+  for (const previewId of ['agenda-0-speaker', 'agenda-1-chair', 'agenda-2-chair', 'agenda-3-speaker']) {
+    await expect(page.locator(`[data-preview-text-id="${previewId}"]`)).toHaveCount(0);
+  }
 
   await page.evaluate(() => {
-    const el = document.getElementById('s-speaker-0');
-    el.disabled = false;
-    el.value = '不应保留 教授';
+    for (const id of ['s-speaker-0', 's-chair-1', 's-chair-2', 's-speaker-3']) {
+      const el = document.getElementById(id);
+      el.disabled = false;
+      el.value = '不应保留 教授';
+    }
     document.dispatchEvent(new CustomEvent('poster-draft-scalars-restored'));
   });
-  await expect(firstSpeaker).toBeDisabled();
-  await expect(firstSpeaker).toHaveValue('');
+  for (const selector of emptyCells) {
+    await expect(page.locator(selector)).toBeDisabled();
+    await expect(page.locator(selector)).toHaveValue('');
+  }
 });
 
 test('left stage is clean and right inspector can be resized', async ({ page }) => {
