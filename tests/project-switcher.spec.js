@@ -41,48 +41,29 @@ async function installMock(page) {
 
 test.beforeEach(async ({ page }) => { await installMock(page); });
 
-test('keeps current project id for 医路长安 and exposes three projects', async ({ page }) => {
+test('exposes only the project backed by a Node render manifest', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('#projectSelect')).toHaveValue('chronic-care-2026');
+  await expect(page.locator('#projectSelect')).toHaveCount(0);
   const snapshot = await page.evaluate(() => ({
     id: window.POSTER_PROJECT.id,
     name: window.POSTER_PROJECT.name,
-    projects: window.POSTER_PROJECT_REGISTRY.projects.map(project => project.name),
+    projects: window.POSTER_PROJECT_REGISTRY.projects.map(project => project.id),
+    baseImage: document.getElementById('posterCanvas').style.getPropertyValue('--poster-base-image'),
   }));
   expect(snapshot.id).toBe('chronic-care-2026');
   expect(snapshot.name).toBe('医路长安');
-  expect(snapshot.projects).toEqual(['医路长安', '同护健康', '同心护健']);
+  expect(snapshot.projects).toEqual(['chronic-care-2026']);
+  expect(snapshot.baseImage).toContain('./assets/poster-base.jpg');
 });
 
-test('同护健康 loads its web base and project-specific layouts', async ({ page }) => {
+test('unsupported project query parameters cannot switch the render contract', async ({ page }) => {
   await page.goto('/?project=tonghu-jiankang');
-  await expect(page.locator('#projectSelect')).toHaveValue('tonghu-jiankang');
   const snapshot = await page.evaluate(() => ({
     id: window.POSTER_PROJECT.id,
-    textLayoutProfile: window.POSTER_PROJECT.textLayoutProfile,
-    assetLayoutProfile: window.POSTER_PROJECT.assetLayoutProfile,
-    baseImage: document.getElementById('posterCanvas').style.getPropertyValue('--poster-base-image'),
-    layout: window.POSTER_PROJECT.assetPreview,
+    runtimeId: window.POSTER_RUNTIME.projectId,
+    registryMatch: window.POSTER_PROJECT_REGISTRY.get('tonghu-jiankang'),
   }));
-  expect(snapshot.id).toBe('tonghu-jiankang');
-  expect(snapshot.textLayoutProfile).toBe('tonghu-jiankang-text-v1');
-  expect(snapshot.assetLayoutProfile).toBe('tonghu-jiankang-assets-v1');
-  expect(snapshot.baseImage).toContain('./assets/tonghu-jiankang-base.jpg');
-  expect(snapshot.layout.chair).toMatchObject({ left: 342, top: 496, size: 168 });
-  expect(snapshot.layout.qr).toMatchObject({ left: 338, top: 1576, size: 148 });
-});
-
-test('同心护健 loads its own base and shared canvas size', async ({ page }) => {
-  await page.goto('/?project=tongxin-hujian');
-  await expect(page.locator('#projectSelect')).toHaveValue('tongxin-hujian');
-  const project = await page.evaluate(() => ({
-    id: window.POSTER_PROJECT.id,
-    name: window.POSTER_PROJECT.name,
-    canvas: window.POSTER_PROJECT.canvas,
-    baseImage: document.getElementById('posterCanvas').style.getPropertyValue('--poster-base-image'),
-  }));
-  expect(project.id).toBe('tongxin-hujian');
-  expect(project.name).toBe('同心护健');
-  expect(project.canvas).toEqual({ width: 837, height: 1880 });
-  expect(project.baseImage).toContain('./assets/tongxin-hujian-base.jpg');
+  expect(snapshot.id).toBe('chronic-care-2026');
+  expect(snapshot.runtimeId).toBe('chronic-care-2026');
+  expect(snapshot.registryMatch).toBeNull();
 });
