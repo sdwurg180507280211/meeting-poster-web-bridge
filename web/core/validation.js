@@ -194,7 +194,10 @@
     validateAvatar(errors, assets.chair, '会议主席头像');
     validateAvatar(errors, assets.speaker1, '讲者一头像');
     validateAvatar(errors, assets.speaker2, '讲者二头像');
-    validateStoragePath(errors, assets.qrCode, '二维码');
+    const qr = validateStoragePath(errors, assets.qrCode, '二维码');
+    if (qr.path && !qr.path.toLowerCase().endsWith('.png')) {
+      errors.push('二维码必须先点击“应用裁剪”，提交给 Renderer 的成品必须为 PNG');
+    }
 
     let serialized = '';
     try {
