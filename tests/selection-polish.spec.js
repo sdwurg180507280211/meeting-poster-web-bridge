@@ -79,7 +79,7 @@ test.beforeEach(async ({ page }) => {
   await ready(page);
 });
 
-test('clicking outside clears text selection but keeps text layout mode active', async ({ page }) => {
+test('clicking anywhere outside the poster clears text selection but keeps V mode active', async ({ page }) => {
   await enableText(page);
   await page.locator('[data-preview-text-id="section-chair"]').click();
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds().length)).toBe(1);
@@ -90,7 +90,7 @@ test('clicking outside clears text selection but keeps text layout mode active',
   await expect(page.locator('.moveable-control-box')).toHaveCount(0);
 });
 
-test('clicking inspector clears asset selection while its toolbar actions preserve selection', async ({ page }) => {
+test('clicking the inspector outside the poster clears asset selection but keeps A mode active', async ({ page }) => {
   await enableAsset(page);
   const chair = page.locator('.canvas-asset-slot[data-key="chair"]');
   const speaker = page.locator('.canvas-asset-slot[data-key="speaker1"]');
@@ -98,11 +98,18 @@ test('clicking inspector clears asset selection while its toolbar actions preser
   await speaker.click({ modifiers: ['Control'] });
   await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys().sort())).toEqual(['chair', 'speaker1']);
 
-  await page.locator('[data-asset-action="reset"]').click();
-  await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys().sort())).toEqual(['chair', 'speaker1']);
-
   await page.locator('#outputName').click();
   await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys().length)).toBe(0);
+  expect(await page.evaluate(() => window.posterAssetLayout.isEnabled())).toBe(true);
+});
+
+test('even clicking the floating tool status outside poster clears the active selection', async ({ page }) => {
+  await enableAsset(page);
+  await page.locator('.canvas-asset-slot[data-key="qr"]').click();
+  await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys())).toEqual(['qr']);
+
+  await page.locator('[data-asset-layout-count]').click();
+  await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys())).toEqual([]);
   expect(await page.evaluate(() => window.posterAssetLayout.isEnabled())).toBe(true);
 });
 

@@ -18,6 +18,7 @@
   let selected = new Set();
   let marquee = null;
   let suppressPosterClick = false;
+  let inlineEdit = null;
   const undoStack = [];
   const redoStack = [];
 
@@ -101,12 +102,9 @@
   const dock = document.createElement('div');
   dock.className = 'text-layout-dock';
   dock.innerHTML = `
-    <button type="button" class="text-layout-mode-btn" data-layout-mode title="选择文字并调整网页预览位置"><span class="tool-key">V</span><span>选择文字</span></button>
+    <button type="button" class="text-layout-mode-btn" data-layout-mode aria-label="V 文字工具" data-tool-tip="V · 文字工具\n选择和移动海报文字。双击可编辑文字可直接原位修改；方向键微调位置。"><span class="tool-key">V</span><span>文字工具</span></button>
     <div class="text-layout-tools" data-layout-tools hidden>
       <span class="text-layout-count" data-layout-count>未选择</span>
-      <button type="button" data-layout-action="undo" title="撤销 · Ctrl/Cmd+Z">↶</button>
-      <button type="button" data-layout-action="redo" title="重做 · Ctrl/Cmd+Shift+Z">↷</button>
-      <button type="button" data-layout-action="reset" title="重置当前项目的网页文字布局">重置</button>
     </div>`;
   document.querySelector('.stage-area')?.appendChild(dock);
 
@@ -116,6 +114,11 @@
 
   function snapshotBeforeChange() {
     return cloneOverrides();
+  }
+
+  function updateToolbarState() {
+    const count = selected.size;
+    countLabel.textContent = count ? `已选 ${count} 项` : '未选择';
   }
 
   function commitHistory(before) {
@@ -246,7 +249,7 @@
     }
     moveable?.destroy?.();
     moveable = null;
-    if (!layoutMode || !selected.size) return;
+    if (!layoutMode || inlineEdit || !selected.size) return;
     moveable = createMoveable([...selected]);
   }
 
@@ -264,13 +267,6 @@
       el.classList.toggle('is-selected', active);
       el.classList.toggle('is-selected-multi', active && selected.size > 1);
     }
-  }
-
-  function updateToolbarState() {
-    const count = selected.size;
-    countLabel.textContent = count ? `已选 ${count} 项` : '未选择';
-    dock.querySelector('[data-layout-action="undo"]').disabled = undoStack.length === 0;
-    dock.querySelector('[data-layout-action="redo"]').disabled = redoStack.length === 0;
   }
 
   function setSelection(next) {
@@ -297,6 +293,85 @@
     setSelection(next);
   }
 
+  function inlineInputFor(item) {
+    if (!item?.source?.inputId) return null;
+    if (item.edit?.action === 'meetingTime' || item.edit?.action === 'scheduleTime') return null;
+    return document.getElementById(item.source.inputId);
+  }
+
+  function normalizeInlineValue(item, text) {
+    let value = String(text || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    if (item.source?.type === 'personName') value = value.replace(/\s*教授\s*$/u, '').trim();
+    return value;
+  }
+
+  function finishInlineEdit(commit = true) {
+    if (!inlineEdit) return false;
+    const state = inlineEdit;
+    inlineEdit = null;
+    const { el, item, input } = state;
+    const typed = el.textContent || '';
+
+    el.removeAttribute('contenteditable');
+    el.removeAttribute('data-inline-placeholder');
+    el.classList.remove('is-inline-editing');
+
+    if (commit) {
+      const value = normalizeInlineValue(item, typed);
+      if (input.value !== value) {
+        input.value = value;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        el.textContent = resolveText(item);
+      }
+    } else {
+      el.textContent = resolveText(item);
+    }
+
+    scheduleMoveableRebuild();
+    return true;
+  }
+
+  function selectAllText(el) {
+    const selection = window.getSelection?.();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function beginInlineEdit(id) {
+    if (!layoutMode) return false;
+    const item = itemsById.get(id);
+    const el = elements.get(id);
+    if (!item || !el) return false;
+
+    const input = inlineInputFor(item);
+    if (!input) {
+      if (!item.edit) return false;
+      openEditor(item.edit);
+      return true;
+    }
+
+    if (inlineEdit?.el === el) return true;
+    if (inlineEdit) finishInlineEdit(true);
+
+    inlineEdit = { el, item, input };
+    setSelection([el]);
+    destroyMoveable();
+    el.classList.add('is-inline-editing');
+    el.setAttribute('contenteditable', 'true');
+    el.dataset.inlinePlaceholder = item.source?.type === 'personName' ? '请输入姓名' : (item.placeholder || '请输入文字');
+    el.textContent = item.source?.type === 'personName'
+      ? String(input.value || '').replace(/\s*教授\s*$/u, '').trim()
+      : String(input.value || '');
+    el.focus({ preventScroll: true });
+    selectAllText(el);
+    return true;
+  }
+
   function renderItem(item) {
     const el = document.createElement('div');
     el.className = 'poster-preview-text';
@@ -308,15 +383,37 @@
 
     if (item.source?.inputId) {
       document.getElementById(item.source.inputId)?.addEventListener('input', () => {
+        if (inlineEdit?.el === el) return;
         el.textContent = resolveText(item);
         if (selected.has(el)) moveable?.updateRect?.();
       });
     }
 
     el.addEventListener('pointerdown', event => {
+      if (inlineEdit?.el === el) {
+        event.stopPropagation();
+        return;
+      }
       if (!layoutMode || event.button !== 0) return;
       event.stopPropagation();
       selectElement(el, event.metaKey || event.ctrlKey);
+    });
+
+    el.addEventListener('keydown', event => {
+      if (inlineEdit?.el !== el) return;
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        finishInlineEdit(true);
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        finishInlineEdit(false);
+      }
+    });
+
+    el.addEventListener('blur', () => {
+      if (inlineEdit?.el === el) finishInlineEdit(true);
     });
 
     el.addEventListener('click', event => {
@@ -337,7 +434,7 @@
   }
 
   function startMarquee(event) {
-    if (!layoutMode || event.button !== 0 || event.target !== poster) return;
+    if (!layoutMode || inlineEdit || event.button !== 0 || event.target !== poster) return;
     event.preventDefault();
     event.stopPropagation();
     const point = localPoint(event);
@@ -407,7 +504,7 @@
   poster.addEventListener('pointerup', finishMarquee);
   poster.addEventListener('pointercancel', finishMarquee);
   poster.addEventListener('click', event => {
-    if (!layoutMode || event.target !== poster) return;
+    if (!layoutMode || inlineEdit || event.target !== poster) return;
     if (suppressPosterClick) {
       suppressPosterClick = false;
       return;
@@ -440,35 +537,19 @@
     moveable?.updateRect?.();
   }
 
-  function resetLayout() {
-    if (!Object.keys(overrides).length) return;
-    const before = snapshotBeforeChange();
-    overrides = {};
-    localStorage.removeItem(STORAGE_KEY);
-    applyAllGeometry();
-    commitHistory(before);
-    scheduleMoveableRebuild();
-  }
-
   function setLayoutMode(enabled) {
-    layoutMode = Boolean(enabled);
+    const next = Boolean(enabled);
+    if (!next && inlineEdit) finishInlineEdit(true);
+    layoutMode = next;
     poster.classList.toggle('is-text-layout-mode', layoutMode);
     dock.classList.toggle('is-active', layoutMode);
     modeButton.classList.toggle('active', layoutMode);
-    modeButton.querySelector('span:last-child').textContent = layoutMode ? '完成布局' : '选择文字';
     tools.hidden = !layoutMode;
     if (!layoutMode) clearSelection();
     updateToolbarState();
   }
 
   modeButton.addEventListener('click', () => setLayoutMode(!layoutMode));
-
-  dock.addEventListener('click', event => {
-    const action = event.target.closest('button')?.dataset?.layoutAction;
-    if (action === 'undo') undo();
-    else if (action === 'redo') redo();
-    else if (action === 'reset') resetLayout();
-  });
 
   function isEditingTarget(target) {
     return target instanceof Element && Boolean(target.closest('input,textarea,select,[contenteditable="true"]'));
@@ -484,6 +565,7 @@
       return;
     }
     if (event.key === 'Escape') {
+      if (isEditingTarget(event.target)) return;
       event.preventDefault();
       clearSelection();
       return;
@@ -515,6 +597,7 @@
     nudge: nudgeSelection,
     undo,
     redo,
-    reset: resetLayout,
+    beginInlineEdit,
+    isInlineEditing: () => Boolean(inlineEdit),
   });
 })();

@@ -37,31 +37,14 @@
   display:flex;
   align-items:center;
   gap:4px;
-  padding:4px 6px;
+  padding:4px 8px;
   border:1px solid rgba(164,174,193,.72);
   border-radius:9px;
   background:rgba(255,255,255,.96);
   box-shadow:0 5px 18px rgba(31,42,68,.12);
   backdrop-filter:blur(12px);
-  overflow-x:auto;
-  scrollbar-width:none;
 }
 .asset-layout-tools[hidden]{display:none!important}
-.asset-layout-tools::-webkit-scrollbar{display:none}
-.asset-layout-tools button{
-  flex:none;
-  min-width:27px;
-  height:25px;
-  padding:0 6px;
-  border:0;
-  border-radius:6px;
-  background:transparent;
-  color:#657186;
-  font-size:9px;
-  font-weight:800;
-}
-.asset-layout-tools button:hover:not(:disabled){background:#eaf7f1;color:#27815c}
-.asset-layout-tools button:disabled{opacity:.28;cursor:default}
 .asset-layout-count,.asset-layout-readout{
   flex:none;
   color:#596579;

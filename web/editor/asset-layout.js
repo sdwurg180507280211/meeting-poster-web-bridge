@@ -3,8 +3,7 @@
 
   const poster = document.getElementById('posterCanvas');
   const project = window.POSTER_PROJECT;
-  const profiles = window.POSTER_ASSET_LAYOUT_PROFILES;
-  if (!poster || !project?.assetPreview || !project?.assetLayoutProfile || !profiles) return;
+  if (!poster || !project?.assetPreview || !project?.assetLayoutProfile) return;
 
   const W = Number(project.canvas?.width || 837);
   const H = Number(project.canvas?.height || 1880);
@@ -116,6 +115,18 @@
     return clone(currentLayout());
   }
 
+  function updateToolbar() {
+    const count = selected.size;
+    countLabel.textContent = count ? `已选 ${count} 项` : '未选择';
+    if (count === 1) {
+      const key = [...selected][0];
+      const spec = normalizeSpec(key, project.assetPreview[key]);
+      readout.textContent = `${LABELS[key]} · X ${spec.left} · Y ${spec.top} · ${spec.size}×${spec.size}`;
+    } else {
+      readout.textContent = count > 1 ? '批量移动 · 尺寸单独调整' : '';
+    }
+  }
+
   function commitHistory(before) {
     if (!before || JSON.stringify(before) === JSON.stringify(currentLayout())) return;
     undoStack.push(before);
@@ -124,10 +135,10 @@
     updateToolbar();
   }
 
-  function restoreSnapshot(value, { persist = true } = {}) {
+  function restoreSnapshot(value) {
     KEYS.forEach(key => setProjectSpec(key, value[key] || project.assetPreview[key]));
     applyAllGeometry();
-    if (persist) saveLayout();
+    saveLayout();
     scheduleMoveableRebuild();
     updateToolbar();
   }
@@ -293,13 +304,10 @@
   const dock = document.createElement('div');
   dock.className = 'asset-layout-dock';
   dock.innerHTML = `
-    <button type="button" class="asset-layout-mode-btn" data-asset-layout-mode title="调整头像和二维码位置/尺寸，并同步 Photoshop"><span class="tool-key">A</span><span>素材布局</span></button>
+    <button type="button" class="asset-layout-mode-btn" data-asset-layout-mode aria-label="A 素材工具" data-tool-tip="A · 素材工具\n本项目的头像/二维码工具。选择后可拖动或缩放；双击重新裁剪。位置和尺寸会同步 Photoshop。"><span class="tool-key">A</span><span>素材工具</span></button>
     <div class="asset-layout-tools" data-asset-layout-tools hidden>
       <span class="asset-layout-count" data-asset-layout-count>未选择</span>
       <span class="asset-layout-readout" data-asset-layout-readout></span>
-      <button type="button" data-asset-action="undo" title="撤销 · Ctrl/Cmd+Z">↶</button>
-      <button type="button" data-asset-action="redo" title="重做 · Ctrl/Cmd+Shift+Z">↷</button>
-      <button type="button" data-asset-action="reset" title="重置当前项目头像/二维码布局">重置</button>
     </div>`;
   document.querySelector('.stage-area')?.appendChild(dock);
 
@@ -307,20 +315,6 @@
   const tools = dock.querySelector('[data-asset-layout-tools]');
   const countLabel = dock.querySelector('[data-asset-layout-count]');
   const readout = dock.querySelector('[data-asset-layout-readout]');
-
-  function updateToolbar() {
-    const count = selected.size;
-    countLabel.textContent = count ? `已选 ${count} 项` : '未选择';
-    if (count === 1) {
-      const key = [...selected][0];
-      const spec = normalizeSpec(key, project.assetPreview[key]);
-      readout.textContent = `${LABELS[key]} · X ${spec.left} · Y ${spec.top} · ${spec.size}×${spec.size}`;
-    } else {
-      readout.textContent = count > 1 ? '批量移动 · 尺寸单独调整' : '';
-    }
-    dock.querySelector('[data-asset-action="undo"]').disabled = undoStack.length === 0;
-    dock.querySelector('[data-asset-action="redo"]').disabled = redoStack.length === 0;
-  }
 
   function nudgeSelection(dx, dy) {
     if (!selected.size) return;
@@ -336,28 +330,12 @@
     updateToolbar();
   }
 
-  function resetLayout() {
-    const baseline = profiles.cloneLayout(PROFILE_ID);
-    if (!baseline) return;
-    const before = snapshot();
-    KEYS.forEach(key => setProjectSpec(key, baseline[key]));
-    localStorage.removeItem(STORAGE_KEY);
-    applyAllGeometry();
-    commitHistory(before);
-    scheduleMoveableRebuild();
-    updateToolbar();
-    document.dispatchEvent(new CustomEvent('poster-asset-layout-changed', {
-      detail: { projectId: project.id, profileId: PROFILE_ID, layout: currentLayout() },
-    }));
-  }
-
   function setMode(enabled) {
     active = Boolean(enabled);
     if (active) window.posterTextLayout?.setEnabled?.(false);
     poster.classList.toggle('is-asset-layout-mode', active);
     dock.classList.toggle('is-active', active);
     modeButton.classList.toggle('active', active);
-    modeButton.querySelector('span:last-child').textContent = active ? '完成素材' : '素材布局';
     tools.hidden = !active;
     if (!active) clearSelection();
     updateToolbar();
@@ -381,15 +359,6 @@
   document.querySelector('[data-layout-mode]')?.addEventListener('click', () => {
     if (active) setMode(false);
   }, true);
-
-  dock.addEventListener('click', event => {
-    const button = event.target.closest('button');
-    if (!button) return;
-    const action = button.dataset.assetAction;
-    if (action === 'undo') undo();
-    else if (action === 'redo') redo();
-    else if (action === 'reset') resetLayout();
-  });
 
   function isEditingTarget(target) {
     return target instanceof Element && Boolean(target.closest('input,textarea,select,[contenteditable="true"]'));
@@ -440,6 +409,5 @@
     nudge: nudgeSelection,
     undo,
     redo,
-    reset: resetLayout,
   });
 })();

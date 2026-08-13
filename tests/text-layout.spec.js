@@ -82,28 +82,50 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => Boolean(window.posterTextLayout && window.Moveable));
 });
 
-test('compact text mode keeps only mouse-first layout controls', async ({ page }) => {
-  await expect(page.locator('.stage-toolbar')).toBeHidden();
-  await expect(page.locator('.text-layout-mode-btn')).toContainText('选择文字');
-  await enableLayout(page);
-  await expect(page.locator('.text-layout-mode-btn')).toContainText('完成布局');
-  await expect(page.locator('[data-align]')).toHaveCount(0);
+test('V is explained as the text tool and has no reset or arrow action buttons', async ({ page }) => {
+  const mode = page.locator('.text-layout-mode-btn');
+  await expect(mode).toHaveAttribute('aria-label', 'V 文字工具');
+  await expect(mode).toHaveAttribute('data-tool-tip', /V · 文字工具/);
+  await expect(mode).toHaveAttribute('data-tool-tip', /双击可编辑文字可直接原位修改/);
 
+  await enableLayout(page);
   await selectTwo(page);
   await expect(page.locator('[data-layout-count]')).toContainText('已选 2 项');
-  await expect(page.locator('[data-layout-action="undo"]')).toBeVisible();
-  await expect(page.locator('[data-layout-action="redo"]')).toBeVisible();
-  await expect(page.locator('[data-layout-action="reset"]')).toBeVisible();
+  await expect(page.locator('[data-layout-action]')).toHaveCount(0);
+  await expect(page.locator('[data-align]')).toHaveCount(0);
 });
 
-test('double-clicking text in layout mode opens its direct editor', async ({ page }) => {
+test('double-clicking editable text in V mode edits in place and syncs the form field', async ({ page }) => {
+  await page.locator('#chair-name').fill('张三');
   await enableLayout(page);
-  await page.locator('[data-preview-text-id="chair-name"]').dblclick();
-  await expect(page.locator('#chair-name')).toBeFocused();
-  await expect(page.locator('[data-section="people"]')).toHaveAttribute('open', '');
+
+  const preview = page.locator('[data-preview-text-id="chair-name"]');
+  await expect(preview).toHaveText('张三 教授');
+  await preview.dblclick();
+
+  await expect(preview).toHaveAttribute('contenteditable', 'true');
+  await expect(preview).toBeFocused();
+  await expect.poll(() => page.evaluate(() => window.posterTextLayout.isInlineEditing())).toBe(true);
+
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('李四');
+  await page.keyboard.press('Enter');
+
+  await expect(page.locator('#chair-name')).toHaveValue('李四');
+  await expect(preview).toHaveText('李四 教授');
+  await expect(preview).not.toHaveAttribute('contenteditable', 'true');
+  await expect.poll(() => page.evaluate(() => window.posterTextLayout.isInlineEditing())).toBe(false);
 });
 
-test('arrow keys nudge every selected item by exact design pixels with undo and redo', async ({ page }) => {
+test('special time text keeps its dedicated editor instead of becoming free text', async ({ page }) => {
+  await enableLayout(page);
+  const preview = page.locator('[data-preview-text-id="meeting-time"]');
+  await preview.dblclick();
+  await expect(preview).not.toHaveAttribute('contenteditable', 'true');
+  await expect(page.locator('[data-section="meeting"]')).toHaveAttribute('open', '');
+});
+
+test('arrow keys nudge every selected item by exact design pixels with keyboard undo and redo', async ({ page }) => {
   await enableLayout(page);
   await selectTwo(page);
 
