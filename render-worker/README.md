@@ -1,107 +1,198 @@
 # Node PNG Render Worker
 
-独立的新一代海报 Renderer（PNG-only）。不再依赖 Photoshop / UXP / Mac Agent。
+独立 PNG Renderer：运行时不依赖 Photoshop、UXP、Mac Agent 或 PSD。
 
 ```text
-Browser -> Supabase -> Node Render Worker -> final.png
+Browser → Supabase → Node Render Worker → SVG → Resvg → final.png
 ```
 
 ## 渲染内核
 
-- 完整 SVG 构建（背景 / 圆形头像 / 二维码 / 文字）→ `@resvg/resvg-js` 一次渲染出 PNG
-- 文字定位使用 PSD `textItem.position` 基线模型：`x` = 锚点（align 决定 text-anchor），`y` = 基线
-- 字体经 `fontFiles` 显式加载（`loadSystemFonts: false`），SVG 内用真实 family 名 + 字重匹配，不依赖系统字体、不使用 @font-face
-- 自动缩字号：fontkit 精确测量文本宽度，超 `maxWidth` 按比例缩放（`minFontSize` 兜底）
-- `tracking` 为 PS 千分 em 原值，渲染时自动换算 `tracking / 1000 * fontSize` px
+- 背景、圆形头像、二维码、文字统一组成一张 SVG。
+- 最终 rasterize 只使用 `@resvg/resvg-js`。
+- 正式文字坐标使用迁移自 PSD `textItem.position` 的 baseline `x / y`。
+- 字体通过 Resvg `fontFiles` 显式加载，并设置 `loadSystemFonts: false`。
+- `fontkit` 只负责字体信息和文本宽度测量。
+- Sharp 只用于把 JPEG/WebP 等运行时图片统一解码成 PNG 后再嵌入 SVG。
+- Photoshop tracking 原值按 `tracking / 1000 * fontSize` 换算为 SVG `letter-spacing`。
+- 超过 `maxWidth` 的文字按 1px 逐级减小，最低到 `minFontSize`。
 
-## 任务契约
+## 运行时输入
 
-- 复用现有 **render protocol v2**（`claim_next_poster_job` / lease / `payload.project.assetLayout`），Web 端零改动
-- 项目：`chronic-care-2026`（医路长安）
+当前继续接收 Render Protocol v2 任务：
 
-## 模板结构
+```text
+payload.meeting
+payload.assets
+payload.project.id
+payload.project.canvas
+payload.project.assetLayout
+```
+
+正式文字位置**不**来自 Web V 布局。
+
+头像和二维码几何优先来自 `payload.project.assetLayout`；manifest 的 `images` 只是项目默认值。
+
+## 模板目录
 
 ```text
 render-worker/
-├── package.json
 ├── src/
-│   ├── template.js     # manifest 加载 + 校验 + 字体 env registry
-│   ├── renderer.js     # SVG 构建 + resvg 渲染
-│   ├── supabase.js     # 任务认领 / 状态推进 / Storage 下载上传
-│   └── worker.js       # 轮询主循环
+│   ├── template.js
+│   ├── renderer.js
+│   ├── supabase.js
+│   └── worker.js
 ├── scripts/
-│   ├── compile-manifest.js  # 一次性迁移：PSD dump → manifest
-│   └── fixture-render.js    # 本地渲染验证
+│   ├── compile-manifest.js
+│   ├── compile-manifest.test.js
+│   └── fixture-render.js
 └── templates/
     └── chronic-care-2026/
-        ├── manifest.json    # 设计真相（schemaVersion 1）
-        └── background.png   # 底图 + Logo + 固定标题（动态层已烘焙剥离）
+        ├── manifest.json
+        └── background.png
 ```
 
-字体**不随模板入库**：由环境变量提供（`RENDER_FONT_REGULAR` / `RENDER_FONT_SEMIBOLD`），
-切换字体（如未来部署 Linux 换思源黑体）无需改动模板目录。
+字体不放在模板目录，也不提交 Git：
 
-## manifest schema v1
+```env
+RENDER_FONT_REGULAR=/absolute/path/to/regular.ttf
+RENDER_FONT_SEMIBOLD=/absolute/path/to/semibold.ttf
+```
 
-```jsonc
+## Manifest v1
+
+### 普通文字
+
+每一个正式文字对象直接保存设计坐标：
+
+```json
 {
-  "schemaVersion": 1,
-  "projectId": "chronic-care-2026",
-  "canvas": { "width": 837, "height": 1880 },
-  "background": "background.png",
-  "images": {                       // 素材默认几何；运行时 payload.project.assetLayout 优先
-    "chair": { "left": 342, "top": 496, "size": 168 }
-  },
-  "texts": {                        // 静态（text）或动态（source 路径表达式 + prefix/suffix）
-    "sectionChair": { "text": "会议主席", "x": 419, "y": 456, "fontSize": 34, "weight": "semibold", "align": "center", "tracking": 40, "color": "#5435D6" },
-    "chairName": { "source": "chair.name", "x": 419, "y": 701, "fontSize": 21, "weight": "semibold", "align": "center", "tracking": 90, "color": "#191919", "maxWidth": 121 }
-  },
-  "schedule": {                     // 4 行固定，rows = 各行基线 y
-    "rows": [1324, 1389, 1454, 1519],
-    "columns": {
-      "time":    { "x": 145.5, "align": "center", "fontSize": 20, "weight": "regular", "color": "#191919" },
-      "speaker": { "x": 521.5, "align": "center", "fontSize": 20, "weight": "regular", "color": "#191919", "hiddenRows": [3] },
-      "chair":   { "x": 680.5, "align": "center", "fontSize": 20, "weight": "regular", "color": "#191919", "hiddenRows": [1, 2] }
-    },
-    "dot": { "size": 13, "color": "#5435D6", "x": 236.5, "ys": [1320, 1386, 1450], "hiddenRows": [3] }
+  "chairName": {
+    "x": 419,
+    "y": 701,
+    "fontSize": 21,
+    "minFontSize": 12,
+    "weight": "semibold",
+    "align": "center",
+    "tracking": 90,
+    "color": "#191919",
+    "maxWidth": 121,
+    "source": "chair.name",
+    "suffix": " 教授"
   }
 }
 ```
 
-- `hiddenRows`：模板级固定隐藏（PSD 中该行该列无正常图层）；渲染时字段为空 → 不画
-- 日程第一行讲者恒隐藏（业务规则，`cleanSchedule` 强制）
+`x / y` 是 SVG text anchor / baseline，不是矩形框左上角。
 
-## 一次性迁移（最后一次使用 Photoshop）
+### 日程
+
+日程不再使用“公共列 + 行 Y”推导模型。
+
+每一行、每一格都保留 PSD 实际文字图层自己的：
 
 ```text
-Photoshop(PSD)
-   → tools/ps-remote/extract-template-info.jsx  → template-dump-*.json
-   → render-worker/scripts/compile-manifest.js  → manifest.json
+x / y
+fontSize
+tracking
+align
+color
+maxWidth
 ```
 
-此后 manifest 即设计真相，运行时不再读 PSD。
+结构：
+
+```json
+{
+  "schedule": {
+    "rows": [
+      {
+        "time": { "x": 145.5, "y": 1324, "fontSize": 20 },
+        "content": { "x": 263, "y": 1325, "fontSize": 20 },
+        "speaker": { "x": 521.5, "y": 1324, "fontSize": 20 },
+        "chair": { "x": 680.5, "y": 1323, "fontSize": 20 },
+        "dot": { "x": 236.5, "y": 1320, "fontSize": 15, "text": "●" }
+      }
+    ]
+  }
+}
+```
+
+PSD 的“默认隐藏”状态不转换成永久规则：
+
+- 第二/三行主席有值就画。
+- 第四行讲者有值就画。
+- 第四行内容有值就画。
+- 圆点随对应行 `content` 是否有值决定。
+- 只有第一行讲者由当前业务规则强制为空。
+
+## 一次性模板迁移
+
+迁移数据位于：
+
+```text
+tools/template-migration/chronic-care-2026/template-dump-20260813.json
+```
+
+生成正式 manifest：
+
+```bash
+npm run compile:manifest
+```
+
+生命周期：
+
+```text
+历史 PSD
+→ 一次性 template dump
+→ compile-manifest.js
+→ manifest.json
+→ 从此生产运行时不再读取 PSD/dump
+```
+
+`compile-manifest.test.js` 会验证提交的 `manifest.json` 与 migration dump 编译结果完全一致。
 
 ## 本地运行
 
 ```bash
-cp .env.example .env   # 填 SUPABASE_URL / SUPABASE_SECRET_KEY / 字体路径
-npm install
-
-# 单元测试
+cd render-worker
+cp .env.example .env
+npm ci
+npm run check
 npm test
-
-# 渲染 fixture（验证内核，不依赖 Supabase）
-node scripts/fixture-render.js   # 输出 /tmp/rw-test/fixture.png
-
-# 启动轮询 worker
 npm start
 ```
 
-## 状态
+本地有合法字体文件时，可以单独生成 fixture：
 
-- [x] 渲染内核（resvg-js + 基线定位 + 显式字体加载）
-- [x] Supabase 客户端 / 轮询 worker / 任务租约
-- [x] Web 流程 PNG-only 改造（本分支）
-- [x] 移除 Photoshop / Mac Agent 运行时（本分支）
-- [ ] Node PNG vs 原 Photoshop PNG 对照 fixture（待验收）
-- [ ] 云端字体方案定稿（Linux 部署用可分发字体）
+```bash
+npm run fixture
+```
+
+fixture 使用和真实 Web 一致的数据形态：姓名不自带“教授”、meetingTime 不自带“会议时间：”；这些展示规则由 manifest 的 `suffix / prefix` 决定。
+
+## 当前状态
+
+已完成：
+
+- Resvg 最终渲染
+- 显式字体加载
+- baseline 定位
+- tracking
+- maxWidth + 1px 逐级缩字号
+- 头像圆形裁切
+- QR 图片格式归一化
+- 精确 per-cell 日程 manifest
+- Supabase Worker
+- PNG 上传
+- manifest compiler + drift test
+
+待视觉验收：
+
+```text
+真实 Photoshop reference.png
+vs
+Node fixture/output.png
+```
+
+视觉验收完成后，manifest 即正式设计真相。
