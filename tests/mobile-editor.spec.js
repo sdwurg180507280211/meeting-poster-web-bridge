@@ -153,6 +153,52 @@ test('single tap edits text through the mobile bottom sheet and writes the share
   await expect(preview).toContainText('李四 教授');
 });
 
+test('mobile text editor follows the visual viewport above the soft keyboard', async ({ page }) => {
+  await page.locator('[data-preview-text-id="chair-name"]').click();
+  const sheet = page.locator('.mobile-text-sheet');
+  await expect(sheet).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    window.posterMobileKeyboard?.sync?.({ offsetTop: 36, height: 500 });
+    const host = document.querySelector('.mobile-text-sheet');
+    return host ? {
+      top: host.style.top,
+      bottom: host.style.bottom,
+      height: host.style.height,
+    } : null;
+  });
+
+  expect(geometry).toEqual({ top: '36px', bottom: 'auto', height: '500px' });
+  await expect(sheet.locator('.mobile-text-sheet-input')).toBeFocused();
+});
+
+test('mobile project profiles start from their own calibrated text and asset positions', async ({ page }) => {
+  const layouts = await page.evaluate(() => {
+    const text = window.POSTER_TEXT_LAYOUT_PROFILES.profiles;
+    const assets = window.POSTER_ASSET_LAYOUT_PROFILES.profiles;
+    const byId = items => Object.fromEntries(items.map(item => [item.id, item]));
+    return {
+      text: {
+        yilu: byId(text['yilu-changan-text-v1'].items)['section-speakers'].y,
+        tonghu: byId(text['tonghu-jiankang-text-v1'].items)['section-speakers'].y,
+        tongxin: byId(text['tongxin-hujian-text-v1'].items)['section-speakers'].y,
+      },
+      assets: {
+        yilu: assets['yilu-changan-assets-v1'].layout.speaker1,
+        tonghu: assets['tonghu-jiankang-assets-v1'].layout.speaker1,
+        tongxin: assets['tongxin-hujian-assets-v1'].layout.speaker1,
+      },
+    };
+  });
+
+  expect(layouts.text).toEqual({ yilu: 772, tonghu: 782, tongxin: 773 });
+  expect(layouts.assets).toEqual({
+    yilu: expect.objectContaining({ left: 221, top: 836 }),
+    tonghu: expect.objectContaining({ left: 214, top: 848 }),
+    tongxin: expect.objectContaining({ left: 217, top: 836 }),
+  });
+});
+
 test('layout mode keeps tap for selection instead of opening the mobile text sheet', async ({ page }) => {
   await page.locator('[data-layout-mode]').click();
   await expect.poll(() => page.evaluate(() => window.posterLayoutTool.isEnabled())).toBe(true);

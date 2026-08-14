@@ -68,8 +68,8 @@ test('同护健康 loads its web base and project-specific layouts', async ({ pa
   expect(snapshot.textLayoutProfile).toBe('tonghu-jiankang-text-v1');
   expect(snapshot.assetLayoutProfile).toBe('tonghu-jiankang-assets-v1');
   expect(snapshot.baseImage).toContain('./assets/tonghu-jiankang-base.jpg');
-  expect(snapshot.layout.chair).toMatchObject({ left: 342, top: 496, size: 168 });
-  expect(snapshot.layout.qr).toMatchObject({ left: 338, top: 1576, size: 148 });
+  expect(snapshot.layout.chair).toMatchObject({ left: 330, top: 496, size: 168 });
+  expect(snapshot.layout.qr).toMatchObject({ left: 342, top: 1574, size: 148 });
 });
 
 test('同心护健 loads its own base and shared canvas size', async ({ page }) => {

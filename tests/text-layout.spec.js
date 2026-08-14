@@ -186,17 +186,17 @@ test('arrow keys nudge every selected item by exact design pixels with keyboard 
 
   await page.keyboard.press('Shift+ArrowDown');
   layout = await page.evaluate(() => window.posterTextLayout.getLayout());
-  expect(layout['section-chair'].y).toBe(430);
-  expect(layout['section-speakers'].y).toBe(772);
+  expect(layout['section-chair'].y).toBe(436);
+  expect(layout['section-speakers'].y).toBe(782);
 
   await page.keyboard.press('Control+z');
   layout = await page.evaluate(() => window.posterTextLayout.getLayout());
   expect(layout['section-chair'].x).toBe(269);
-  expect(layout['section-chair'].y).toBe(420);
+  expect(layout['section-chair'].y).toBe(426);
 
   await page.keyboard.press('Control+Shift+z');
   layout = await page.evaluate(() => window.posterTextLayout.getLayout());
-  expect(layout['section-chair'].y).toBe(430);
+  expect(layout['section-chair'].y).toBe(436);
 
   await page.keyboard.press('Escape');
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds().length)).toBe(0);
