@@ -38,8 +38,11 @@
           <div class="canvas-job-state">
             <strong id="jobStatus">准备就绪</strong>
             <span id="progressSteps">双击文字编辑 · 点击头像或二维码上传 · L 调整布局</span>
+            <span id="speakerImportStatus" hidden></span>
           </div>
           <div class="canvas-command-actions">
+            <input id="speakerZipFile" type="file" accept=".zip,application/zip,application/x-zip-compressed" hidden />
+            <button id="importSpeakerZip" type="button" class="canvas-secondary" title="导入包含 PPTX / DOCX 的讲者简历 ZIP，自动识别并随机填入 3 位讲者">导入讲者简历</button>
             <button id="cancelActiveJob" type="button" class="canvas-secondary danger" hidden>取消任务</button>
             <button id="downloadResult" type="button" class="canvas-secondary" hidden>再次下载</button>
             <button id="submitBtn" type="submit" form="posterForm" class="canvas-generate">
@@ -141,6 +144,8 @@
     referrerpolicy="no-referrer"
   ></script>
   <script src="https://cdn.jsdelivr.net/npm/moveable@0.53.0/dist/moveable.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="config.js"></script>
   <script src="project/poster-project.js"></script>
   <script src="project/asset-layout-profiles.js"></script>
@@ -158,6 +163,7 @@
   <script src="editor/selection-polish.js"></script>
   <script src="media/avatar-crop-modal.js"></script>
   <script src="media/qr-crop-modal.js"></script>
+  <script src="media/speaker-resume-importer.js"></script>
   <script src="editor/agenda-professor.js"></script>
   <script src="editor/interaction-polish.js"></script>
   <script src="editor/canvas-pan.js"></script>
