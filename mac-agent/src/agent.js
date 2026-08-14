@@ -216,7 +216,7 @@ async function renewOwnedLeases() {
   const result = await sb.from('poster_jobs')
     .update({ lease_expires_at: leaseUntil(RENDER_LEASE_SECONDS) })
     .eq('agent_id', AGENT_ID)
-    .in('status', ['claimed', 'rendering', 'uploading'])
+    .in('status', ['rendering', 'uploading'])
     .select('id');
   checkedResult(result, '续约任务租约');
 }
