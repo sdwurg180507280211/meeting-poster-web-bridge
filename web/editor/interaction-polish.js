@@ -73,12 +73,13 @@
         updateReadout();
         window.dispatchEvent(new Event('resize'));
       });
-      return;
+      return zoom;
     }
     poster.style.width = `${Math.max(160, Math.round(fitWidth * zoom))}px`;
     viewport.classList.toggle('is-zoomed', zoom > 1);
     updateReadout();
     notifyGeometryChange();
+    return zoom;
   }
 
   controls.addEventListener('click', event => {
@@ -100,33 +101,57 @@
     return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
   }
 
+  function touchCenter() {
+    const points = [...touchPoints.values()];
+    if (points.length < 2) return null;
+    return {
+      x: (points[0].x + points[1].x) / 2,
+      y: (points[0].y + points[1].y) / 2,
+    };
+  }
+
   function refreshPinchStart() {
-    if (!isMobileViewport() || window.posterLayoutTool?.isEnabled?.() || touchPoints.size < 2) {
+    if (!isMobileViewport() || touchPoints.size < 2) {
       pinch = null;
       viewport.classList.remove('is-pinching');
       return;
     }
     const distance = touchDistance();
-    if (!distance) return;
-    pinch = { distance, zoom };
+    const center = touchCenter();
+    if (!distance || !center) return;
+    pinch = { distance, zoom, lastCenter: center };
     viewport.classList.add('is-pinching');
   }
 
   viewport.addEventListener('pointerdown', event => {
     if (event.pointerType !== 'touch') return;
     touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    if (touchPoints.size === 2) refreshPinchStart();
-  });
+    if (touchPoints.size !== 2) return;
+    refreshPinchStart();
+    if (!pinch) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
 
   viewport.addEventListener('pointermove', event => {
     if (event.pointerType !== 'touch' || !touchPoints.has(event.pointerId)) return;
     touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (!pinch || touchPoints.size < 2) return;
+
     const distance = touchDistance();
-    if (!distance) return;
+    const center = touchCenter();
+    if (!distance || !center) return;
+
     event.preventDefault();
+    event.stopPropagation();
+
+    const dx = center.x - pinch.lastCenter.x;
+    const dy = center.y - pinch.lastCenter.y;
     setZoom(pinch.zoom * (distance / pinch.distance));
-  }, { passive: false });
+    viewport.scrollLeft = Math.max(0, viewport.scrollLeft - dx);
+    viewport.scrollTop = Math.max(0, viewport.scrollTop - dy);
+    pinch.lastCenter = center;
+  }, { passive: false, capture: true });
 
   function endTouch(event) {
     if (event.pointerType !== 'touch') return;
@@ -138,8 +163,8 @@
     }
   }
 
-  viewport.addEventListener('pointerup', endTouch);
-  viewport.addEventListener('pointercancel', endTouch);
+  viewport.addEventListener('pointerup', endTouch, true);
+  viewport.addEventListener('pointercancel', endTouch, true);
 
   window.addEventListener('resize', () => {
     if (zoom !== 1) return;
