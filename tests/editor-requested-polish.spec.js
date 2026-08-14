@@ -35,24 +35,29 @@ test('agenda professor suffix stays visible in preview but out of the mobile edi
   await expect(preview).toHaveText('李四 教授');
 });
 
-test('mobile exposes zoom controls and supports two-finger poster zoom', async ({ page }) => {
+test('mobile keeps only center control and supports two-finger navigation in layout mode', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-  const zoomIn = page.locator('.zoom-controls [data-zoom="in"]');
-  const zoomOut = page.locator('.zoom-controls [data-zoom="out"]');
-  const readout = page.locator('.zoom-value');
-  await expect(zoomIn).toBeVisible();
-  await expect(zoomOut).toBeVisible();
-  await expect(readout).toBeVisible();
+  const controls = page.locator('.zoom-controls');
+  await expect(controls.locator('.pan-center-btn')).toBeVisible();
+  await expect(controls.locator('[data-zoom="in"]')).toBeHidden();
+  await expect(controls.locator('[data-zoom="out"]')).toBeHidden();
+  await expect(controls.locator('[data-zoom="fit"]')).toBeHidden();
+  await expect(controls.locator('.zoom-value')).toBeHidden();
 
-  await zoomIn.click();
-  await expect(readout).toHaveText('110%');
-  await page.locator('.zoom-controls [data-zoom="fit"]').click();
-  await expect(readout).toHaveText('100%');
+  const layoutButton = page.locator('[data-layout-mode]');
+  await expect(layoutButton).toBeEnabled();
+  await layoutButton.click();
+  await expect.poll(() => page.evaluate(() => window.posterLayoutTool?.isEnabled?.())).toBe(true);
 
-  const pinchZoom = await page.evaluate(() => {
+  const navigation = await page.evaluate(async () => {
     const viewport = document.querySelector('.poster-viewport');
+    const before = {
+      left: viewport.scrollLeft,
+      top: viewport.scrollTop,
+      zoom: window.posterZoomControls?.get?.() || 1,
+    };
     const fire = (type, pointerId, x, y, isPrimary) => viewport.dispatchEvent(new PointerEvent(type, {
       bubbles: true,
       cancelable: true,
@@ -62,16 +67,65 @@ test('mobile exposes zoom controls and supports two-finger poster zoom', async (
       clientX: x,
       clientY: y,
     }));
-    fire('pointerdown', 11, 120, 300, true);
-    fire('pointerdown', 12, 220, 300, false);
-    fire('pointermove', 11, 90, 300, true);
-    fire('pointermove', 12, 250, 300, false);
-    const zoom = window.posterZoomControls?.get?.() || 1;
-    fire('pointerup', 11, 90, 300, true);
-    fire('pointerup', 12, 250, 300, false);
-    return zoom;
+
+    fire('pointerdown', 21, 110, 300, true);
+    fire('pointerdown', 22, 210, 300, false);
+    fire('pointermove', 21, 80, 320, true);
+    fire('pointermove', 22, 290, 340, false);
+    fire('pointerup', 21, 80, 320, true);
+    fire('pointerup', 22, 290, 340, false);
+
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return {
+      before,
+      after: {
+        left: viewport.scrollLeft,
+        top: viewport.scrollTop,
+        zoom: window.posterZoomControls?.get?.() || 1,
+      },
+      pinching: viewport.classList.contains('is-pinching'),
+    };
   });
-  expect(pinchZoom).toBeGreaterThan(1);
+
+  expect(navigation.after.zoom).toBeGreaterThan(navigation.before.zoom);
+  expect(
+    Math.abs(navigation.after.left - navigation.before.left)
+      + Math.abs(navigation.after.top - navigation.before.top),
+  ).toBeGreaterThan(1);
+  expect(navigation.pinching).toBe(false);
+});
+
+test('long press on mobile L button shows shortcuts without toggling layout mode', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  const button = page.locator('[data-layout-mode]');
+  await expect(button).toBeEnabled();
+  const box = await button.boundingBox();
+  expect(box).not.toBeNull();
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(620);
+
+  await expect(button).toHaveClass(/show-shortcut-help/);
+  const help = await button.evaluate(element => ({
+    text: element.dataset.toolTip || '',
+    display: getComputedStyle(element, '::after').display,
+    opacity: getComputedStyle(element, '::after').opacity,
+  }));
+  expect(help.text).toContain('方向键：移动 1 px');
+  expect(help.text).toContain('⌘/Ctrl + Z：撤销');
+  expect(help.text).toContain('双指缩放/移动画布');
+  expect(help.display).toBe('block');
+  expect(help.opacity).toBe('1');
+
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => window.posterLayoutTool?.isEnabled?.())).toBe(false);
+
+  await page.waitForTimeout(950);
+  await button.click();
+  await expect.poll(() => page.evaluate(() => window.posterLayoutTool?.isEnabled?.())).toBe(true);
 });
 
 test('asset layout selection leaves image boundaries visually unobstructed', async ({ page }) => {
