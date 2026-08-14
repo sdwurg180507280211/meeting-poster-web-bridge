@@ -137,8 +137,8 @@ jobs:
           for (const [id, name, assetProfile, textProfile] of projects) {
             must(registry.includes(id) && registry.includes(name), `web registry missing ${id}`);
             must(workerProjects.includes(id) && workerProjects.includes(name), `worker registry missing ${id}`);
-            must(registry.includes(`assetLayoutProfile: '${assetProfile}'`) && assetProfiles.includes(`'${assetProfile}': createProfile('${assetProfile}')`), `asset profile missing ${id}`);
-            must(registry.includes(`textLayoutProfile: '${textProfile}'`) && textProfiles.includes(`'${textProfile}': createProfile('${textProfile}')`), `text profile missing ${id}`);
+            must(registry.includes(`assetLayoutProfile: '${assetProfile}'`) && assetProfiles.includes(`'${assetProfile}': createProfile('${assetProfile}'`), `asset profile missing ${id}`);
+            must(registry.includes(`textLayoutProfile: '${textProfile}'`) && textProfiles.includes(`'${textProfile}': createProfile('${textProfile}'`), `text profile missing ${id}`);
           }
           must(registry.includes("DEFAULT_PROJECT_ID = 'chronic-care-2026'"), 'default project changed unexpectedly');
           must(posterProject.includes('project.buildRenderContract'), 'project must expose the render contract builder');
