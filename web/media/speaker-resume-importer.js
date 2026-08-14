@@ -74,11 +74,18 @@
     /[\u4e00-\u9fff]{2,20}医学中心/u,
   ];
 
+  function normalizeInstitution(value) {
+    return String(value || '')
+      .replace(/^(?:目前|现任|任职于?|就职于?|工作于|曾任|曾先后工作于)/u, '')
+      .trim();
+  }
+
   function institutionsFromLine(line) {
     const found = [];
     for (const pattern of INSTITUTION_PATTERNS) {
       const match = line.match(pattern);
-      if (match?.[0] && !found.includes(match[0])) found.push(match[0]);
+      const hospital = normalizeInstitution(match?.[0]);
+      if (hospital && !found.includes(hospital)) found.push(hospital);
     }
     return found;
   }
