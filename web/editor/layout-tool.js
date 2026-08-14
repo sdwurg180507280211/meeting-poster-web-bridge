@@ -12,6 +12,9 @@
   const LONG_PRESS_MS = 560;
   const LONG_PRESS_MOVE_TOLERANCE = 8;
   const SHORTCUT_HELP = [
+    '布局工具',
+    '文字和头像/二维码均可移动或缩放；双击文字可直接修改内容。',
+    '',
     '布局快捷键',
     '方向键：移动 1 px',
     'Shift + 方向键：移动 10 px',
