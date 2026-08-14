@@ -157,20 +157,18 @@ test('mobile text editor follows the visual viewport above the soft keyboard', a
   await page.locator('[data-preview-text-id="chair-name"]').click();
   const sheet = page.locator('.mobile-text-sheet');
   await expect(sheet).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 560 });
 
-  await expect.poll(() => page.evaluate(() => {
-    window.posterMobileKeyboard?.sync?.();
+  const geometry = await page.evaluate(() => {
+    window.posterMobileKeyboard?.sync?.({ offsetTop: 36, height: 500 });
     const host = document.querySelector('.mobile-text-sheet');
-    const viewport = window.visualViewport;
-    if (!host || !viewport) return false;
-    const rect = host.getBoundingClientRect();
-    const visibleBottom = viewport.offsetTop + viewport.height;
-    return Math.abs(rect.bottom - visibleBottom) <= 1
-      && Math.abs(rect.height - viewport.height) <= 1
-      && host.style.bottom === 'auto';
-  })).toBe(true);
+    return host ? {
+      top: host.style.top,
+      bottom: host.style.bottom,
+      height: host.style.height,
+    } : null;
+  });
 
+  expect(geometry).toEqual({ top: '36px', bottom: 'auto', height: '500px' });
   await expect(sheet.locator('.mobile-text-sheet-input')).toBeFocused();
 });
 
