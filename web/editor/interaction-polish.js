@@ -10,6 +10,38 @@
     requestAnimationFrame(() => requestAnimationFrame(fn));
   }
 
+  function installMobileTextKeyboardGuard() {
+    const visualViewport = window.visualViewport;
+    const mobileQuery = window.matchMedia?.('(max-width: 760px)');
+    if (!visualViewport || !mobileQuery) return;
+
+    const sync = () => {
+      const sheet = document.querySelector('.mobile-text-sheet:not([hidden])');
+      if (!sheet || !mobileQuery.matches) return;
+      const top = Math.max(0, Number(visualViewport.offsetTop || 0));
+      const height = Math.max(1, Number(visualViewport.height || window.innerHeight || 1));
+      sheet.style.top = `${top}px`;
+      sheet.style.bottom = 'auto';
+      sheet.style.height = `${height}px`;
+    };
+
+    visualViewport.addEventListener('resize', sync);
+    visualViewport.addEventListener('scroll', sync);
+    document.addEventListener('focusin', event => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target?.closest('.mobile-text-sheet')) return;
+      sync();
+      nextFrame(sync);
+    });
+    document.addEventListener('click', event => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target?.closest('.poster-preview-text')) return;
+      nextFrame(sync);
+    }, true);
+
+    window.posterMobileKeyboard = Object.freeze({ sync });
+  }
+
   function installJobStatePolish() {
     const state = document.querySelector('.canvas-job-state');
     const status = document.getElementById('jobStatus');
@@ -31,6 +63,7 @@
     sync();
   }
 
+  installMobileTextKeyboardGuard();
   installJobStatePolish();
 
   const controls = document.createElement('div');
