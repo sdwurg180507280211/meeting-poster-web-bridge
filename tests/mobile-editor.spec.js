@@ -133,7 +133,7 @@ test('idle job status stays out of the way until work starts', async ({ page }) 
   await expect(state).toBeVisible();
 });
 
-test('single tap edits text through the mobile bottom sheet and writes the shared data model', async ({ page }) => {
+test('single tap edits text through a contextual popover and writes the shared data model', async ({ page }) => {
   await page.evaluate(() => {
     const input = document.getElementById('chair-name');
     input.value = '张三';
@@ -142,34 +142,78 @@ test('single tap edits text through the mobile bottom sheet and writes the share
 
   const preview = page.locator('[data-preview-text-id="chair-name"]');
   await preview.click();
-  const sheet = page.locator('.mobile-text-sheet');
-  await expect(sheet).toBeVisible();
-  await expect(sheet.locator('.mobile-text-sheet-input')).toHaveValue('张三');
-  await sheet.locator('.mobile-text-sheet-input').fill('李四');
-  await sheet.locator('[data-mobile-text-apply]').click();
+  const layer = page.locator('.mobile-text-popover-layer');
+  const popover = layer.locator('.mobile-text-popover');
+  await expect(layer).toBeVisible();
+  await expect(preview).toHaveClass(/is-mobile-editing/);
+  await expect(popover.locator('.mobile-text-popover-input')).toHaveValue('张三');
 
-  await expect(sheet).toBeHidden();
+  const geometry = await page.evaluate(() => {
+    const panel = document.querySelector('.mobile-text-popover').getBoundingClientRect();
+    const anchor = document.querySelector('[data-preview-text-id="chair-name"]').getBoundingClientRect();
+    return {
+      panelPosition: getComputedStyle(document.querySelector('.mobile-text-popover')).position,
+      panelBottomGap: window.innerHeight - panel.bottom,
+      anchorDistance: Math.min(Math.abs(panel.top - anchor.bottom), Math.abs(anchor.top - panel.bottom)),
+    };
+  });
+  expect(geometry.panelPosition).toBe('absolute');
+  expect(geometry.panelBottomGap).toBeGreaterThan(40);
+  expect(geometry.anchorDistance).toBeLessThan(80);
+  await expect(page.locator('.canvas-command-bar')).toHaveCSS('opacity', '0');
+
+  await popover.locator('.mobile-text-popover-input').fill('李四');
+  await popover.locator('[data-mobile-text-apply]').click();
+
+  await expect(layer).toBeHidden();
+  await expect(preview).not.toHaveClass(/is-mobile-editing/);
   await expect(page.locator('#chair-name')).toHaveValue('李四');
   await expect(preview).toContainText('李四 教授');
 });
 
-test('mobile text editor follows the visual viewport above the soft keyboard', async ({ page }) => {
+test('all editable mobile text types use the same contextual popover instead of a bottom sheet', async ({ page }) => {
+  for (const id of ['chair-name', 'meeting-time', 'agenda-0-time']) {
+    const preview = page.locator(`[data-preview-text-id="${id}"]`);
+    await preview.click();
+    const layer = page.locator('.mobile-text-popover-layer');
+    await expect(layer).toBeVisible();
+    await expect(layer.locator('.mobile-text-popover')).toHaveCSS('position', 'absolute');
+    expect(await page.locator('.mobile-text-sheet').count()).toBe(0);
+    const inlinePosition = await layer.locator('.mobile-text-popover').evaluate(el => ({ top: el.style.top, bottom: el.style.bottom }));
+    expect(inlinePosition.top).not.toBe('');
+    expect(inlinePosition.bottom).toBe('');
+    await layer.locator('[data-mobile-text-cancel]').click();
+    await expect(layer).toBeHidden();
+  }
+});
+
+test('contextual mobile text editor stays inside the visual viewport above the soft keyboard', async ({ page }) => {
   await page.locator('[data-preview-text-id="chair-name"]').click();
-  const sheet = page.locator('.mobile-text-sheet');
-  await expect(sheet).toBeVisible();
+  const layer = page.locator('.mobile-text-popover-layer');
+  await expect(layer).toBeVisible();
 
   const geometry = await page.evaluate(() => {
-    window.posterMobileKeyboard?.sync?.({ offsetTop: 36, height: 500 });
-    const host = document.querySelector('.mobile-text-sheet');
-    return host ? {
-      top: host.style.top,
-      bottom: host.style.bottom,
-      height: host.style.height,
+    window.posterMobileTextEditor?.syncViewport?.({ offsetTop: 36, offsetLeft: 0, width: 390, height: 500 });
+    const host = document.querySelector('.mobile-text-popover-layer');
+    const panel = document.querySelector('.mobile-text-popover');
+    const panelRect = panel?.getBoundingClientRect();
+    return host && panel ? {
+      layerTop: host.style.top,
+      layerBottom: host.style.bottom,
+      layerHeight: host.style.height,
+      panelTop: panel.style.top,
+      panelBottom: panel.style.bottom,
+      panelViewportBottom: panelRect.bottom - 36,
     } : null;
   });
 
-  expect(geometry).toEqual({ top: '36px', bottom: 'auto', height: '500px' });
-  await expect(sheet.locator('.mobile-text-sheet-input')).toBeFocused();
+  expect(geometry.layerTop).toBe('36px');
+  expect(geometry.layerBottom).toBe('auto');
+  expect(geometry.layerHeight).toBe('500px');
+  expect(geometry.panelTop).not.toBe('');
+  expect(geometry.panelBottom).toBe('');
+  expect(geometry.panelViewportBottom).toBeLessThanOrEqual(488);
+  await expect(layer.locator('.mobile-text-popover-input')).toBeFocused();
 });
 
 test('mobile project profiles start from their own calibrated text and asset positions', async ({ page }) => {
@@ -199,11 +243,11 @@ test('mobile project profiles start from their own calibrated text and asset pos
   });
 });
 
-test('layout mode keeps tap for selection instead of opening the mobile text sheet', async ({ page }) => {
+test('layout mode keeps tap for selection instead of opening the mobile text popover', async ({ page }) => {
   await page.locator('[data-layout-mode]').click();
   await expect.poll(() => page.evaluate(() => window.posterLayoutTool.isEnabled())).toBe(true);
   await page.locator('[data-preview-text-id="chair-name"]').click();
-  await expect(page.locator('.mobile-text-sheet')).toHaveCount(0);
+  await expect(page.locator('.mobile-text-popover-layer')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.posterTextLayout.getSelectedIds())).toEqual(['chair-name']);
 });
 
