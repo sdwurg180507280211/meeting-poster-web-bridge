@@ -124,13 +124,6 @@ function setOptionalTextLayer(doc, names, value) {
   return layer;
 }
 
-function setLayerVisible(doc, names, visible) {
-  const layer = findLayer(doc, names);
-  if (!layer) throw new Error(`未找到图层：${displayName(names)}`);
-  layer.visible = Boolean(visible);
-  return layer;
-}
-
 function snapshotTextMetrics(doc, names) {
   const layer = findLayer(doc, names);
   if (!layer || layer.kind !== LayerKind.TEXT) return null;
@@ -331,7 +324,6 @@ async function generatePoster({ templateEntry, outputFolderEntry, meeting, asset
         setOptionalTextLayer(doc, spec.LAYERS.TEXT.scheduleContent(i), row.content);
         setOptionalTextLayer(doc, spec.LAYERS.TEXT.scheduleSpeaker(i), row.speaker);
         setOptionalTextLayer(doc, spec.LAYERS.TEXT.scheduleChair(i), row.chair);
-        setLayerVisible(doc, spec.LAYERS.TEXT.scheduleDot(i), Boolean(String(row.content || '').trim()));
       }
 
       onProgress('替换头像：网页成品固定映射');
