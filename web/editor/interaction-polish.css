@@ -8,6 +8,7 @@
 .zoom-controls button:focus-visible{outline:2px solid rgba(89,102,220,.28);outline-offset:-2px}
 .zoom-value{display:grid;place-items:center;min-width:46px;padding:0 5px;color:#6f7b8d;font-size:10px;font-variant-numeric:tabular-nums}
 .poster-viewport.is-zoomed{align-items:flex-start;padding-top:28px;padding-bottom:28px}
+.poster-viewport.is-pinching{cursor:zoom-in}
 .canvas-avatar-slot,.canvas-qr-slot{transition:outline-color .16s ease,box-shadow .16s ease,filter .16s ease}
 .canvas-avatar-slot::after,.canvas-qr-slot::after{position:absolute;inset:0;display:grid;place-items:center;background:rgba(31,42,68,.58);color:#fff;font-size:clamp(6px,.9vw,10px);font-weight:800;letter-spacing:.04em;opacity:0;transition:opacity .16s ease;pointer-events:none;z-index:4}
 .canvas-avatar-slot::after{content:"调整头像"}
@@ -21,8 +22,9 @@
 @media(max-width:760px){
   .stage-zoom-controls{top:10px;right:10px;position:absolute}
   .zoom-controls{height:36px;border-radius:10px;box-shadow:0 4px 14px rgba(31,42,68,.10)}
-  .zoom-controls [data-zoom="out"],.zoom-controls [data-zoom="in"],.zoom-value{display:none}
-  .zoom-controls button{min-width:46px;padding:0 11px;border:0!important;font-size:12px}
+  .zoom-controls button{min-width:34px;padding:0 7px;font-size:12px}
+  .zoom-controls [data-zoom="fit"],.pan-center-btn{min-width:42px}
+  .zoom-value{min-width:40px;padding:0 3px;font-size:11px}
   .pan-center-btn{border-left:1px solid #edf0f5!important}
   .canvas-avatar-slot:hover,.canvas-qr-slot:hover{outline:none;box-shadow:0 4px 12px rgba(40,55,89,.08)}
   .canvas-avatar-slot:hover::after,.canvas-qr-slot:hover::after{opacity:0}

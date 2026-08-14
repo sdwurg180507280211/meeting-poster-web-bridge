@@ -95,7 +95,7 @@
   }
 
   viewport.addEventListener('pointerdown', event => {
-    if (!event.isPrimary) return;
+    if (!event.isPrimary || viewport.classList.contains('is-pinching')) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     if (isInteractiveTarget(event.target) || isPosterSelectionSurface(event.target)) return;
 
@@ -111,6 +111,10 @@
 
   viewport.addEventListener('pointermove', event => {
     if (!drag || event.pointerId !== drag.pointerId) return;
+    if (viewport.classList.contains('is-pinching')) {
+      finishDrag(event);
+      return;
+    }
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
 

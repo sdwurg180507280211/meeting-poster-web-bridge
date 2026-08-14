@@ -1,33 +1,22 @@
-/* Avatar / QR layout geometry. The unified layout tool owns the visible controls. */
+/* Avatar / QR layout geometry. Moveable owns the visible resize handles and snap guides. */
 .poster-canvas.is-asset-layout-mode .canvas-asset-slot{
   cursor:move!important;
-  outline:1px dashed rgba(39,139,97,.68);
-  outline-offset:2px;
+  outline:none!important;
+  box-shadow:none!important;
+  filter:none!important;
 }
 .poster-canvas.is-asset-layout-mode .canvas-asset-slot:hover,
-.canvas-asset-slot.is-layout-selected{
-  outline:2px solid rgba(39,139,97,.9)!important;
-  outline-offset:3px;
+.poster-canvas.is-asset-layout-mode .canvas-asset-slot.is-layout-selected,
+.poster-canvas.is-asset-layout-mode .canvas-asset-slot.is-layout-selected-multi{
+  outline:none!important;
+  box-shadow:none!important;
+  filter:none!important;
 }
-.canvas-asset-slot.is-layout-selected-multi{box-shadow:0 0 0 4px rgba(39,139,97,.10)!important}
-.poster-canvas.is-asset-layout-mode .canvas-asset-slot:after{
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%);
-  z-index:4;
-  padding:2px 4px;
-  border-radius:4px;
-  background:rgba(18,81,57,.72);
-  color:#fff;
-  font-size:7px;
-  line-height:1;
-  font-weight:800;
-  pointer-events:none;
-  opacity:.72;
+.poster-canvas.is-asset-layout-mode .canvas-asset-slot::after{
+  display:none!important;
+  content:none!important;
+  opacity:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
 }
-.poster-canvas.is-asset-layout-mode .canvas-asset-slot[data-key="chair"]:after{content:"主席"}
-.poster-canvas.is-asset-layout-mode .canvas-asset-slot[data-key="speaker1"]:after{content:"讲者1"}
-.poster-canvas.is-asset-layout-mode .canvas-asset-slot[data-key="speaker2"]:after{content:"讲者2"}
-.poster-canvas.is-asset-layout-mode .canvas-asset-slot[data-key="qr"]:after{content:"二维码"}
 .poster-canvas.is-asset-layout-mode .canvas-asset-slot img{pointer-events:none}

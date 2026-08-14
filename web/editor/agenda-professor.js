@@ -10,6 +10,14 @@
     ['speaker', 3],
   ]);
 
+  function isEmptyCell(kind, index) {
+    return EMPTY_CELLS.some(([emptyKind, emptyIndex]) => emptyKind === kind && emptyIndex === index);
+  }
+
+  function baseName(value) {
+    return String(value || '').trim().replace(/\s*教授\s*$/u, '').trim();
+  }
+
   function clearEmptyCells() {
     for (const [kind, index] of EMPTY_CELLS) {
       const el = document.getElementById(`s-${kind}-${index}`);
@@ -22,45 +30,60 @@
     }
   }
 
-  function isEmptyCell(kind, index) {
-    return EMPTY_CELLS.some(([emptyKind, emptyIndex]) => emptyKind === kind && emptyIndex === index);
-  }
-  function normalize(value) {
-    const text = String(value || '').trim();
-    if (!text) return '';
-    const base = text.replace(/\s*教授\s*$/u, '').trim();
-    return base ? `${base}${SUFFIX}` : '';
-  }
-
-  function apply(el) {
-    if (!el) return;
-    const next = normalize(el.value);
-    if (next === el.value) return;
-    el.value = next;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  }
-
-  for (let i = 0; i < 4; i++) {
-    for (const kind of ['speaker', 'chair']) {
-      if (isEmptyCell(kind, i)) continue;
-      const el = document.getElementById(`s-${kind}-${i}`);
-      if (!el) continue;
-      el.placeholder = kind === 'speaker' ? '讲者（自动加 教授）' : '主席（自动加 教授）';
-      el.addEventListener('blur', () => apply(el));
-      el.addEventListener('change', () => apply(el));
-      if (el.value) apply(el);
+  function eachEditableCell(callback) {
+    for (let i = 0; i < 4; i++) {
+      for (const kind of ['speaker', 'chair']) {
+        if (isEmptyCell(kind, i)) continue;
+        const el = document.getElementById(`s-${kind}-${i}`);
+        if (el) callback(el, kind, i);
+      }
     }
   }
 
-  clearEmptyCells();
-  document.addEventListener('poster-draft-scalars-restored', clearEmptyCells);
+  function syncPreview(el, kind, index) {
+    const preview = document.querySelector(`[data-preview-text-id="agenda-${index}-${kind}"]`);
+    if (!preview) return;
+    const name = baseName(el.value);
+    preview.textContent = name ? `${name}${SUFFIX}` : 'xxx 教授';
+  }
 
-  // 在 app.js 收集 payload 之前统一补齐，确保即使用户未离开输入框也会带“ 教授”。
+  function enforceBaseValue(el, kind, index) {
+    const next = baseName(el.value);
+    if (next !== el.value) {
+      el.value = next;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
+    syncPreview(el, kind, index);
+  }
+
+  function normalizeAll() {
+    clearEmptyCells();
+    eachEditableCell((el, kind, index) => enforceBaseValue(el, kind, index));
+  }
+
+  eachEditableCell((el, kind, index) => {
+    el.placeholder = kind === 'speaker' ? '讲者姓名（自动加 教授）' : '主席姓名（自动加 教授）';
+    el.addEventListener('input', () => enforceBaseValue(el, kind, index));
+  });
+
+  normalizeAll();
+  document.addEventListener('poster-draft-scalars-restored', normalizeAll);
+
+  // 编辑数据始终只保存姓名；提交瞬间补齐固定后缀，供现有 Render Contract 使用。
   form.addEventListener('submit', () => {
     clearEmptyCells();
-    for (let i = 0; i < 4; i++) {
-      if (!isEmptyCell('speaker', i)) apply(document.getElementById(`s-speaker-${i}`));
-      if (!isEmptyCell('chair', i)) apply(document.getElementById(`s-chair-${i}`));
-    }
+    const restore = [];
+    eachEditableCell((el, kind, index) => {
+      const name = baseName(el.value);
+      restore.push([el, name, kind, index]);
+      el.value = name ? `${name}${SUFFIX}` : '';
+    });
+    queueMicrotask(() => {
+      for (const [el, name, kind, index] of restore) {
+        el.value = name;
+        syncPreview(el, kind, index);
+      }
+    });
   }, true);
 })();
