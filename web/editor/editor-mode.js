@@ -11,6 +11,8 @@
   const qrSpec = project.assetPreview.qr;
   const itemsById = new Map((project.textItems || []).map(item => [item.id, item]));
   const MOBILE_QUERY = '(max-width: 760px)';
+  const MOBILE_EDITOR_GAP = 10;
+  const MOBILE_EDITOR_MARGIN = 12;
   let mobileEdit = null;
 
   function pct(value, total) {
@@ -137,33 +139,33 @@
   }
 
   function ensureMobileEditor() {
-    let host = document.querySelector('.mobile-text-sheet');
-    if (host) return host;
+    let layer = document.querySelector('.mobile-text-popover-layer');
+    if (layer) return layer;
 
-    host = document.createElement('div');
-    host.className = 'mobile-text-sheet';
-    host.hidden = true;
-    host.innerHTML = `
-      <div class="mobile-text-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="mobileTextTitle">
-        <div class="mobile-text-sheet-head">
+    layer = document.createElement('div');
+    layer.className = 'mobile-text-popover-layer';
+    layer.hidden = true;
+    layer.innerHTML = `
+      <div class="mobile-text-popover" role="dialog" aria-modal="true" aria-labelledby="mobileTextTitle">
+        <div class="mobile-text-popover-head">
           <strong id="mobileTextTitle">编辑文字</strong>
           <button type="button" data-mobile-text-close aria-label="关闭">×</button>
         </div>
-        <input class="mobile-text-sheet-input" type="text" autocomplete="off" enterkeyhint="done" />
-        <div class="mobile-text-sheet-actions">
+        <input class="mobile-text-popover-input" type="text" autocomplete="off" enterkeyhint="done" inputmode="text" />
+        <div class="mobile-text-popover-actions">
           <button type="button" data-mobile-text-cancel>取消</button>
           <button type="button" class="primary" data-mobile-text-apply>完成</button>
         </div>
       </div>`;
-    document.body.appendChild(host);
+    document.body.appendChild(layer);
 
-    const field = host.querySelector('.mobile-text-sheet-input');
+    const field = layer.querySelector('.mobile-text-popover-input');
     const close = () => closeMobileEditor(false);
-    host.querySelector('[data-mobile-text-close]')?.addEventListener('click', close);
-    host.querySelector('[data-mobile-text-cancel]')?.addEventListener('click', close);
-    host.querySelector('[data-mobile-text-apply]')?.addEventListener('click', () => closeMobileEditor(true));
-    host.addEventListener('click', event => {
-      if (event.target === host) closeMobileEditor(false);
+    layer.querySelector('[data-mobile-text-close]')?.addEventListener('click', close);
+    layer.querySelector('[data-mobile-text-cancel]')?.addEventListener('click', close);
+    layer.querySelector('[data-mobile-text-apply]')?.addEventListener('click', () => closeMobileEditor(true));
+    layer.addEventListener('click', event => {
+      if (event.target === layer) closeMobileEditor(false);
     });
     field?.addEventListener('keydown', event => {
       if (event.key === 'Enter') {
@@ -174,41 +176,92 @@
         closeMobileEditor(false);
       }
     });
-    return host;
+    return layer;
   }
 
-  function openMobileEditor(item) {
+  function mobileViewportSnapshot(source = window.visualViewport) {
+    return {
+      offsetTop: Math.max(0, Number(source?.offsetTop || 0)),
+      offsetLeft: Math.max(0, Number(source?.offsetLeft || 0)),
+      width: Math.max(1, Number(source?.width || window.innerWidth || 1)),
+      height: Math.max(1, Number(source?.height || window.innerHeight || 1)),
+    };
+  }
+
+  function syncMobileEditor(source = window.visualViewport) {
+    const layer = document.querySelector('.mobile-text-popover-layer:not([hidden])');
+    const state = mobileEdit;
+    if (!layer || !state?.anchor || !isMobileViewport()) return;
+
+    const viewport = mobileViewportSnapshot(source);
+    layer.style.left = `${viewport.offsetLeft}px`;
+    layer.style.top = `${viewport.offsetTop}px`;
+    layer.style.right = 'auto';
+    layer.style.bottom = 'auto';
+    layer.style.width = `${viewport.width}px`;
+    layer.style.height = `${viewport.height}px`;
+
+    const panel = layer.querySelector('.mobile-text-popover');
+    if (!panel) return;
+    const anchorRect = state.anchor.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const panelWidth = panelRect.width || Math.min(340, viewport.width - MOBILE_EDITOR_MARGIN * 2);
+    const panelHeight = panelRect.height || 150;
+
+    const anchorCenter = anchorRect.left - viewport.offsetLeft + anchorRect.width / 2;
+    const minLeft = MOBILE_EDITOR_MARGIN;
+    const maxLeft = Math.max(minLeft, viewport.width - panelWidth - MOBILE_EDITOR_MARGIN);
+    const left = Math.min(maxLeft, Math.max(minLeft, anchorCenter - panelWidth / 2));
+
+    const anchorTop = anchorRect.top - viewport.offsetTop;
+    const anchorBottom = anchorRect.bottom - viewport.offsetTop;
+    const minTop = MOBILE_EDITOR_MARGIN;
+    const maxTop = Math.max(minTop, viewport.height - panelHeight - MOBILE_EDITOR_MARGIN);
+    const below = anchorBottom + MOBILE_EDITOR_GAP;
+    const above = anchorTop - panelHeight - MOBILE_EDITOR_GAP;
+    let top = below <= maxTop ? below : above;
+    top = Math.min(maxTop, Math.max(minTop, top));
+
+    panel.style.left = `${Math.round(left)}px`;
+    panel.style.top = `${Math.round(top)}px`;
+  }
+
+  function openMobileEditor(item, anchor) {
     const inputId = item?.source?.inputId;
     const input = inputId ? document.getElementById(inputId) : null;
-    if (!input || input.disabled) return false;
+    if (!input || input.disabled || !anchor) return false;
 
-    const host = ensureMobileEditor();
-    const field = host.querySelector('.mobile-text-sheet-input');
-    host.querySelector('#mobileTextTitle').textContent = mobileTitle(item);
+    const layer = ensureMobileEditor();
+    const field = layer.querySelector('.mobile-text-popover-input');
+    layer.querySelector('#mobileTextTitle').textContent = mobileTitle(item);
     field.placeholder = mobilePlaceholder(item);
     field.value = String(input.value || '');
-    mobileEdit = { item, input, originalValue: input.value };
-    host.hidden = false;
+    mobileEdit = { item, input, anchor };
+    anchor.classList.add('is-mobile-editing');
+    layer.hidden = false;
     document.body.classList.add('mobile-text-editor-open');
+    syncMobileEditor();
     requestAnimationFrame(() => {
+      syncMobileEditor();
       field.focus({ preventScroll: true });
       field.select();
+      requestAnimationFrame(() => syncMobileEditor());
     });
     return true;
   }
 
   function closeMobileEditor(commit) {
-    const host = document.querySelector('.mobile-text-sheet');
+    const layer = document.querySelector('.mobile-text-popover-layer');
     const state = mobileEdit;
-    if (!host || !state) {
-      if (host) host.hidden = true;
+    if (!layer || !state) {
+      if (layer) layer.hidden = true;
       mobileEdit = null;
       document.body.classList.remove('mobile-text-editor-open');
       return;
     }
 
     if (commit) {
-      const field = host.querySelector('.mobile-text-sheet-input');
+      const field = layer.querySelector('.mobile-text-popover-input');
       const value = normalizeMobileValue(state.item, field?.value || '');
       if (state.input.value !== value) {
         state.input.value = value;
@@ -217,10 +270,17 @@
       }
     }
 
+    state.anchor?.classList.remove('is-mobile-editing');
     mobileEdit = null;
-    host.hidden = true;
+    layer.hidden = true;
     document.body.classList.remove('mobile-text-editor-open');
   }
+
+  const visualViewport = window.visualViewport;
+  visualViewport?.addEventListener('resize', () => syncMobileEditor());
+  visualViewport?.addEventListener('scroll', () => syncMobileEditor());
+  window.addEventListener('resize', () => syncMobileEditor());
+  window.posterMobileTextEditor = Object.freeze({ syncViewport: syncMobileEditor });
 
   document.addEventListener('click', event => {
     if (!isMobileViewport() || window.posterLayoutTool?.isEnabled?.()) return;
@@ -229,7 +289,7 @@
     if (!preview || !poster.contains(preview)) return;
     const item = itemsById.get(preview.dataset.previewTextId);
     if (!item?.source?.inputId) return;
-    if (!openMobileEditor(item)) return;
+    if (!openMobileEditor(item, preview)) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation?.();

@@ -15,6 +15,7 @@
 .poster-canvas.is-text-layout-mode .poster-preview-text{cursor:move}
 .poster-canvas.is-text-layout-mode .poster-preview-text:hover,.poster-preview-text.is-selected{outline:1px solid rgba(89,102,220,.88);outline-offset:2px}
 .poster-preview-text.is-selected-multi{background:rgba(89,102,220,.045)}
+.poster-preview-text.is-mobile-editing{outline:2px solid rgba(89,102,220,.92);outline-offset:3px;background:rgba(238,240,255,.62);box-shadow:0 0 0 4px rgba(89,102,220,.08)}
 .poster-canvas.is-text-layout-mode .poster-preview-text.is-inline-editing{cursor:text;user-select:text;touch-action:auto;overflow:visible;text-overflow:clip;outline:2px solid rgba(89,102,220,.96);outline-offset:3px;background:rgba(255,255,255,.92);box-shadow:0 2px 12px rgba(31,42,68,.14);min-height:1.15em}
 .poster-preview-text.is-inline-editing:empty::before{content:attr(data-inline-placeholder);opacity:.42;pointer-events:none}
 .moveable-control-box{z-index:30!important}
@@ -54,8 +55,10 @@
   .text-layout-mode-btn{width:46px;height:46px;border-radius:10px;box-shadow:none;background:#f6f7fb}
   .text-layout-mode-btn .tool-key{width:28px;height:28px;font-size:12px}
   .text-layout-mode-btn[data-tool-tip]::after{display:none}
-  .text-layout-tools{position:fixed;left:10px;bottom:calc(62px + env(safe-area-inset-bottom));top:auto;max-width:calc(100vw - 20px);min-height:30px}
-  .poster-preview-text:hover:not(.is-selected){outline:none;background:transparent;box-shadow:none}
+  .text-layout-tools{position:fixed;left:10px;bottom:calc(62px + env(safe-area-inset-bottom));top:auto;max-width:calc(100vw - 20px);min-height:34px;padding:5px 9px}
+  .text-layout-count,.text-layout-save-state{font-size:11px}
+  .poster-preview-text{-webkit-tap-highlight-color:transparent}
+  .poster-preview-text:hover:not(.is-selected):not(.is-mobile-editing){outline:none;background:transparent;box-shadow:none}
   .moveable-control{width:18px!important;height:18px!important;margin-left:-9px!important;margin-top:-9px!important;border-width:2px!important}
   .moveable-line{min-height:3px;min-width:3px}
 }
