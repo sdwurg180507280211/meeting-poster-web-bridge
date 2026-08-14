@@ -106,7 +106,13 @@ test('clicking the canvas command bar clears asset selection but keeps layout to
   await speaker.click({ modifiers: ['Control'] });
   await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys().sort())).toEqual(['chair', 'speaker1']);
 
-  await page.locator('.canvas-command-bar').click({ position: { x: 6, y: 6 } });
+  const commandBar = page.locator('.canvas-command-bar');
+  const layoutDock = page.locator('.text-layout-dock');
+  const [commandBox, dockBox] = await Promise.all([commandBar.boundingBox(), layoutDock.boundingBox()]);
+  expect(commandBox).toBeTruthy();
+  expect(dockBox).toBeTruthy();
+  await page.mouse.click(dockBox.x + dockBox.width + 12, commandBox.y + 6);
+
   await expect.poll(() => page.evaluate(() => window.posterAssetLayout.getSelectedKeys().length)).toBe(0);
   expect(await page.evaluate(() => window.posterAssetLayout.isEnabled())).toBe(true);
 });
