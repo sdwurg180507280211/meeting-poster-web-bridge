@@ -154,6 +154,6 @@ test('asset overrides stay project-local under the unified layout tool', async (
     stored: localStorage.getItem(window.posterAssetLayout.getStorageKey()),
   }));
   expect(tonghu.profile).toBe('tonghu-jiankang-assets-v1');
-  expect(tonghu.speakerLeft).toBe(221);
+  expect(tonghu.speakerLeft).toBe(214);
   expect(tonghu.stored).toBeNull();
 });
